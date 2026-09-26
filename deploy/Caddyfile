@@ -1,0 +1,8 @@
+# 自动申请/续期 Let's Encrypt 证书，仅允许 TLS 1.2+（默认优先 1.3）
+{$VAULTONE_DOMAIN} {
+	encode zstd gzip
+	header -Server
+	reverse_proxy server:8787 {
+		header_up X-Forwarded-For {remote_host}
+	}
+}

@@ -1,0 +1,28 @@
+[package]
+name = "vaultone_bridge"
+description = "VaultOne Flutter ↔ Rust 桥（flutter_rust_bridge 2），把 vault-core 暴露给 Dart"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+flutter_rust_bridge = "=2.13.0"
+vault-core = { path = "../../crates/vault-core" }
+vault-crypto = { path = "../../crates/vault-crypto" }
+vault-proto = { path = "../../crates/vault-proto" }
+serde_json.workspace = true
+sha2.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tracing-appender = "0.2"
+zeroize.workspace = true
+
+# 桌面端剪贴板：arboard 支持"排除剪贴板历史/云同步"标记（Windows）
+[target.'cfg(any(windows, target_os = "macos", target_os = "linux"))'.dependencies]
+arboard = { version = "3.6", default-features = false }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }

@@ -1,0 +1,4 @@
+# 与既有代码风格一致的宽行排版；CI 以 `cargo fmt --all --check` 校验。
+# flutter_rust_bridge_codegen 生成 frb_generated.rs 后调用 rustfmt，同样读取本文件。
+max_width = 140
+use_small_heuristics = "Max"

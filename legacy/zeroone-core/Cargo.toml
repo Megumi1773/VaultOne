@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["vault-core", "zeroone-ffi"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "unwind"
+
+# Argon2id 在未优化构建下极慢，开发期也对依赖开启优化
+[profile.dev.package."*"]
+opt-level = 3

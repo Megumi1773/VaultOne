@@ -1,0 +1,140 @@
+# VaultOne CI：Rust 测试/静态检查 → 依赖安全审计 + SBOM → Flutter 分析/测试 → 多平台构建 → 发布签名
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  FLUTTER_VERSION: "3.47.5"
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: "clippy, rustfmt" }
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked -p vault-crypto -p vault-proto -p vault-core -p vault-server --all-targets -- -D warnings
+      - name: 单元 + 端到端测试（e2e 自启 SQLite 服务端）
+        run: cargo test --locked -p vault-crypto -p vault-proto -p vault-core -p vault-server
+      - name: 服务端 PostgreSQL 冒烟（迁移 + 健康检查）
+        run: |
+          docker run -d --name pg -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=vaultone -p 5432:5432 postgres:16-alpine
+          for i in $(seq 1 30); do docker exec pg pg_isready -U postgres && break; sleep 1; done
+          VAULTONE_SERVER_SECRET=$(cargo run -q -p vault-server -- gen-secret) \
+          VAULTONE_DATABASE_URL=postgres://postgres:ci@localhost:5432/vaultone \
+          cargo run -q -p vault-server -- check
+
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with: { command: check advisories bans licenses sources }
+      - name: SBOM（Syft，SPDX JSON）
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          artifact-name: vaultone-sbom.spdx.json
+      - name: 漏洞扫描（Trivy，High/Critical 阻断发布）
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+  flutter:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: "${{ env.FLUTTER_VERSION }}", channel: stable, cache: true }
+      - working-directory: app
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-infos
+          flutter test
+      - name: 集成测试（真实 Rust 内核）
+        working-directory: app
+        run: flutter test integration_test -d windows
+      - name: 构建 Windows Release
+        working-directory: app
+        run: flutter build windows --release --dart-define=VAULTONE_SERVER=${{ vars.VAULTONE_SERVER || 'https://sync.vaultone.app' }}
+      - uses: actions/upload-artifact@v4
+        with: { name: vaultone-windows, path: app/build/windows/x64/runner/Release }
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: "aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android" }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: "${{ env.FLUTTER_VERSION }}", channel: stable, cache: true }
+      - name: 注入发布签名（仅 tag 构建）
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: app/android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > upload.jks
+          cat > key.properties <<PROPS
+          storeFile=../upload.jks
+          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          PROPS
+      - working-directory: app
+        run: flutter build appbundle --release
+      - uses: actions/upload-artifact@v4
+        with: { name: vaultone-android, path: app/build/app/outputs/bundle/release }
+
+  apple:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: "aarch64-apple-ios,aarch64-apple-darwin,x86_64-apple-darwin" }
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: "${{ env.FLUTTER_VERSION }}", channel: stable, cache: true }
+      - working-directory: app
+        run: |
+          flutter build macos --release
+          flutter build ios --release --no-codesign
+
+  server-image:
+    needs: [rust, supply-chain]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write, id-token: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: true
+          provenance: true
+          sbom: true
+          tags: ghcr.io/${{ github.repository }}/server:${{ github.ref_name }}
+      - uses: sigstore/cosign-installer@v3
+      - name: cosign 无密钥签名（计划书 §3.3 发布物签名）
+        run: cosign sign --yes ghcr.io/${{ github.repository }}/server@${{ steps.build.outputs.digest }}

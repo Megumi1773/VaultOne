@@ -1,0 +1,51 @@
+# 单机部署（内测期）：PostgreSQL 16 + VaultOne 同步服务 + Caddy（自动 HTTPS）
+#
+#   cp deploy/.env.example deploy/.env    # 填写域名、数据库密码、服务端主密钥、SMTP
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vaultone
+      POSTGRES_USER: vaultone
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 .env 中设置 POSTGRES_PASSWORD}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vaultone"]
+      interval: 5s
+      retries: 20
+
+  server:
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    image: vaultone/server:1.0.0
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      VAULTONE_DATABASE_URL: postgres://vaultone:${POSTGRES_PASSWORD}@postgres:5432/vaultone
+      VAULTONE_SERVER_SECRET: ${VAULTONE_SERVER_SECRET:?请用 vault-server gen-secret 生成}
+      VAULTONE_TRUST_PROXY: "true"
+      VAULTONE_LOG_FORMAT: json
+      VAULTONE_MAIL__MODE: smtp
+      VAULTONE_MAIL__SMTP_HOST: ${SMTP_HOST}
+      VAULTONE_MAIL__SMTP_PORT: ${SMTP_PORT:-587}
+      VAULTONE_MAIL__SMTP_USERNAME: ${SMTP_USERNAME}
+      VAULTONE_MAIL__SMTP_PASSWORD: ${SMTP_PASSWORD}
+      VAULTONE_MAIL__FROM: ${MAIL_FROM:-VaultOne <no-reply@vaultone.app>}
+    expose: ["8787"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [server]
+    ports: ["80:80", "443:443"]
+    environment:
+      VAULTONE_DOMAIN: ${VAULTONE_DOMAIN:?请设置对外域名}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+
+volumes:
+  pgdata:
+  caddy_data:

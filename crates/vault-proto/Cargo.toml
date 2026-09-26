@@ -1,0 +1,13 @@
+[package]
+name = "vault-proto"
+description = "VaultOne 客户端与同步服务之间的线协议（仅密文与元数据）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+base64.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+vault-crypto = { path = "../vault-crypto" }

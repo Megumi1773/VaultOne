@@ -1,0 +1,27 @@
+[package]
+name = "vault-crypto"
+description = "VaultOne 密码学编排层：AES-256-GCM 密封盒、Argon2id 双因子派生、SRP-6a、受保护密钥内存"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+aes-gcm.workspace = true
+argon2.workspace = true
+base64.workspace = true
+data-encoding.workspace = true
+hkdf.workspace = true
+memsec.workspace = true
+rand.workspace = true
+serde.workspace = true
+sha2.workspace = true
+srp.workspace = true
+subtle.workspace = true
+thiserror.workspace = true
+unicode-normalization.workspace = true
+zeroize.workspace = true
+
+[features]
+# 仅供下游 crate 的测试使用：允许 m=8,t=1,p=1 的低成本 Argon2 参数。发布构建绝不启用。
+insecure-test-kdf = []

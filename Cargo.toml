@@ -1,0 +1,76 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/vault-crypto",
+  "crates/vault-proto",
+  "crates/vault-core",
+  "crates/vault-server",
+  "app/rust",
+]
+default-members = [
+  "crates/vault-crypto",
+  "crates/vault-proto",
+  "crates/vault-core",
+  "crates/vault-server",
+]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.85"
+license = "AGPL-3.0-only"
+repository = "https://github.com/vaultone/vaultone"
+
+# 统一锁定依赖版本（计划书 R-05：供应链安全）。选型理由见 docs/01-模块拆分与依赖选型.md
+[workspace.dependencies]
+# —— 密码学（RustCrypto，均经过公开审计/广泛使用）——
+aes-gcm = { version = "0.10.3", features = ["zeroize"] }
+argon2 = { version = "0.5.3", features = ["zeroize"] }
+hkdf = "0.12.4"
+hmac = "0.12.1"
+sha1 = "0.10.6"
+sha2 = "0.10.9"
+srp = "0.6.0"
+subtle = "2.6"
+zeroize = { version = "1.8", features = ["derive"] }
+memsec = "0.7"
+rand = "0.8.5"
+# —— 编码 / 序列化 ——
+base64 = "0.22"
+data-encoding = "2.9"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+unicode-normalization = "0.1"
+url = "2.5"
+thiserror = "2"
+anyhow = "1"
+# —— 业务功能库 ——
+totp-rs = { version = "5.7", features = ["otpauth", "zeroize"] }
+passwords = "3.1"
+zxcvbn = "3.1"
+psl = "2.1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+# —— 服务端 ——
+axum = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors", "limit", "set-header", "request-id", "catch-panic"] }
+tower_governor = "0.7"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "any", "sqlite", "postgres", "migrate", "macros"] }
+figment = { version = "0.10", features = ["toml", "env"] }
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "tokio1", "tokio1-rustls-tls", "builder", "hostname"] }
+tempfile = "3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+panic = "unwind"
+
+# Argon2id 在未优化构建下极慢，开发期也对依赖开启优化
+[profile.dev.package."*"]
+opt-level = 3

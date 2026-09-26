@@ -1,0 +1,8 @@
+target
+app/build
+app/.dart_tool
+legacy
+docs
+store
+**/*.db*
+deploy/.env

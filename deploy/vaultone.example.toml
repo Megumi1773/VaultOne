@@ -1,0 +1,23 @@
+# vault-server 配置示例（复制为 vaultone.toml，或用 VAULTONE_* 环境变量覆盖；嵌套键用双下划线，如 VAULTONE_MAIL__MODE）
+bind = "0.0.0.0:8787"
+# SQLite（单机/内测）：sqlite:vaultone.db?mode=rwc   PostgreSQL（生产）：postgres://user:pass@host/db
+database_url = "sqlite:vaultone.db?mode=rwc"
+# 必填，无默认值：vault-server gen-secret 生成。建议通过环境变量或密钥管理服务注入，不要写在文件里
+# server_secret = ""
+session_ttl_days = 60
+trust_proxy = false
+auth_rate_ms = 3000     # 认证接口：每 IP 每 3 秒补充 1 次
+auth_burst = 10
+api_rate_ms = 100
+api_burst = 120
+log_format = "pretty"   # 生产用 json
+log_level = "info"
+cors_origins = ""
+version_retention_days = 30
+
+[mail]
+mode = "log"            # 开发：log（邮件写入日志）；生产：smtp
+smtp_host = ""
+smtp_port = 587
+smtp_username = ""
+from = "VaultOne <no-reply@vaultone.app>"

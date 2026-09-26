@@ -1,0 +1,13 @@
+/target/
+**/*.rs.bk
+vaultone.toml
+vaultone.db*
+deploy/.env
+app/android/key.properties
+*.jks
+*.keystore
+.DS_Store
+
+# 构建产物
+**/build/
+.dart_tool/

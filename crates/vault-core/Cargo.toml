@@ -1,0 +1,33 @@
+[package]
+name = "vault-core"
+description = "VaultOne 客户端内核：本地保险库、条目加密、生成器、TOTP、安全审计、URL 匹配、E2EE 同步客户端"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+vault-crypto = { path = "../vault-crypto" }
+vault-proto = { path = "../vault-proto" }
+base64.workspace = true
+eff-wordlist = "1.0.3"
+passwords.workspace = true
+psl.workspace = true
+rand.workspace = true
+reqwest.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha1.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+totp-rs.workspace = true
+tracing.workspace = true
+url.workspace = true
+uuid.workspace = true
+zeroize.workspace = true
+zxcvbn.workspace = true
+
+[dev-dependencies]
+vault-crypto = { path = "../vault-crypto", features = ["insecure-test-kdf"] }
+tempfile.workspace = true
