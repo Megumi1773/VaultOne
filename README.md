@@ -1,5 +1,11 @@
 # VaultOne
 
+[![CI](https://github.com/Megumi1773/VaultOne/actions/workflows/ci.yml/badge.svg)](https://github.com/Megumi1773/VaultOne/actions/workflows/ci.yml)
+![Rust](https://img.shields.io/badge/rust-1.85%2B-orange)
+![Flutter](https://img.shields.io/badge/flutter-3.47.5-blue)
+![Tests](https://img.shields.io/badge/tests-79%20passed-success)
+![License](https://img.shields.io/badge/license-AGPL--3.0--only-green)
+
 一个本地优先的密码管理器。加解密全在 Rust 内核里做,服务端只存密文,自托管也行。
 
 多端 UI 用 Flutter 写一套,Windows / macOS / Android / iOS 都跑同一份 Dart 代码。密码学相关的逻辑一行都不在 Dart 里,全走 flutter_rust_bridge 调 Rust。
@@ -8,27 +14,40 @@
 
 现成的 E2EE 同步方案基本是整条记录加密后扔给服务器,冲突了整条覆盖。两台设备离线各改同一条记录的不同字段,总有一边的改动会被悄悄吃掉。这个事我们不接受,所以自己写了字段级的合并:每个条目存一份「上次和服务端一致的密文」当 base,冲突时本地把 base / local / remote 三份解密出来逐字段合,两边都改的字段取时间新的那个,被顶掉的旧密码进历史记录。服务端全程看不到明文。
 
-另一个是自动填充的匹配。光知道域名注册域不够,得判断「这个页面到底能不能安全填这条凭据」。所以协议降级直接拒绝(https 的条目不会填到 http 页面上)、IP 和单标签主机不放宽匹配、west 里没收录的后缀也不放宽、punycode 比一遍防同形异义字。这块逻辑单独一个模块,有测试覆盖各种钓鱼场景。
+另一个是自动填充的匹配。光知道域名注册域不够,得判断「这个页面到底能不能安全填这条凭据」。所以协议降级直接拒绝(https 的条目不会填到 http 页面上)、IP 和单标签主机不放宽匹配、列表里没收录的后缀也不放宽、punycode 比一遍防同形异义字。这块逻辑单独一个模块,有测试覆盖各种钓鱼场景。
+
+功能大体就是这些:
+
+| 能力 | 怎么做的 |
+|---|---|
+| 增量同步 | 客户端逐字段 AES-256-GCM 加密,服务端只存密文、版本号、时间戳 |
+| 冲突合并 | 字段级三方合并,见 `crates/vault-core/src/merge.rs` |
+| 自动填充匹配 | 防钓鱼策略见 `crates/vault-core/src/urlmatch.rs` |
+| 登录认证 | SRP-6a(RFC 5054 3072-bit 群),口令不过网 |
+| 随机密码 / 口令短语 | `passwords` 生成器 + EFF 7776 词表 |
+| TOTP | RFC 6238,SHA1/256/512,能解析 `otpauth://` |
+| 安全审计 | zxcvbn 评强度 + HIBP k-匿名查泄露,客户端只发 SHA-1 前缀 |
+| 服务端 | axum,SQLite(内测)或 PostgreSQL 16(生产),同一套 SQL |
 
 ## 加密这边
 
 - 统一用 AES-256-GCM,每条消息随机 32 字节盐 + 12 字节 IV,过一遍 HKDF 派生出一次性的消息密钥。版本、套件、盐、IV 这些头信息都进 GCM 的认证范围。这样就没有「一把长期密钥配随机 96-bit IV」那个生日界问题了。
 - 主密码要配合 Secret Key 一起派生密钥(2SKD),少一个都解不开。Argon2id 默认 64MiB / t=3 / p=4。
 - 密钥放在 mlock / VirtualLock 锁住的内存页里,不进 swap;用完 zeroize 清掉。
-- 认证走 SRP-6a(RFC 5054 3072-bit 群),口令不经过网络。设备批准和恢复套件也都有。
+- 认证走 SRP-6a,设备批准和恢复套件也都有。
 
 ## 目录
 
-```
-crates/vault-crypto   加密原语编排:AES-256-GCM 密封盒、Argon2id、SRP-6a、Secret Key、受保护内存
-crates/vault-proto    传输协议类型和错误码,客户端服务端共用
-crates/vault-core     保险库逻辑:条目增删改查、SQLite、增量同步、三方合并、URL 匹配、TOTP、安全审计
-crates/vault-server   axum 服务端,SQLite 或 PostgreSQL 都行
-app/                  Flutter 客户端,app/rust 是 FFI 桥,app/lib/src/rust 是生成的绑定
-deploy/               docker compose + Caddy + 配置样例
-docs/                 模块和依赖选型的说明
-legacy/               老实现,已经不参与构建了,留着参考
-```
+| 路径 | 干什么的 |
+|---|---|
+| `crates/vault-crypto` | 加密原语编排:AES-256-GCM 密封盒、Argon2id、SRP-6a、Secret Key、受保护内存 |
+| `crates/vault-proto` | 传输协议类型和错误码,客户端服务端共用 |
+| `crates/vault-core` | 保险库逻辑:条目增删改查、SQLite、增量同步、三方合并、URL 匹配、TOTP、安全审计 |
+| `crates/vault-server` | axum 服务端,SQLite 或 PostgreSQL 都行 |
+| `app/` | Flutter 客户端,`app/rust` 是 FFI 桥,`app/lib/src/rust` 是生成的绑定 |
+| `deploy/` | docker compose + Caddy + 配置样例 |
+| `docs/` | 模块和依赖选型的说明 |
+| `legacy/` | 老实现,已经不参与构建了,留着参考 |
 
 ## 怎么跑
 
