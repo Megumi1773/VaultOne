@@ -711,12 +711,100 @@ class _DataSectionState extends State<_DataSection> {
     }
   }
 
+  Future<void> _exportBackup() async {
+    final state = AppScope.of(context);
+    setState(() => _busy = true);
+    try {
+      final data = await state.exportBackup();
+      if (!mounted) return;
+      final loc = await getSaveLocation(
+        suggestedName: 'vaultone-backup-${DateTime.now().millisecondsSinceEpoch}.wljbak',
+        acceptedTypeGroups: const [XTypeGroup(label: 'VaultOne 备份', extensions: ['wljbak'])],
+      );
+      if (loc == null || !mounted) return;
+      await File(loc.path).writeAsBytes(data);
+      if (mounted) showZoMessage(context, '已导出备份到 ${loc.path}');
+    } on CoreException catch (e) {
+      if (mounted) showZoMessage(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _exportCsv() async {
+    final ok = await confirmDialog(
+      context,
+      title: '导出明文 CSV？',
+      body: 'CSV 不加密，任何拿到文件的人都能看到全部密码。导出后请尽快从磁盘与回收站彻底删除。',
+      confirm: '仍要导出',
+      danger: true,
+    );
+    if (ok != true || !mounted) return;
+    final state = AppScope.of(context);
+    setState(() => _busy = true);
+    try {
+      final csv = await state.exportCsv();
+      if (!mounted) return;
+      final loc = await getSaveLocation(
+        suggestedName: 'vaultone-export-${DateTime.now().millisecondsSinceEpoch}.csv',
+        acceptedTypeGroups: const [XTypeGroup(label: 'CSV', extensions: ['csv'])],
+      );
+      if (loc == null || !mounted) return;
+      await File(loc.path).writeAsString(csv);
+      if (mounted) showZoMessage(context, '已导出 CSV 到 ${loc.path}');
+    } on CoreException catch (e) {
+      if (mounted) showZoMessage(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _importBackup() async {
+    final state = AppScope.of(context);
+    final file = await openFile(acceptedTypeGroups: const [
+      XTypeGroup(label: 'VaultOne 备份', extensions: ['wljbak'], uniformTypeIdentifiers: ['public.data']),
+    ]);
+    if (file == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final r = await state.importBackup(await file.readAsBytes());
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('导入完成'),
+          content: Text('新增 ${r.added} 条${r.duplicates > 0 ? '，${r.duplicates} 条重复已跳过' : ''}${r.skipped > 0 ? '，${r.skipped} 条无法识别' : ''}。'),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('知道了'))],
+        ),
+      );
+    } on CoreException catch (e) {
+      if (mounted) showZoMessage(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => _Section(title: '数据', children: [
         _Row(
           title: '从其他密码管理器导入',
           subtitle: '支持 Chrome / Edge / Firefox / Bitwarden / LastPass / 1Password 导出的 CSV 与 1PIF。文件只在本机解析，随即加密入库；重复条目自动跳过。',
           trailing: ZoButton(label: _busy ? '导入中…' : '选择文件', dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _import),
+        ),
+        _Row(
+          title: '导出加密备份',
+          subtitle: '导出 .wljbak 加密备份包，需本账户的主密码 + Secret Key 才能还原，可在本账户的任意设备导入。',
+          trailing: ZoButton(label: '导出', dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _exportBackup),
+        ),
+        _Row(
+          title: '导出明文 CSV',
+          subtitle: '导出不加密的 CSV，用于迁移到其他密码管理器。文件含全部密码，请谨慎保管。',
+          trailing: ZoButton(label: '导出', dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _exportCsv),
+        ),
+        _Row(
+          title: '从加密备份导入',
+          subtitle: '选择 .wljbak 备份包还原条目；重复条目自动跳过。',
+          trailing: ZoButton(label: '选择文件', dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _importBackup),
         ),
       ]);
 }

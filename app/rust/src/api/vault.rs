@@ -237,6 +237,22 @@ pub fn import_items(content: String) -> BridgeResult<ImportSummary> {
     })
 }
 
+/// 导出加密备份包（`.wljbak`）字节流，由 Dart 侧写盘。
+pub fn export_backup() -> BridgeResult<Vec<u8>> {
+    with_vault(|v| v.export_backup())
+}
+
+/// 从加密备份包导入。返回 (新增, 跳过, 失败)。
+pub fn import_backup(data: Vec<u8>) -> BridgeResult<ImportSummary> {
+    let (added, duplicates, invalid) = with_vault(|v| v.import_backup(&data))?;
+    Ok(ImportSummary { format: "wljbak".into(), added: added as u32, duplicates: duplicates as u32, skipped: invalid as u32 })
+}
+
+/// 导出为明文 CSV（迁移用，调用方须提示用户妥善保管）。
+pub fn export_csv() -> BridgeResult<String> {
+    with_vault(|v| v.export_csv())
+}
+
 /// 对页面 URL 做防钓鱼匹配，返回按匹配质量排序的条目 ID。
 pub fn match_items(page_url: String) -> BridgeResult<Vec<String>> {
     let items = with_vault(|v| v.list_items())?;

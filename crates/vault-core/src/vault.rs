@@ -409,6 +409,28 @@ impl Vault {
         Ok((added, duplicates, invalid))
     }
 
+    /// 导出加密备份包（`.wljbak`）。载荷用 Vault Key 密封，仅同一账户可还原。
+    pub fn export_backup(&self) -> Result<Vec<u8>> {
+        let s = self.session()?;
+        let items: Vec<ItemData> = self.list_items()?.into_iter().map(|i| i.data).collect();
+        crate::export::backup(&s.vault_key, &s.account.account_id, &items)
+    }
+
+    /// 导入加密备份包。重复条目按 [`Self::import_items`] 的规则跳过。
+    /// 返回 (新增数, 跳过的重复数, 校验失败数)。
+    pub fn import_backup(&mut self, data: &[u8]) -> Result<(usize, usize, usize)> {
+        let items = {
+            let s = self.session()?;
+            crate::export::restore(&s.vault_key, &s.account.account_id, data)?
+        };
+        self.import_items(items)
+    }
+
+    /// 导出为明文 CSV（迁移用）。调用方须提示用户妥善保管。
+    pub fn export_csv(&self) -> Result<String> {
+        Ok(crate::export::to_csv(&self.list_items()?))
+    }
+
     /// 更新条目。密码变化时旧密码自动进入 `passwordHistory`。
     pub fn update_item(&mut self, id: &str, mut data: ItemData) -> Result<Item> {
         validate_item(&data)?;
@@ -543,6 +565,30 @@ mod tests {
         let again = crate::import::parse(csv).unwrap();
         assert_eq!(v.import_items(again.items).unwrap(), (0, 3, 0));
         assert_eq!(v.list_items().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn backup_roundtrip_and_cross_account_rejected() {
+        let (mut v, _) = new_vault();
+        let a = v.create_item(login("A", "p1")).unwrap();
+        let b = v.create_item(login("B", "p2")).unwrap();
+        let blob = v.export_backup().unwrap();
+        assert_eq!(&blob[..7], crate::export::MAGIC);
+
+        // 删到回收站后，备份可完整还原
+        v.delete_item(&a.id).unwrap();
+        v.delete_item(&b.id).unwrap();
+        assert_eq!(v.list_items().unwrap().len(), 0);
+        assert_eq!(v.import_backup(&blob).unwrap(), (2, 0, 0));
+        assert_eq!(v.list_items().unwrap().len(), 2);
+
+        // 另一账户的 Vault Key 不同，无法解开
+        let mut other = Vault::open_in_memory().unwrap();
+        other.create_account("x@y.z", PW, KdfParams::insecure_for_tests()).unwrap();
+        assert!(other.import_backup(&blob).is_err());
+
+        // CSV 行数 = 表头 + 2 条
+        assert_eq!(v.export_csv().unwrap().lines().count(), 3);
     }
 
     #[test]

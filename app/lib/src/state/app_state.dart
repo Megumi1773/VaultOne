@@ -570,6 +570,19 @@ class AppState extends ChangeNotifier {
     return summary;
   }
 
+  /// 从加密备份包（`.wljbak`）导入，导入后刷新。
+  Future<ImportSummary> importBackup(Uint8List data) async {
+    final summary = await VaultApi.importBackup(data);
+    await refresh();
+    return summary;
+  }
+
+  /// 导出加密备份包字节流。
+  Future<Uint8List> exportBackup() => VaultApi.exportBackup();
+
+  /// 导出明文 CSV。
+  Future<String> exportCsv() => VaultApi.exportCsv();
+
   // ---------- 设置 ----------
 
   Future<void> updateSettings(Settings s) async {

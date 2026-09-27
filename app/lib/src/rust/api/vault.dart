@@ -12,6 +12,9 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
 
 /// 打开（不存在则创建）本地保险库文件。
+///
+/// 同一进程内可能有多个 Flutter 引擎（Android 自动填充界面与主界面共用进程）：已打开同一文件时直接复用，
+/// 不替换现有实例，因此主界面已解锁时自动填充无需再次解锁。
 Future<void> openVault({required String path}) =>
     RustLib.instance.api.crateApiVaultOpenVault(path: path);
 
@@ -103,6 +106,17 @@ Future<List<BreachResult>> checkBreaches({required List<String> itemIds}) =>
 /// 从其他密码管理器的导出文件导入（CSV / 1PIF，自动识别）。文件内容只在内存中解析后立即加密入库。
 Future<ImportSummary> importItems({required String content}) =>
     RustLib.instance.api.crateApiVaultImportItems(content: content);
+
+/// 导出加密备份包（`.wljbak`）字节流，由 Dart 侧写盘。
+Future<Uint8List> exportBackup() =>
+    RustLib.instance.api.crateApiVaultExportBackup();
+
+/// 从加密备份包导入。返回 (新增, 跳过, 失败)。
+Future<ImportSummary> importBackup({required List<int> data}) =>
+    RustLib.instance.api.crateApiVaultImportBackup(data: data);
+
+/// 导出为明文 CSV（迁移用，调用方须提示用户妥善保管）。
+Future<String> exportCsv() => RustLib.instance.api.crateApiVaultExportCsv();
 
 /// 对页面 URL 做防钓鱼匹配，返回按匹配质量排序的条目 ID。
 Future<List<String>> matchItems({required String pageUrl}) =>

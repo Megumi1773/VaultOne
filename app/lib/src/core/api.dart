@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../rust/api/browser.dart' as rbrowser;
 import '../rust/api/clipboard.dart' as rclip;
@@ -107,6 +108,18 @@ abstract final class VaultApi {
         final s = await rvault.importItems(content: content);
         return (format: s.format, added: s.added, duplicates: s.duplicates, skipped: s.skipped);
       });
+
+  /// 导出加密备份包（`.wljbak`）字节流。
+  static Future<Uint8List> exportBackup() => guard(rvault.exportBackup);
+
+  /// 从加密备份包导入。
+  static Future<ImportSummary> importBackup(Uint8List data) => guard(() async {
+        final s = await rvault.importBackup(data: data);
+        return (format: s.format, added: s.added, duplicates: s.duplicates, skipped: s.skipped);
+      });
+
+  /// 导出为明文 CSV（迁移用）。
+  static Future<String> exportCsv() => guard(rvault.exportCsv);
 
   // ---------- 浏览器扩展（仅桌面端）----------
 
