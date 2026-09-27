@@ -5,9 +5,13 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   file_selector_windows
   flutter_secure_storage_windows
+  hotkey_manager_windows
   local_auth_windows
   printing
+  screen_retriever_windows
+  tray_manager
   url_launcher_windows
+  window_manager
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

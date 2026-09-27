@@ -3,7 +3,11 @@
 //   cd app
 //   flutter test integration_test/screenshots_test.dart -d windows --dart-define=SCREENSHOT_DIR=../store/screenshots
 //
-// 桌面尺寸 1280×800 @2x（Microsoft Store / Mac App Store），手机尺寸 390×844 @3x（1170×2532，App Store 6.1"/Google Play）。
+// 尺寸按各商店的必需规格生成（docs/07 §2）：
+//   desktop        1280×800  @2x → 2560×1600（Mac App Store / Microsoft Store）
+//   iphone-6.9     440×956   @3x → 1320×2868（App Store iPhone 必需尺寸）
+//   ipad-13        1032×1376 @2x → 2064×2752（App Store iPad 必需尺寸；工程支持 iPad）
+//   android-phone  360×640   @3x → 1080×1920（Google Play：长宽比不得超过 2:1）
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -127,8 +131,8 @@ void main() {
     await settle(tester);
     await shot(tester, folder, '04-vault');
 
-    // 打开 GitHub 条目
-    if (folder == 'desktop') {
+    // 打开 GitHub 条目。宽度 ≥ 720 时主界面为分栏布局（与 HomeScreen 的断点一致）
+    if (logical.width >= 720) {
       await tester.tap(find.text('GitHub').first);
       await shot(tester, folder, '05-item-totp');
       await tester.tap(find.text('密码生成器'));
@@ -161,5 +165,7 @@ void main() {
   }
 
   testWidgets('桌面截图', (tester) => run(tester, 'desktop', const Size(1280, 800), 2));
-  testWidgets('手机截图', (tester) => run(tester, 'mobile', const Size(390, 844), 3));
+  testWidgets('iPhone 6.9″ 截图', (tester) => run(tester, 'iphone-6.9', const Size(440, 956), 3));
+  testWidgets('iPad 13″ 截图', (tester) => run(tester, 'ipad-13', const Size(1032, 1376), 2));
+  testWidgets('Android 手机截图', (tester) => run(tester, 'android-phone', const Size(360, 640), 3));
 }

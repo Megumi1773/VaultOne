@@ -338,6 +338,50 @@ pub struct PullResponse {
 pub const PULL_PAGE_SIZE: i64 = 500;
 pub const PUSH_MAX_ITEMS: usize = 500;
 
+/// 浏览器扩展 ⇄ 桌面端的本地通道约定（Native Messaging 宿主与桌面端共用，二者必须一致）。
+/// 消息格式与认证见 `vault_core::browser`。本地套接字上为"一行一条 JSON"。
+pub mod browser_ipc {
+    /// Native Messaging 宿主名（扩展 `chrome.runtime.connectNative` 使用）
+    pub const NATIVE_HOST_NAME: &str = "app.vaultone.browser";
+    /// macOS：沙盒应用与（非沙盒）宿主共享套接字的 App Group 容器
+    pub const MACOS_APP_GROUP: &str = "group.app.vaultone";
+    /// 单条消息上限（Chrome 发往宿主的上限为 4 GiB，这里按业务需要收紧）
+    pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
+    /// 允许连接宿主的扩展 ID（写入宿主清单的 `allowed_origins`）。第一项由 `extension/manifest.json`
+    /// 中的 `key` 固定，用于开发期"加载已解压的扩展"；上架 Chrome 应用店 / Edge 加载项后把商店分配的 ID 追加到这里。
+    pub const EXTENSION_IDS: &[&str] = &["pginfajjjgcjmijmddppkbhejjjcealc"];
+
+    /// 本地通道地址。Windows 为命名管道名（不含 `\\.\pipe\` 前缀，按用户名区分）；其余平台为套接字文件路径。
+    /// 环境变量 `VAULTONE_BROWSER_ENDPOINT` 可覆盖（仅用于测试与排障）。
+    pub fn endpoint() -> String {
+        if let Ok(ep) = std::env::var("VAULTONE_BROWSER_ENDPOINT") {
+            if !ep.is_empty() {
+                return ep;
+            }
+        }
+        #[cfg(windows)]
+        {
+            let user: String =
+                std::env::var("USERNAME").unwrap_or_default().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
+            format!("vaultone-browser-{user}")
+        }
+        #[cfg(target_os = "macos")]
+        {
+            // 沙盒内 HOME 指向 ~/Library/Containers/<bundle>/Data，取其前缀得到真实主目录
+            let home = std::env::var("HOME").unwrap_or_default();
+            let home = home.split("/Library/Containers/").next().unwrap_or_default();
+            format!("{home}/Library/Group Containers/{MACOS_APP_GROUP}/browser.sock")
+        }
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            match std::env::var("XDG_RUNTIME_DIR") {
+                Ok(dir) if !dir.is_empty() => format!("{dir}/vaultone-browser.sock"),
+                _ => format!("{}/.vaultone/browser.sock", std::env::var("HOME").unwrap_or_default()),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

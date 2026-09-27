@@ -27,7 +27,9 @@ pub fn init_logging(log_dir: String, verbose: bool) -> Result<(), super::BridgeE
         .map_err(|e| super::BridgeError { code: "logging".into(), message: e.to_string() })?;
     let (writer, guard) = tracing_appender::non_blocking(appender);
     let level = if verbose { "debug" } else { "info" };
-    let filter = EnvFilter::new(format!("warn,vault_core={level},vaultone_bridge={level},vault={level},sync={level},bridge={level}"));
+    let filter = EnvFilter::new(format!(
+        "warn,vault_core={level},vaultone_bridge={level},vault={level},sync={level},bridge={level},ui={level},browser={level}"
+    ));
     let result =
         tracing_subscriber::registry().with(filter).with(fmt::layer().with_writer(writer).with_ansi(false).with_target(true)).try_init();
     if result.is_ok() {

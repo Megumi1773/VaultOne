@@ -65,9 +65,30 @@ class _HomeScreenState extends State<HomeScreen> {
   EditTarget? _editing;
   final _searchFocus = FocusNode();
   final _search = TextEditingController();
+  AppState? _state;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 全局快捷键 / 托盘「快速搜索」
+    final s = AppScope.read(context);
+    if (!identical(s, _state)) {
+      _state?.quickSearchRequests.removeListener(_focusSearch);
+      _state = s..quickSearchRequests.addListener(_focusSearch);
+    }
+  }
+
+  void _focusSearch() {
+    if (!_section.isVault) _go(Section.all);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _searchFocus.requestFocus();
+      _search.selection = TextSelection(baseOffset: 0, extentOffset: _search.text.length);
+    });
+  }
 
   @override
   void dispose() {
+    _state?.quickSearchRequests.removeListener(_focusSearch);
     _searchFocus.dispose();
     _search.dispose();
     super.dispose();
@@ -281,10 +302,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyF, control: true): () {
-          if (!_section.isVault) _go(Section.all);
-          WidgetsBinding.instance.addPostFrameCallback((_) => _searchFocus.requestFocus());
-        },
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true): _focusSearch,
         const SingleActivator(LogicalKeyboardKey.keyN, control: true): () => _newItem(),
         const SingleActivator(LogicalKeyboardKey.keyL, control: true): state.lock,
         const SingleActivator(LogicalKeyboardKey.keyG, control: true): () => _go(Section.generator),

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  自动填充服务配置。compatibility-package：对尚未原生接入 Autofill Framework 的浏览器启用兼容模式
+  （系统经无障碍树读取网页表单）。Chrome 135+ 可在其设置中改用"其他服务自动填充"，此时不走兼容模式。
+-->
+<autofill-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.vaultone.app.MainActivity">
+    <compatibility-package android:name="com.android.chrome" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.chrome.beta" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.microsoft.emmx" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.brave.browser" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.opera.browser" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.sec.android.app.sbrowser" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.vivaldi.browser" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.UCMobile" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.tencent.mtt" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.huawei.browser" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.heytap.browser" android:maxLongVersionCode="10000000000" />
+</autofill-service>

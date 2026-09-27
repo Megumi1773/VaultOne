@@ -85,6 +85,10 @@ pub fn parse(input: &str) -> Result<OtpAuth> {
         validate(&config)?;
         return Ok(OtpAuth { config, issuer: None, account: None });
     }
+    // totp-rs 5.7 在链接缺少主机（如 `otpauth:///x`）时会 unwrap panic（fuzz 发现），先行校验
+    if url::Url::parse(input).ok().and_then(|u| u.host_str().map(|h| h == "totp")) != Some(true) {
+        return Err(VaultError::InvalidInput("仅支持 otpauth://totp/ 链接".into()));
+    }
     let totp = TOTP::from_url_unchecked(input).map_err(|e| VaultError::InvalidInput(format!("otpauth 链接无效: {e:?}")))?;
     let config = TotpConfig {
         secret: totp.get_secret_base32(),
@@ -150,6 +154,14 @@ mod tests {
         assert_eq!(raw.config.secret, "JBSWY3DPEHPK3PXP");
         assert!(parse("not base32 !!").is_err());
         assert!(parse("otpauth://hotp/x?secret=JBSWY3DPEHPK3PXP&counter=1").is_err());
+    }
+
+    #[test]
+    fn malformed_uri_does_not_panic() {
+        // fuzz 回归：缺主机 / 空主机的链接曾让 totp-rs panic
+        for s in ["otpauth://", "otpauth:///x?secret=JBSWY3DPEHPK3PXP", "otpauth://?secret=A", "OTPAUTH://TOTP/x?secret=JBSWY3DPEHPK3PXP"] {
+            let _ = parse(s);
+        }
     }
 
     #[test]

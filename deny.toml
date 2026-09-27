@@ -11,14 +11,31 @@ version = 2
 confidence-threshold = 0.9
 allow = [
   "MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause",
-  "ISC", "Zlib", "Unicode-3.0", "Unicode-DFS-2016", "CC0-1.0", "MPL-2.0", "BSL-1.0",
-  "AGPL-3.0-only", "CDLA-Permissive-2.0", "OpenSSL", "0BSD",
+  "ISC", "Zlib", "Unicode-3.0", "CC0-1.0", "BSL-1.0",
+  "AGPL-3.0-only", "CDLA-Permissive-2.0", "0BSD",
 ]
+
+# eff-wordlist 在清单里写的是已废弃的 SPDX 标识 "AGPL-3.0"（未区分 -only / -or-later），
+# 仓库内 LICENSE 为 AGPL v3 全文，作者未声明"或任何更高版本"：按更严格的 -only 解释，与本项目许可证一致
+[[licenses.clarify]]
+crate = "eff-wordlist"
+expression = "AGPL-3.0-only"
+license-files = []
 
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
 allow-wildcard-paths = true
+# 交付要求：禁止 ECB / CBC 等不安全模式。AES 只允许经 aes-gcm 使用；任何依赖引入下列实现即构建失败
+deny = [
+  { crate = "cbc", reason = "禁用 CBC 模式，统一 AES-256-GCM（docs/03 §0）" },
+  { crate = "ecb", reason = "禁用 ECB 模式（docs/03 §0）" },
+  { crate = "block-modes", reason = "旧版分组模式集合（含 ECB/CBC）" },
+  { crate = "cfb-mode", reason = "无认证的流模式" },
+  { crate = "ofb", reason = "无认证的流模式" },
+  { crate = "des", reason = "弱分组密码" },
+  { crate = "rc4", reason = "已破解的流密码" },
+]
 
 [sources]
 unknown-registry = "deny"

@@ -388,7 +388,7 @@ class SectionLabel extends StatelessWidget {
       children: [
         Text(text.toUpperCase(), style: context.text.labelSmall),
         const Spacer(),
-        if (trailing != null) trailing!,
+        ?trailing,
       ],
     );
   }

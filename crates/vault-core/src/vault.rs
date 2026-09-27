@@ -378,6 +378,37 @@ impl Vault {
         Ok(Item { id, vault_id: row.vault_id, revision: 1, data })
     }
 
+    /// 批量导入（见 [`crate::import`]）。与现有条目"标题 + 用户名 + 密码 + 首个网址"完全相同的视为重复并跳过，
+    /// 因此重复导入同一文件是幂等的。返回 (新增数, 跳过的重复数, 校验失败数)。
+    pub fn import_items(&mut self, items: Vec<ItemData>) -> Result<(usize, usize, usize)> {
+        fn fingerprint(d: &ItemData) -> (String, String, String, String) {
+            (
+                d.title.clone(),
+                d.username.clone().unwrap_or_default(),
+                d.password.clone().unwrap_or_default(),
+                d.urls.first().map(|u| u.url.clone()).unwrap_or_default(),
+            )
+        }
+        let mut seen: std::collections::HashSet<_> = self.list_items()?.iter().map(|i| fingerprint(&i.data)).collect();
+        let (mut added, mut duplicates, mut invalid) = (0, 0, 0);
+        for data in items {
+            if !seen.insert(fingerprint(&data)) {
+                duplicates += 1;
+                continue;
+            }
+            match self.create_item(data) {
+                Ok(_) => added += 1,
+                Err(VaultError::InvalidInput(e)) => {
+                    tracing::warn!(target: "vault", error = %e, "import: item rejected");
+                    invalid += 1;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        tracing::info!(target: "vault", added, duplicates, invalid, "import finished");
+        Ok((added, duplicates, invalid))
+    }
+
     /// 更新条目。密码变化时旧密码自动进入 `passwordHistory`。
     pub fn update_item(&mut self, id: &str, mut data: ItemData) -> Result<Item> {
         validate_item(&data)?;
@@ -436,6 +467,20 @@ impl Vault {
         self.store.set_setting(key, value)
     }
 
+    /// 需要保密的本机设置（如浏览器扩展配对密钥）：以 Vault Key 密封后存入 settings 表，锁定时不可读。
+    pub fn get_sealed_setting(&self, key: &str) -> Result<Option<Zeroizing<Vec<u8>>>> {
+        let s = self.session()?;
+        let Some(v) = self.store.get_setting(&format!("sealed:{key}"))? else { return Ok(None) };
+        let plain = sealed::open(&s.vault_key, &b64d(&v)?, &aad(&format!("setting/{key}"), &s.account.account_id))?;
+        Ok(Some(plain))
+    }
+
+    pub fn set_sealed_setting(&self, key: &str, value: &[u8]) -> Result<()> {
+        let s = self.session()?;
+        let ct = sealed::seal(&s.vault_key, value, &aad(&format!("setting/{key}"), &s.account.account_id))?;
+        self.store.set_setting(&format!("sealed:{key}"), &B64.encode(ct))
+    }
+
     /// 清空本机保险库（不影响服务端数据）。
     pub fn wipe_local(&mut self) -> Result<()> {
         self.lock();
@@ -487,6 +532,17 @@ mod tests {
         d.username = Some("alice@example.com".into());
         d.password = Some(pw.into());
         d
+    }
+
+    #[test]
+    fn import_is_idempotent() {
+        let (mut v, _) = new_vault();
+        let csv = "name,url,username,password,note\nA,https://a.example,u,p1,\nB,https://b.example,u,p2,\nA,https://a.example,u,p1,\n";
+        let parsed = crate::import::parse(csv).unwrap();
+        assert_eq!(v.import_items(parsed.items).unwrap(), (2, 1, 0));
+        let again = crate::import::parse(csv).unwrap();
+        assert_eq!(v.import_items(again.items).unwrap(), (0, 3, 0));
+        assert_eq!(v.list_items().unwrap().len(), 2);
     }
 
     #[test]

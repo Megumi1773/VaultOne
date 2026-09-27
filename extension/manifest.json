@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "VaultOne",
+  "version": "1.0.0",
+  "description": "VaultOne 密码保险库的浏览器扩展：按站点严格匹配、一键填充、保存与更新登录信息、复制两步验证码。",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyoK8JzW29wZe/fy1IPGOFDdEj7VOKmqCRRQ0YKEieRA/cSp+Aq4o+AF0Zfr7t4sG5jo2YFUjAeo1d8W+ip84v4ajvqQgklavrErXzcYvG6JS4vnz94PiY9XQAUIieBBBF+l8e1yz22j+S+lyMRfyPDlquInxmkPu7JJ3a9jVKw8ZHwV68azYp6g3aBus6dDUIpUuqrRzd/YS2iZpLjU664omxzip6fmhf+bDgx+u1cjRlmHY5zk6wfT4+mumjNVsletE7GAey6peZT+lcY+9tEemcJlnnAyOK41c1oca52ohVJT9Dy56bEFaHfYrX+POWLh9aKqxqTjk5LpwKBv5MQIDAQAB",
+  "minimum_chrome_version": "116",
+  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon64.png", "128": "icons/icon128.png" },
+  "permissions": ["nativeMessaging", "storage", "activeTab", "clipboardWrite"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "VaultOne",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png" }
+  },
+  "commands": {
+    "fill-login": {
+      "suggested_key": { "default": "Ctrl+Shift+L", "mac": "Command+Shift+L" },
+      "description": "填充当前网站的登录信息"
+    }
+  }
+}

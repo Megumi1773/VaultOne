@@ -1,0 +1,17 @@
+[package]
+name = "vault-nmhost"
+description = "VaultOne 浏览器扩展 Native Messaging 宿主：在 Chrome/Edge 与桌面端本地套接字之间转发消息（不接触任何密钥）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "vaultone-nmhost"
+path = "src/main.rs"
+
+[dependencies]
+vault-proto = { path = "../vault-proto" }
+interprocess.workspace = true
+serde_json.workspace = true

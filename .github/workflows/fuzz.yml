@@ -1,0 +1,39 @@
+# VaultOne 长时 Fuzz（计划书 B-09：≥ 24 h 无崩溃）
+# GitHub 托管 runner 单 job 上限 6 h，因此每晚每个目标跑 5 h，语料库通过 cache 跨次累积；
+# 同一目标连续 5 晚无崩溃即累计 ≥ 24 h。手动触发时可指定时长。崩溃样本作为 artifact 上传。
+name: fuzz
+
+on:
+  schedule:
+    - cron: "17 18 * * *"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: 每个目标运行秒数
+        default: "18000"
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [sealed_open, unpad, key_parse, envelope_decode, totp_parse, url_match]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: taiki-e/install-action@cargo-fuzz
+      - uses: actions/cache@v4
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: fuzz-corpus-${{ matrix.target }}-
+      - name: cargo fuzz run ${{ matrix.target }}
+        run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=${{ inputs.seconds || '18000' }} -rss_limit_mb=4096
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: "fuzz-crash-${{ matrix.target }}", path: fuzz/artifacts/${{ matrix.target }} }

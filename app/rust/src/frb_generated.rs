@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 852002012;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -716153689;
 
 // Section: executor
 
@@ -567,6 +567,32 @@ fn wire__crate__api__vault__get_setting_impl(
         },
     )
 }
+fn wire__crate__api__vault__import_items_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "import_items",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_content = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::vault::import_items(api_content)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__init_app_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -615,6 +641,31 @@ fn wire__crate__api__logging__init_logging_impl(
             move |context| {
                 transform_result_sse::<_, crate::api::BridgeError>((move || {
                     let output_ok = crate::api::logging::init_logging(api_log_dir, api_verbose)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__browser__list_browser_clients_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "list_browser_clients",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::browser::list_browser_clients()?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -999,6 +1050,31 @@ fn wire__crate__api__vault__recover_local_impl(
         },
     )
 }
+fn wire__crate__api__browser__register_native_host_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "register_native_host",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::browser::register_native_host()?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__sync__remote_status_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1018,6 +1094,61 @@ fn wire__crate__api__sync__remote_status_impl(
             move |context| {
                 transform_result_sse::<_, crate::api::BridgeError>((move || {
                     let output_ok = crate::api::sync::remote_status()?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__browser__remove_browser_client_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "remove_browser_client",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::browser::remove_browser_client(api_id)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__browser__respond_pairing_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "respond_pairing",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
+            let api_approved = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>({
+                        crate::api::browser::respond_pairing(api_client_id, api_approved);
+                    })?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -1103,6 +1234,34 @@ fn wire__crate__api__vault__set_setting_impl(
         },
     )
 }
+fn wire__crate__api__browser__start_browser_bridge_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "start_browser_bridge",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_sink = <StreamSink<crate::api::browser::PairingRequest, flutter_rust_bridge::for_generated::SseCodec>>::sse_decode(
+                &mut deserializer,
+            );
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::browser::start_browser_bridge(api_sink)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__vault__status_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1122,6 +1281,33 @@ fn wire__crate__api__vault__status_impl(
             move |context| {
                 transform_result_sse::<_, crate::api::BridgeError>((move || {
                     let output_ok = crate::api::vault::status()?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__browser__stop_browser_bridge_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "stop_browser_bridge",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>({
+                        crate::api::browser::stop_browser_bridge();
+                    })?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -1338,6 +1524,22 @@ fn wire__crate__api__vault__wipe_local_impl(
 
 // Section: dart2rust
 
+impl SseDecode for flutter_rust_bridge::for_generated::anyhow::Error {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <String>::sse_decode(deserializer);
+        return flutter_rust_bridge::for_generated::anyhow::anyhow!("{}", inner);
+    }
+}
+
+impl SseDecode for StreamSink<crate::api::browser::PairingRequest, flutter_rust_bridge::for_generated::SseCodec> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <String>::sse_decode(deserializer);
+        return StreamSink::deserialize(inner);
+    }
+}
+
 impl SseDecode for String {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1410,6 +1612,22 @@ impl SseDecode for crate::api::BridgeError {
     }
 }
 
+impl SseDecode for crate::api::browser::BrowserClientDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_createdAt = <i64>::sse_decode(deserializer);
+        let mut var_lastUsedAt = <i64>::sse_decode(deserializer);
+        return crate::api::browser::BrowserClientDto {
+            id: var_id,
+            name: var_name,
+            created_at: var_createdAt,
+            last_used_at: var_lastUsedAt,
+        };
+    }
+}
+
 impl SseDecode for crate::api::sync::DeviceDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1473,6 +1691,17 @@ impl SseDecode for i64 {
     }
 }
 
+impl SseDecode for crate::api::vault::ImportSummary {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_format = <String>::sse_decode(deserializer);
+        let mut var_added = <u32>::sse_decode(deserializer);
+        let mut var_duplicates = <u32>::sse_decode(deserializer);
+        let mut var_skipped = <u32>::sse_decode(deserializer);
+        return crate::api::vault::ImportSummary { format: var_format, added: var_added, duplicates: var_duplicates, skipped: var_skipped };
+    }
+}
+
 impl SseDecode for Vec<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1516,6 +1745,18 @@ impl SseDecode for Vec<crate::api::vault::BreachResult> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<crate::api::vault::BreachResult>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::browser::BrowserClientDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::browser::BrowserClientDto>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -1575,6 +1816,16 @@ impl SseDecode for Option<crate::api::sync::RemoteStatusDto> {
         } else {
             return None;
         }
+    }
+}
+
+impl SseDecode for crate::api::browser::PairingRequest {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_clientId = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_code = <String>::sse_decode(deserializer);
+        return crate::api::browser::PairingRequest { client_id: var_clientId, name: var_name, code: var_code };
     }
 }
 
@@ -1731,32 +1982,39 @@ fn pde_ffi_dispatcher_primary_impl(
         16 => wire__crate__api__sync__disconnect_impl(port, ptr, rust_vec_len, data_len),
         17 => wire__crate__api__vault__enable_quick_unlock_impl(port, ptr, rust_vec_len, data_len),
         20 => wire__crate__api__vault__get_setting_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__logging__init_logging_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__sync__list_devices_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__vault__list_items_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__vault__list_trash_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__vault__lock_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__logging__log_event_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__sync__login_existing_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__vault__match_items_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__vault__open_vault_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__sync__ping_server_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__sync__reconnect_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__sync__recover_from_server_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__vault__recover_local_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__sync__remote_status_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__vault__restore_item_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__sync__revoke_device_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__vault__set_setting_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__vault__status_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__sync__sync_now_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__vault__unlock_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__vault__unlock_with_quick_key_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__vault__update_item_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__vault__verify_master_password_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__sync__verify_new_device_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__vault__wipe_local_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__vault__import_items_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__logging__init_logging_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__browser__list_browser_clients_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__sync__list_devices_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__vault__list_items_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__vault__list_trash_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__vault__lock_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__logging__log_event_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__sync__login_existing_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__vault__match_items_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__vault__open_vault_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__sync__ping_server_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__sync__reconnect_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__sync__recover_from_server_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__vault__recover_local_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__browser__register_native_host_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__sync__remote_status_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__browser__remove_browser_client_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__browser__respond_pairing_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__vault__restore_item_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__sync__revoke_device_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__vault__set_setting_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__browser__start_browser_bridge_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__vault__status_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__browser__stop_browser_bridge_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__sync__sync_now_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__vault__unlock_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__vault__unlock_with_quick_key_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__vault__update_item_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__vault__verify_master_password_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__sync__verify_new_device_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__vault__wipe_local_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1773,9 +2031,9 @@ fn pde_ffi_dispatcher_sync_impl(
         9 => wire__crate__api__clipboard__clipboard_copy_sensitive_impl(ptr, rust_vec_len, data_len),
         18 => wire__crate__api__tools__generate_passphrase_impl(ptr, rust_vec_len, data_len),
         19 => wire__crate__api__tools__generate_password_impl(ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__tools__parse_totp_impl(ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__tools__password_strength_impl(ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__tools__totp_code_impl(ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__tools__parse_totp_impl(ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__tools__password_strength_impl(ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__tools__totp_code_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1857,6 +2115,24 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::BridgeError> for crate::api::
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::browser::BrowserClientDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.created_at.into_into_dart().into_dart(),
+            self.last_used_at.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::browser::BrowserClientDto {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::browser::BrowserClientDto> for crate::api::browser::BrowserClientDto {
+    fn into_into_dart(self) -> crate::api::browser::BrowserClientDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::sync::DeviceDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -1905,6 +2181,37 @@ impl flutter_rust_bridge::IntoDart for crate::api::tools::Generated {
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::tools::Generated {}
 impl flutter_rust_bridge::IntoIntoDart<crate::api::tools::Generated> for crate::api::tools::Generated {
     fn into_into_dart(self) -> crate::api::tools::Generated {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::vault::ImportSummary {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.format.into_into_dart().into_dart(),
+            self.added.into_into_dart().into_dart(),
+            self.duplicates.into_into_dart().into_dart(),
+            self.skipped.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::vault::ImportSummary {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::vault::ImportSummary> for crate::api::vault::ImportSummary {
+    fn into_into_dart(self) -> crate::api::vault::ImportSummary {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::browser::PairingRequest {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [self.client_id.into_into_dart().into_dart(), self.name.into_into_dart().into_dart(), self.code.into_into_dart().into_dart()]
+            .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::browser::PairingRequest {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::browser::PairingRequest> for crate::api::browser::PairingRequest {
+    fn into_into_dart(self) -> crate::api::browser::PairingRequest {
         self
     }
 }
@@ -2027,6 +2334,20 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::vault::VaultStatus> for crate
     }
 }
 
+impl SseEncode for flutter_rust_bridge::for_generated::anyhow::Error {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(format!("{:?}", self), serializer);
+    }
+}
+
+impl SseEncode for StreamSink<crate::api::browser::PairingRequest, flutter_rust_bridge::for_generated::SseCodec> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        unimplemented!("")
+    }
+}
+
 impl SseEncode for String {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -2087,6 +2408,16 @@ impl SseEncode for crate::api::BridgeError {
     }
 }
 
+impl SseEncode for crate::api::browser::BrowserClientDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <i64>::sse_encode(self.created_at, serializer);
+        <i64>::sse_encode(self.last_used_at, serializer);
+    }
+}
+
 impl SseEncode for crate::api::sync::DeviceDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -2133,6 +2464,16 @@ impl SseEncode for i64 {
     }
 }
 
+impl SseEncode for crate::api::vault::ImportSummary {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.format, serializer);
+        <u32>::sse_encode(self.added, serializer);
+        <u32>::sse_encode(self.duplicates, serializer);
+        <u32>::sse_encode(self.skipped, serializer);
+    }
+}
+
 impl SseEncode for Vec<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -2169,6 +2510,16 @@ impl SseEncode for Vec<crate::api::vault::BreachResult> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::api::vault::BreachResult>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::browser::BrowserClientDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::browser::BrowserClientDto>::sse_encode(item, serializer);
         }
     }
 }
@@ -2220,6 +2571,15 @@ impl SseEncode for Option<crate::api::sync::RemoteStatusDto> {
         if let Some(value) = self {
             <crate::api::sync::RemoteStatusDto>::sse_encode(value, serializer);
         }
+    }
+}
+
+impl SseEncode for crate::api::browser::PairingRequest {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.client_id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.code, serializer);
     }
 }
 

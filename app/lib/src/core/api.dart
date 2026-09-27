@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../rust/api/browser.dart' as rbrowser;
 import '../rust/api/clipboard.dart' as rclip;
 import '../rust/api/logging.dart' as rlog;
 import '../rust/api/sync.dart' as rsync;
@@ -100,6 +101,33 @@ abstract final class VaultApi {
   static Future<String?> getSetting(String key) => guard(() => rvault.getSetting(key: key));
 
   static Future<void> setSetting(String key, String value) => guard(() => rvault.setSetting(key: key, value: value));
+
+  /// 导入其他密码管理器的导出文件（CSV / 1PIF，格式由内核自动识别）。
+  static Future<ImportSummary> importItems(String content) => guard(() async {
+        final s = await rvault.importItems(content: content);
+        return (format: s.format, added: s.added, duplicates: s.duplicates, skipped: s.skipped);
+      });
+
+  // ---------- 浏览器扩展（仅桌面端）----------
+
+  /// 启动本地通道；返回的流推送待用户批准的配对请求。
+  static Stream<PairingRequest> startBrowserBridge() =>
+      rbrowser.startBrowserBridge().map((r) => (clientId: r.clientId, name: r.name, code: r.code));
+
+  static Future<void> stopBrowserBridge() => guard(rbrowser.stopBrowserBridge);
+
+  static Future<void> respondPairing(String clientId, bool approved) =>
+      guard(() => rbrowser.respondPairing(clientId: clientId, approved: approved));
+
+  static Future<List<BrowserClient>> browserClients() => guard(() async => [
+        for (final c in await rbrowser.listBrowserClients())
+          (id: c.id, name: c.name, createdAt: c.createdAt.toInt(), lastUsedAt: c.lastUsedAt.toInt()),
+      ]);
+
+  static Future<void> removeBrowserClient(String id) => guard(() => rbrowser.removeBrowserClient(id: id));
+
+  /// 在 Chrome / Edge / Chromium / Brave 中登记 Native Messaging 宿主，返回清单路径。
+  static Future<String> registerNativeHost() => guard(rbrowser.registerNativeHost);
 
   // ---------- 同步 ----------
 

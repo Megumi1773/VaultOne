@@ -5,11 +5,14 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish.workspace = true
 
 [dependencies]
 vault-crypto = { path = "../vault-crypto" }
 vault-proto = { path = "../vault-proto" }
 base64.workspace = true
+hmac.workspace = true
+csv.workspace = true
 eff-wordlist = "1.0.3"
 passwords.workspace = true
 psl.workspace = true

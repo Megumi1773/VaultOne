@@ -10,6 +10,7 @@ import '../core/api.dart';
 import '../core/config.dart';
 import '../core/ffi.dart';
 import '../core/models.dart';
+import 'clipboard.dart';
 
 enum AppPhase { loading, onboarding, locked, unlocked, error }
 
@@ -24,6 +25,9 @@ class Settings {
     this.themeMode = ThemeModeSetting.system,
     this.serverUrl = AppConfig.defaultServerUrl,
     this.verboseLogs = false,
+    this.closeToTray = true,
+    this.globalHotkey = true,
+    this.browserIntegration = true,
   });
 
   final int autoLockMinutes;
@@ -33,6 +37,15 @@ class Settings {
   final String serverUrl;
   final bool verboseLogs;
 
+  /// 桌面端：关闭窗口时隐藏到系统托盘而非退出
+  final bool closeToTray;
+
+  /// 桌面端：全局快捷键唤起快速搜索
+  final bool globalHotkey;
+
+  /// 桌面端：允许浏览器扩展经 Native Messaging 连接
+  final bool browserIntegration;
+
   Settings copyWith({
     int? autoLockMinutes,
     int? clipboardSeconds,
@@ -40,6 +53,9 @@ class Settings {
     ThemeModeSetting? themeMode,
     String? serverUrl,
     bool? verboseLogs,
+    bool? closeToTray,
+    bool? globalHotkey,
+    bool? browserIntegration,
   }) =>
       Settings(
         autoLockMinutes: autoLockMinutes ?? this.autoLockMinutes,
@@ -48,6 +64,9 @@ class Settings {
         themeMode: themeMode ?? this.themeMode,
         serverUrl: serverUrl ?? this.serverUrl,
         verboseLogs: verboseLogs ?? this.verboseLogs,
+        closeToTray: closeToTray ?? this.closeToTray,
+        globalHotkey: globalHotkey ?? this.globalHotkey,
+        browserIntegration: browserIntegration ?? this.browserIntegration,
       );
 }
 
@@ -192,6 +211,9 @@ class AppState extends ChangeNotifier {
       themeMode: ThemeModeSetting.values.firstWhere((m) => m.name == theme, orElse: () => ThemeModeSetting.system),
       serverUrl: await VaultApi.getSetting('server_url') ?? AppConfig.defaultServerUrl,
       verboseLogs: (await VaultApi.getSetting('verbose_logs')) == '1',
+      closeToTray: (await VaultApi.getSetting('close_to_tray')) != '0',
+      globalHotkey: (await VaultApi.getSetting('global_hotkey')) != '0',
+      browserIntegration: (await VaultApi.getSetting('browser_integration')) != '0',
     );
     privacyAccepted = (await VaultApi.getSetting('privacy_consent')) == privacyVersion;
   }
@@ -319,6 +341,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> lock() async {
     if (phase != AppPhase.unlocked) return;
+    await respondPairing(false);
     _idleTimer?.cancel();
     _syncPeriodic?.cancel();
     _syncDebounce?.cancel();
@@ -327,8 +350,8 @@ class AppState extends ChangeNotifier {
     trash = const [];
     account = null;
     phase = AppPhase.locked;
-    // 锁定时清空剪贴板中我们写入的内容
-    VaultApi.clipboardClearIfUnchanged();
+    // 锁定时清空剪贴板中我们写入的内容（桌面端由 Rust 比对哈希后清除，移动端比对系统剪贴板）
+    unawaited(ClipboardService.clearNow());
     VaultApi.log('locked');
     notifyListeners();
   }
@@ -475,6 +498,14 @@ class AppState extends ChangeNotifier {
 
   void registerActivity() => _lastActivity = DateTime.now();
 
+  /// 快速搜索请求计数（全局快捷键 / 托盘菜单触发），主页监听后聚焦搜索框。
+  final quickSearchRequests = ValueNotifier<int>(0);
+
+  void requestQuickSearch() {
+    registerActivity();
+    quickSearchRequests.value++;
+  }
+
   void _startIdleTimer() {
     _idleTimer?.cancel();
     _lastActivity = DateTime.now();
@@ -533,6 +564,12 @@ class AppState extends ChangeNotifier {
     await refresh();
   }
 
+  Future<ImportSummary> importItems(String content) async {
+    final summary = await VaultApi.importItems(content);
+    await refresh();
+    return summary;
+  }
+
   // ---------- 设置 ----------
 
   Future<void> updateSettings(Settings s) async {
@@ -543,6 +580,48 @@ class AppState extends ChangeNotifier {
     await VaultApi.setSetting('lock_on_minimize', s.lockOnMinimize ? '1' : '0');
     await VaultApi.setSetting('theme', s.themeMode.name);
     await VaultApi.setSetting('verbose_logs', s.verboseLogs ? '1' : '0');
+    await VaultApi.setSetting('close_to_tray', s.closeToTray ? '1' : '0');
+    await VaultApi.setSetting('global_hotkey', s.globalHotkey ? '1' : '0');
+    await VaultApi.setSetting('browser_integration', s.browserIntegration ? '1' : '0');
+  }
+
+  // ---------- 浏览器扩展（由 DesktopShell 按设置启停）----------
+
+  /// 等待用户批准的扩展配对请求（界面据此弹窗）。
+  PairingRequest? pendingPairing;
+  StreamSubscription<PairingRequest>? _pairingSub;
+
+  void startBrowserBridge() {
+    _pairingSub ??= VaultApi.startBrowserBridge().listen(
+      (r) {
+        pendingPairing = r;
+        notifyListeners();
+      },
+      onError: (Object e) {
+        VaultApi.log('browser bridge failed: ${e is CoreException ? e.code : e.runtimeType}', level: 'warn');
+        _pairingSub = null;
+      },
+    );
+    // 每次启动都重新登记宿主：应用被移动 / 升级后路径可能变化
+    VaultApi.registerNativeHost().then(
+      (_) {},
+      onError: (Object e) => VaultApi.log('native host register failed: ${e is CoreException ? e.code : e.runtimeType}', level: 'warn'),
+    );
+  }
+
+  Future<void> stopBrowserBridge() async {
+    await _pairingSub?.cancel();
+    _pairingSub = null;
+    await respondPairing(false);
+    await VaultApi.stopBrowserBridge();
+  }
+
+  Future<void> respondPairing(bool approved) async {
+    final p = pendingPairing;
+    if (p == null) return;
+    pendingPairing = null;
+    notifyListeners();
+    await VaultApi.respondPairing(p.clientId, approved);
   }
 
   /// 清除本机全部数据（不影响云端）。之后回到欢迎页。
@@ -572,6 +651,8 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
+    quickSearchRequests.dispose();
+    _pairingSub?.cancel();
     _idleTimer?.cancel();
     _syncPeriodic?.cancel();
     _syncDebounce?.cancel();

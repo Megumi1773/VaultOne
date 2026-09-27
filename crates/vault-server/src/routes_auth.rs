@@ -22,6 +22,9 @@ use crate::{now, validate, AppState};
 const HANDSHAKE_TTL: i64 = 120;
 const OTP_TTL: i64 = 600;
 const OTP_MAX_ATTEMPTS: i64 = 5;
+/// 滑动窗口内登录失败达到该次数即邮件告警（F-09）
+const LOGIN_FAIL_ALERT: i64 = 5;
+const LOGIN_FAIL_WINDOW: i64 = 3600;
 
 pub async fn register(
     State(st): State<AppState>,
@@ -154,6 +157,16 @@ pub async fn login_finish(
         Err(_) => {
             db::audit(&st.db, &user.id, Some(&req.device.id), "login_fail", ip.0).await;
             tracing::info!(user = %user.id, "login failed");
+            // 恰好达到阈值时告警一次，避免持续爆破时刷屏
+            if db::count_events_since(&st.db, &user.id, "login_fail", now() - LOGIN_FAIL_WINDOW).await? == LOGIN_FAIL_ALERT {
+                notify(
+                    &st,
+                    &user.id,
+                    "VaultOne 异常登录尝试",
+                    &format!("过去 1 小时内有 {LOGIN_FAIL_ALERT} 次使用错误主密码登录您账户的尝试。\n如非本人操作，您的数据仍受主密码与 Secret Key 双重保护，但建议尽快修改主密码。"),
+                )
+                .await;
+            }
             return Err(ApiError::auth_failed());
         }
     };
@@ -282,14 +295,20 @@ pub async fn approve(st: &AppState, user_id: &str, device_id: &str, by: &str) ->
         .bind(device_id.to_string())
         .execute(&st.db)
         .await?;
-    if let Some(u) = db::user_by_id(&st.db, user_id).await? {
-        if let Ok(email) = st.keys.decrypt_email(&u.email_enc) {
-            st.mailer.send(Mail {
-                to: email, subject: "VaultOne 新设备已批准".into(), body: "一台新设备已获准访问您的保险库。".into()
-            });
-        }
-    }
+    notify(st, user_id, "VaultOne 新设备已批准", "一台新设备已获准访问您的保险库。").await;
     Ok(())
+}
+
+/// 向账户邮箱发送安全通知（F-09）。邮箱解密或查询失败只记日志，不影响主流程。
+pub async fn notify(st: &AppState, user_id: &str, subject: &str, body: &str) {
+    match db::user_by_id(&st.db, user_id).await {
+        Ok(Some(u)) => match st.keys.decrypt_email(&u.email_enc) {
+            Ok(email) => st.mailer.send(Mail { to: email, subject: subject.into(), body: body.into() }),
+            Err(e) => tracing::error!(target: "mail", error = %e, "decrypt email failed"),
+        },
+        Ok(None) => {}
+        Err(e) => tracing::error!(target: "mail", error = %e, "load user for notify failed"),
+    }
 }
 
 pub async fn logout(State(st): State<AppState>, auth: Authed) -> ApiResult<Json<Value>> {

@@ -55,6 +55,10 @@ impl TestServer {
         body[idx..].chars().take(6).collect()
     }
 
+    fn subjects(&self) -> Vec<String> {
+        self.mails.lock().unwrap().iter().map(|m| m.subject.clone()).collect()
+    }
+
     fn raw_db(&self) -> String {
         let mut raw = Vec::new();
         for suffix in ["", "-wal", "-shm"] {
@@ -273,4 +277,31 @@ fn second_device_multiple_new_device_logins_use_new_otp() {
     a.connect_register(&srv.url, "Dave").unwrap();
     let b = new_device(&srv, "dave@example.com", &kit.secret_key, "Dave Phone");
     assert!(b.remote_status().unwrap().is_some());
+}
+
+/// F-09：新增设备 / 撤销设备 / 主密码变更 / 连续登录失败均邮件通知，且邮件只发往账户邮箱。
+#[test]
+fn security_notifications_are_mailed() {
+    let srv = TestServer::start();
+    let mut a = Vault::open_in_memory().unwrap();
+    let kit = a.create_account("erin@example.com", PW, KdfParams::insecure_for_tests()).unwrap();
+    a.connect_register(&srv.url, "Erin PC").unwrap();
+    let _b = new_device(&srv, "erin@example.com", &kit.secret_key, "Erin Phone");
+    let b_id = a.list_devices().unwrap().into_iter().find(|d| d.name == "Erin Phone").unwrap().id;
+    a.revoke_device(&b_id).unwrap();
+
+    // 连续 5 次错误主密码 → 告警恰好一次
+    for _ in 0..6 {
+        let mut x = Vault::open_in_memory().unwrap();
+        assert!(x.login_existing(&srv.url, "erin@example.com", "wrong password!!", &kit.secret_key, "X").is_err());
+    }
+    a.change_master_password(PW, &kit.secret_key, "erin new master password").unwrap();
+    a.sync_now().unwrap();
+
+    let subjects = srv.subjects();
+    for expected in ["欢迎使用 VaultOne", "新设备验证码", "新设备已批准", "设备已撤销", "主密码已变更"] {
+        assert!(subjects.iter().any(|s| s.contains(expected)), "缺少通知: {expected}; 实际: {subjects:?}");
+    }
+    assert_eq!(subjects.iter().filter(|s| s.contains("异常登录尝试")).count(), 1);
+    assert!(srv.mails.lock().unwrap().iter().all(|m| m.to == "erin@example.com"));
 }

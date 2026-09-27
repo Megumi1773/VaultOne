@@ -111,3 +111,15 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# VaultOne：浏览器扩展的 Native Messaging 宿主（crates/vault-nmhost），与主程序放在同一目录，
+# 应用启动时把它登记到各浏览器（见 app/rust/src/api/browser.rs register_native_host）。
+set(VAULTONE_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+set(VAULTONE_NMHOST "${VAULTONE_REPO_ROOT}/target/release/vaultone-nmhost.exe")
+add_custom_target(vaultone_nmhost ALL
+  COMMAND cargo build --release --locked -p vault-nmhost
+  WORKING_DIRECTORY "${VAULTONE_REPO_ROOT}"
+  COMMENT "Building vaultone-nmhost"
+  VERBATIM)
+add_dependencies(${BINARY_NAME} vaultone_nmhost)
+install(FILES "${VAULTONE_NMHOST}" DESTINATION "${CMAKE_INSTALL_PREFIX}" COMPONENT Runtime)

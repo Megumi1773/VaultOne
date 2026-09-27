@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 
+/// 导入结果。`format` 为内核识别出的来源（chrome / firefox / bitwarden / lastpass / 1password / 1pif / csv）。
+typedef ImportSummary = ({String format, int added, int duplicates, int skipped});
+
+/// 浏览器扩展配对请求。`code` 须与扩展弹窗中显示的配对码一致。
+typedef PairingRequest = ({String clientId, String name, String code});
+
+typedef BrowserClient = ({String id, String name, int createdAt, int lastUsedAt});
+
 enum ItemKind {
   login('login', '登录', Icons.key_rounded),
   card('card', '支付卡', Icons.credit_card_rounded),
@@ -215,12 +223,12 @@ class ItemData {
         'updatedAt': updatedAt,
       };
 
-  ItemData copyWith({bool? favorite}) => ItemData(
+  ItemData copyWith({bool? favorite, String? password}) => ItemData(
         kind: kind,
         title: title,
         urls: urls,
         username: username,
-        password: password,
+        password: password ?? this.password,
         totp: totp,
         notes: notes,
         card: card,

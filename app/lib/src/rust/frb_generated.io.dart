@@ -4,6 +4,7 @@
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
 import 'api.dart';
+import 'api/browser.dart';
 import 'api/clipboard.dart';
 import 'api/logging.dart';
 import 'api/sync.dart';
@@ -25,6 +26,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     required super.generalizedFrbRustBinding,
     required super.portManager,
   });
+
+  @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw);
+
+  @protected
+  RustStreamSink<PairingRequest> dco_decode_StreamSink_pairing_request_Sse(
+    dynamic raw,
+  );
 
   @protected
   String dco_decode_String(dynamic raw);
@@ -57,6 +66,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BridgeError dco_decode_bridge_error(dynamic raw);
 
   @protected
+  BrowserClientDto dco_decode_browser_client_dto(dynamic raw);
+
+  @protected
   DeviceDto dco_decode_device_dto(dynamic raw);
 
   @protected
@@ -72,6 +84,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_i_64(dynamic raw);
 
   @protected
+  ImportSummary dco_decode_import_summary(dynamic raw);
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
@@ -82,6 +97,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<BreachResult> dco_decode_list_breach_result(dynamic raw);
+
+  @protected
+  List<BrowserClientDto> dco_decode_list_browser_client_dto(dynamic raw);
 
   @protected
   List<DeviceDto> dco_decode_list_device_dto(dynamic raw);
@@ -100,6 +118,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RemoteStatusDto? dco_decode_opt_box_autoadd_remote_status_dto(dynamic raw);
+
+  @protected
+  PairingRequest dco_decode_pairing_request(dynamic raw);
 
   @protected
   ParsedTotp dco_decode_parsed_totp(dynamic raw);
@@ -135,6 +156,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   VaultStatus dco_decode_vault_status(dynamic raw);
 
   @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
+
+  @protected
+  RustStreamSink<PairingRequest> sse_decode_StreamSink_pairing_request_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
@@ -167,6 +196,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BridgeError sse_decode_bridge_error(SseDeserializer deserializer);
 
   @protected
+  BrowserClientDto sse_decode_browser_client_dto(SseDeserializer deserializer);
+
+  @protected
   DeviceDto sse_decode_device_dto(SseDeserializer deserializer);
 
   @protected
@@ -180,6 +212,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
+
+  @protected
+  ImportSummary sse_decode_import_summary(SseDeserializer deserializer);
 
   @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
@@ -196,6 +231,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<BreachResult> sse_decode_list_breach_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BrowserClientDto> sse_decode_list_browser_client_dto(
     SseDeserializer deserializer,
   );
 
@@ -218,6 +258,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RemoteStatusDto? sse_decode_opt_box_autoadd_remote_status_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  PairingRequest sse_decode_pairing_request(SseDeserializer deserializer);
 
   @protected
   ParsedTotp sse_decode_parsed_totp(SseDeserializer deserializer);
@@ -254,6 +297,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
+
+  @protected
+  void sse_encode_AnyhowException(
+    AnyhowException self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_pairing_request_Sse(
+    RustStreamSink<PairingRequest> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
@@ -298,6 +353,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bridge_error(BridgeError self, SseSerializer serializer);
 
   @protected
+  void sse_encode_browser_client_dto(
+    BrowserClientDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_device_dto(DeviceDto self, SseSerializer serializer);
 
   @protected
@@ -311,6 +372,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_import_summary(ImportSummary self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
@@ -330,6 +394,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_breach_result(
     List<BreachResult> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_browser_client_dto(
+    List<BrowserClientDto> self,
     SseSerializer serializer,
   );
 
@@ -360,6 +430,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_remote_status_dto(
     RemoteStatusDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_pairing_request(
+    PairingRequest self,
     SseSerializer serializer,
   );
 

@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'src/app.dart';
+import 'src/autofill/autofill_app.dart';
 import 'src/core/api.dart';
 import 'src/rust/frb_generated.dart';
+import 'src/state/desktop_shell.dart';
 
-Future<void> main() async {
+/// 两个入口共用的初始化：Rust 内核、数据目录、全局错误处理。返回 (数据库路径, 日志目录)。
+Future<(String, String)> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
 
@@ -27,6 +30,18 @@ Future<void> main() async {
     VaultApi.log('uncaught: ${error.runtimeType}', level: 'error');
     return true;
   };
+  return ('${support.path}${sep}vault.db', logDir);
+}
 
-  runApp(VaultOneApp(dbPath: '${support.path}${sep}vault.db', logDir: logDir));
+Future<void> main() async {
+  final (dbPath, logDir) = await _bootstrap();
+  if (DesktopShell.supported) await DesktopShell.ensureInitialized();
+  runApp(VaultOneApp(dbPath: dbPath, logDir: logDir, desktopShell: DesktopShell.supported));
+}
+
+/// Android 自动填充界面入口（`AutofillActivity.getDartEntrypointFunctionName`）。
+@pragma('vm:entry-point')
+Future<void> autofillMain() async {
+  final (dbPath, logDir) = await _bootstrap();
+  runApp(AutofillApp(dbPath: dbPath, logDir: logDir));
 }

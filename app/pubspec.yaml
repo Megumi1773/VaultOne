@@ -48,6 +48,9 @@ dependencies:
   path_provider: ^2.1.6
   package_info_plus: ^10.2.1
   mobile_scanner: ^7.4.2
+  window_manager: ^0.5.2
+  tray_manager: ^0.5.2
+  hotkey_manager: ^0.2.3
 
 dev_dependencies:
   flutter_test:
@@ -75,6 +78,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/fonts/NotoSansSC-Regular.ttf
+    - assets/tray/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

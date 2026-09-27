@@ -144,6 +144,17 @@ pub async fn audit(db: &AnyPool, user_id: &str, device_id: Option<&str>, event: 
     }
 }
 
+/// 统计某账户自 `since` 起某类审计事件的次数（用于异常登录告警）。
+pub async fn count_events_since(db: &AnyPool, user_id: &str, event: &str, since: i64) -> sqlx::Result<i64> {
+    sqlx::query("SELECT COUNT(*) AS n FROM audit_events WHERE user_id = $1 AND event = $2 AND created_at >= $3")
+        .bind(user_id.to_string())
+        .bind(event.to_string())
+        .bind(since)
+        .fetch_one(db)
+        .await?
+        .try_get("n")
+}
+
 /// 周期清理：过期握手、验证码、会话，以及超出保留期的条目历史版本。
 pub async fn gc(db: &AnyPool, version_retention_days: i64) -> sqlx::Result<()> {
     let now = crate::now();

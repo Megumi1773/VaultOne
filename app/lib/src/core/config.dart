@@ -14,4 +14,7 @@ abstract final class AppConfig {
   static const supportEmail = 'support@vaultone.app';
 
   static const sourceUrl = 'https://github.com/vaultone/vaultone';
+
+  /// 浏览器扩展安装页（上架 Chrome 应用店 / Edge 加载项后替换为商店地址）
+  static const extensionUrl = String.fromEnvironment('VAULTONE_EXTENSION_URL', defaultValue: 'https://vaultone.app/browser');
 }

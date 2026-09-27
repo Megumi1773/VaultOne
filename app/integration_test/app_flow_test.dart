@@ -71,8 +71,9 @@ void main() {
 
     // Recovery Kit：复制 Secret Key 视为已保存 → 勾选确认 → 进入
     await waitFor(tester, find.text('保存你的 Recovery Kit'));
-    expect(find.textContaining('V1-'), findsOneWidget);
-    expect(find.textContaining('R1-'), findsOneWidget);
+    // 锚定行首：随机恢复码的某组可能以 "V1" 结尾（如 …-DJV1-…），不锚定会偶发匹配两处
+    expect(find.textContaining(RegExp(r'^V1-')), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^R1-')), findsOneWidget);
     await tester.tap(find.byTooltip('复制').first);
     await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.byType(Checkbox));

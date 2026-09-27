@@ -1,0 +1,67 @@
+# cargo-fuzz 目标（计划书 B-09：Fuzz ≥ 24 h 无崩溃）。
+# 需 nightly + libFuzzer，因此不加入根工作区：`cargo +nightly fuzz run <target>`（在仓库根执行）。
+# CI 的 fuzz 任务每晚逐个目标跑一段时间，见 .github/workflows/fuzz.yml。
+[package]
+name = "vaultone-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "AGPL-3.0-only"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+zeroize = "1.8"
+vault-crypto = { path = "../crates/vault-crypto" }
+vault-core = { path = "../crates/vault-core" }
+
+# 独立工作区，避免被根工作区收编
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "sealed_open"
+path = "fuzz_targets/sealed_open.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "unpad"
+path = "fuzz_targets/unpad.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "key_parse"
+path = "fuzz_targets/key_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "envelope_decode"
+path = "fuzz_targets/envelope_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "totp_parse"
+path = "fuzz_targets/totp_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "url_match"
+path = "fuzz_targets/url_match.rs"
+test = false
+doc = false
+bench = false

@@ -1,6 +1,8 @@
 import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -8,15 +10,17 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/api.dart';
 import '../../core/config.dart';
 import '../../core/ffi.dart';
+import '../../core/models.dart';
 import '../../state/app_state.dart';
 import '../../state/clipboard.dart';
+import '../../state/desktop_shell.dart';
 import '../../state/scope.dart';
 import '../theme.dart';
 import '../widgets/controls.dart';
 import '../widgets/vault_widgets.dart';
 import 'item_detail.dart' show confirmDialog;
 
-/// 设置：账户、解锁与安全、云同步与设备、外观、诊断、关于与法律、危险操作。
+/// 设置：账户、解锁与安全、云同步与设备、数据导入、桌面托盘与快捷键、浏览器扩展、外观、诊断、关于与法律、危险操作。
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
@@ -36,6 +40,9 @@ class SettingsPage extends StatelessWidget {
                 _AccountSection(),
                 _SecuritySection(),
                 _SyncSection(),
+                _DataSection(),
+                _DesktopSection(),
+                _BrowserSection(),
                 _AppearanceSection(),
                 _DiagnosticsSection(),
                 _AboutSection(),
@@ -647,6 +654,239 @@ class _AppearanceSection extends StatelessWidget {
           selected: {s.themeMode},
           onSelectionChanged: (v) => state.updateSettings(s.copyWith(themeMode: v.first)),
         ),
+      ),
+    ]);
+  }
+}
+
+const _importSources = {
+  'chrome': 'Chrome / Edge',
+  'firefox': 'Firefox',
+  'bitwarden': 'Bitwarden',
+  'lastpass': 'LastPass',
+  '1password': '1Password',
+  '1pif': '1Password（1PIF）',
+  'csv': 'CSV',
+};
+
+class _DataSection extends StatefulWidget {
+  const _DataSection();
+
+  @override
+  State<_DataSection> createState() => _DataSectionState();
+}
+
+class _DataSectionState extends State<_DataSection> {
+  bool _busy = false;
+
+  Future<void> _import() async {
+    final state = AppScope.of(context);
+    final file = await openFile(acceptedTypeGroups: const [
+      XTypeGroup(label: 'CSV / 1PIF', extensions: ['csv', '1pif', 'txt'], uniformTypeIdentifiers: ['public.comma-separated-values-text', 'public.plain-text', 'public.data']),
+    ]);
+    if (file == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final r = await state.importItems(await file.readAsString());
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('导入完成'),
+          content: Text(
+            '来源：${_importSources[r.format] ?? r.format}\n'
+            '新增 ${r.added} 条${r.duplicates > 0 ? '，${r.duplicates} 条与现有条目重复已跳过' : ''}'
+            '${r.skipped > 0 ? '，${r.skipped} 条无法识别' : ''}。\n\n'
+            '导出文件是明文，请立即从磁盘和回收站中彻底删除。',
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('知道了'))],
+        ),
+      );
+    } on CoreException catch (e) {
+      if (mounted) showZoMessage(context, e.message, error: true);
+    } on FormatException {
+      if (mounted) showZoMessage(context, '文件不是 UTF-8 文本，请用原软件重新导出为 CSV', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _Section(title: '数据', children: [
+        _Row(
+          title: '从其他密码管理器导入',
+          subtitle: '支持 Chrome / Edge / Firefox / Bitwarden / LastPass / 1Password 导出的 CSV 与 1PIF。文件只在本机解析，随即加密入库；重复条目自动跳过。',
+          trailing: ZoButton(label: _busy ? '导入中…' : '选择文件', dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _import),
+        ),
+      ]);
+}
+
+class _DesktopSection extends StatelessWidget {
+  const _DesktopSection();
+
+  @override
+  Widget build(BuildContext context) {
+    if (Platform.isAndroid) return const _AndroidAutofillSection();
+    if (!DesktopShell.supported) return const SizedBox.shrink();
+    final state = AppScope.of(context);
+    final s = state.settings;
+    return _Section(title: '桌面', children: [
+      _Row(
+        title: '关闭窗口时保留在系统托盘',
+        subtitle: '关闭后仍可通过托盘图标或快捷键唤起；从托盘菜单选择「退出」才会结束程序。',
+        trailing: Switch(value: s.closeToTray, onChanged: (v) => state.updateSettings(s.copyWith(closeToTray: v))),
+      ),
+      _Row(
+        title: '全局快捷键  ${DesktopShell.hotKeyLabel}',
+        subtitle: '在任何程序中按下即可唤起 VaultOne 并聚焦搜索框。',
+        trailing: Switch(value: s.globalHotkey, onChanged: (v) => state.updateSettings(s.copyWith(globalHotkey: v))),
+      ),
+    ]);
+  }
+}
+
+class _BrowserSection extends StatefulWidget {
+  const _BrowserSection();
+
+  @override
+  State<_BrowserSection> createState() => _BrowserSectionState();
+}
+
+class _BrowserSectionState extends State<_BrowserSection> {
+  late Future<List<BrowserClient>> _clients = VaultApi.browserClients();
+
+  PairingRequest? _lastPairing;
+
+  void _reload() => setState(() => _clients = VaultApi.browserClients());
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 配对弹窗处理完毕后刷新列表（内核写入配对信息稍晚于 UI 回应）
+    final p = AppScope.of(context).pendingPairing;
+    if (_lastPairing != null && p == null) {
+      _clients = Future.delayed(const Duration(milliseconds: 400), VaultApi.browserClients);
+    }
+    _lastPairing = p;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!DesktopShell.supported) return const SizedBox.shrink();
+    final state = AppScope.of(context);
+    final s = state.settings;
+    return _Section(title: '浏览器扩展', children: [
+      _Row(
+        title: '允许浏览器扩展连接',
+        subtitle: '扩展通过本机 Native Messaging 向 VaultOne 请求凭据，只会拿到与当前网站严格匹配的那一条；解密全部在本应用内完成。',
+        trailing: Switch(value: s.browserIntegration, onChanged: (v) => state.updateSettings(s.copyWith(browserIntegration: v))),
+      ),
+      _Row(
+        title: '安装扩展',
+        subtitle: '支持 Chrome、Edge、Brave 等 Chromium 内核浏览器。安装后点击扩展图标完成配对。',
+        trailing: ZoIconButton(
+          icon: Icons.open_in_new_rounded,
+          tooltip: AppConfig.extensionUrl,
+          onPressed: () => launchUrl(Uri.parse(AppConfig.extensionUrl)),
+        ),
+      ),
+      FutureBuilder<List<BrowserClient>>(
+        future: _clients,
+        builder: (context, snap) {
+          final list = snap.data ?? const <BrowserClient>[];
+          if (list.isEmpty) return const _Row(title: '已配对的浏览器', subtitle: '暂无');
+          return Column(children: [
+            for (final c in list)
+              _Row(
+                title: c.name,
+                subtitle: '配对于 ${_fmtTime(c.createdAt)} · 最近使用 ${_fmtTime(c.lastUsedAt)}',
+                trailing: ZoButton(
+                  label: '移除',
+                  dense: true,
+                  variant: ZoButtonVariant.secondary,
+                  onPressed: () async {
+                    await VaultApi.removeBrowserClient(c.id);
+                    _reload();
+                  },
+                ),
+              ),
+          ]);
+        },
+      ),
+      _Row(
+        title: '修复连接',
+        subtitle: '扩展提示"未找到 VaultOne 桌面端"时，重新向浏览器登记连接器。',
+        trailing: ZoButton(
+          label: '重新登记',
+          dense: true,
+          variant: ZoButtonVariant.secondary,
+          onPressed: () async {
+            try {
+              await VaultApi.registerNativeHost();
+              if (context.mounted) showZoMessage(context, '已登记，请重启浏览器后重试');
+            } on CoreException catch (e) {
+              if (context.mounted) showZoMessage(context, e.message, error: true);
+            }
+            _reload();
+          },
+        ),
+      ),
+    ]);
+  }
+}
+
+/// Android：引导用户把 VaultOne 设为系统自动填充服务（`MainActivity` 的 `vaultone/platform` 通道）。
+class _AndroidAutofillSection extends StatefulWidget {
+  const _AndroidAutofillSection();
+
+  @override
+  State<_AndroidAutofillSection> createState() => _AndroidAutofillSectionState();
+}
+
+class _AndroidAutofillSectionState extends State<_AndroidAutofillSection> with WidgetsBindingObserver {
+  static const _channel = MethodChannel('vaultone/platform');
+  bool _supported = false;
+  bool _enabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // 从系统设置返回时刷新状态
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final supported = await _channel.invokeMethod<bool>('autofillSupported') ?? false;
+    final enabled = await _channel.invokeMethod<bool>('autofillEnabled') ?? false;
+    if (!mounted) return;
+    setState(() {
+      _supported = supported;
+      _enabled = enabled;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_supported) return const SizedBox.shrink();
+    return _Section(title: '自动填充', children: [
+      _Row(
+        title: _enabled ? 'VaultOne 已是系统自动填充服务' : '将 VaultOne 设为自动填充服务',
+        subtitle: '在应用和浏览器的登录框中选择「用 VaultOne 填充」。网页只推荐与当前域名严格匹配的条目；登录后可一键保存新密码。',
+        trailing: _enabled
+            ? const ZoTag('已启用')
+            : ZoButton(label: '去设置', dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _channel.invokeMethod('openAutofillSettings')),
       ),
     ]);
   }

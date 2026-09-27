@@ -5,6 +5,7 @@ members = [
   "crates/vault-proto",
   "crates/vault-core",
   "crates/vault-server",
+  "crates/vault-nmhost",
   "app/rust",
 ]
 default-members = [
@@ -12,6 +13,7 @@ default-members = [
   "crates/vault-proto",
   "crates/vault-core",
   "crates/vault-server",
+  "crates/vault-nmhost",
 ]
 
 [workspace.package]
@@ -20,6 +22,8 @@ edition = "2021"
 rust-version = "1.85"
 license = "AGPL-3.0-only"
 repository = "https://github.com/vaultone/vaultone"
+# 内部 crate 不发布到 crates.io（cargo-deny 的 allow-wildcard-paths 仅对非发布 crate 生效）
+publish = false
 
 # 统一锁定依赖版本（计划书 R-05：供应链安全）。选型理由见 docs/01-模块拆分与依赖选型.md
 [workspace.dependencies]
@@ -45,6 +49,8 @@ unicode-normalization = "0.1"
 url = "2.5"
 thiserror = "2"
 anyhow = "1"
+csv = "1.3"
+interprocess = "2.4"
 # —— 业务功能库 ——
 totp-rs = { version = "5.7", features = ["otpauth", "zeroize"] }
 passwords = "3.1"
@@ -64,6 +70,8 @@ sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio",
 figment = { version = "0.10", features = ["toml", "env"] }
 lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "tokio1", "tokio1-rustls-tls", "builder", "hostname"] }
 tempfile = "3"
+# —— 测试 ——（B-09 属性测试；不启用 fork/timeout，免拉进子进程相关依赖）
+proptest = { version = "1.5", default-features = false, features = ["std"] }
 
 [profile.release]
 lto = true

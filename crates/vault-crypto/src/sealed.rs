@@ -199,4 +199,15 @@ mod tests {
         let pt = Aes256Gcm::new((&mk).into()).decrypt(Nonce::from_slice(iv), Payload { msg: &ct[HEADER_LEN..], aad: &aad }).unwrap();
         assert_eq!(pt, b"interop");
     }
+
+    /// 固定向量（docs/03 §2.4 公布，并已用 Python `cryptography` 独立实现验证）：格式一旦变化即失败。
+    #[test]
+    fn fixed_vector_from_spec() {
+        const VECTOR: &str = "01014f404cc75de75ce8328cc1e76376b11224ec0b013f6b03d8781eada21fe81287c5eb701b05a15a6769a987b536ea\
+                              09a9ee316ee9adfd705c406758465b86b31079e6c1425a0ad7ad7bb37c38c67ec7b492b0f7";
+        let bytes: Vec<u8> = (0..VECTOR.len()).step_by(2).map(|i| u8::from_str_radix(&VECTOR[i..i + 2], 16).unwrap()).collect();
+        let k = Key32::from_slice(&[0x42; 32]).unwrap();
+        assert_eq!(&*open(&k, &bytes, b"vaultone/doc-vector").unwrap(), b"VaultOne interop vector");
+        assert_eq!(open(&k, &bytes, b"vaultone/other"), Err(CryptoError::Integrity));
+    }
 }

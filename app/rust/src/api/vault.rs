@@ -14,6 +14,11 @@ fn slot() -> MutexGuard<'static, Option<Vault>> {
     VAULT.get_or_init(|| Mutex::new(None)).lock().unwrap_or_else(|e| e.into_inner())
 }
 
+#[cfg(test)]
+pub(crate) fn slot_for_tests() -> MutexGuard<'static, Option<Vault>> {
+    slot()
+}
+
 pub(crate) fn with_vault<T>(f: impl FnOnce(&mut Vault) -> Result<T, VaultError>) -> BridgeResult<T> {
     let mut guard = slot();
     let v = guard.as_mut().ok_or_else(|| BridgeError { code: "not_open".into(), message: "保险库尚未打开".into() })?;
@@ -61,9 +66,18 @@ pub struct AuditFindingDto {
 }
 
 /// 打开（不存在则创建）本地保险库文件。
+///
+/// 同一进程内可能有多个 Flutter 引擎（Android 自动填充界面与主界面共用进程）：已打开同一文件时直接复用，
+/// 不替换现有实例，因此主界面已解锁时自动填充无需再次解锁。
 pub fn open_vault(path: String) -> BridgeResult<()> {
+    static OPENED: Mutex<Option<String>> = Mutex::new(None);
+    let mut opened = OPENED.lock().unwrap_or_else(|e| e.into_inner());
+    if opened.as_deref() == Some(path.as_str()) && slot().is_some() {
+        return Ok(());
+    }
     let v = Vault::open(&path)?;
     *slot() = Some(v);
+    *opened = Some(path);
     tracing::info!(target: "bridge", "vault opened");
     Ok(())
 }
@@ -199,6 +213,28 @@ pub fn check_breaches(item_ids: Vec<String>) -> BridgeResult<Vec<BreachResult>> 
 pub struct BreachResult {
     pub item_id: String,
     pub count: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct ImportSummary {
+    /// 识别出的来源：chrome / firefox / bitwarden / lastpass / 1password / 1pif / csv
+    pub format: String,
+    pub added: u32,
+    pub duplicates: u32,
+    /// 格式不合法被拒绝的条目数 + 文件中无法转换的记录数
+    pub skipped: u32,
+}
+
+/// 从其他密码管理器的导出文件导入（CSV / 1PIF，自动识别）。文件内容只在内存中解析后立即加密入库。
+pub fn import_items(content: String) -> BridgeResult<ImportSummary> {
+    let parsed = vault_core::import::parse(&content)?;
+    let (added, duplicates, invalid) = with_vault(|v| v.import_items(parsed.items))?;
+    Ok(ImportSummary {
+        format: parsed.format.into(),
+        added: added as u32,
+        duplicates: duplicates as u32,
+        skipped: (invalid + parsed.skipped) as u32,
+    })
 }
 
 /// 对页面 URL 做防钓鱼匹配，返回按匹配质量排序的条目 ID。

@@ -10,7 +10,7 @@ use crate::auth::{Approved, Authed, ClientIp};
 use crate::db::{self, DeviceRow};
 use crate::error::{ApiError, ApiResult};
 use crate::mail::Mail;
-use crate::routes_auth::approve;
+use crate::routes_auth::{approve, notify};
 use crate::{now, validate, AppState};
 
 pub async fn get_account(State(st): State<AppState>, Approved(a): Approved) -> ApiResult<Json<AccountResponse>> {
@@ -151,6 +151,7 @@ pub async fn revoke_device(
         .execute(&st.db)
         .await?;
     db::audit(&st.db, &a.user_id, Some(&id), "device_revoked", ip.0).await;
+    notify(&st, &a.user_id, "VaultOne 设备已撤销", "一台设备已被撤销，其会话已全部失效。如非本人操作，请立即修改主密码。").await;
     Ok(Json(json!({ "ok": true })))
 }
 

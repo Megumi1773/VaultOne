@@ -4,6 +4,7 @@
 //! - 非 `#[frb(sync)]` 函数在 frb 线程池执行，Argon2id / 网络请求不会阻塞 UI 线程；
 //! - 条目明文以 JSON 字符串跨越边界（schema 由 Rust `ItemData` 的 serde 定义唯一确定）。
 
+pub mod browser;
 pub mod clipboard;
 pub mod logging;
 pub mod sync;

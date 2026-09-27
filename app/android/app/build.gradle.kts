@@ -7,7 +7,7 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// 发布签名：android/key.properties（不入库），见 docs/05-构建与部署.md
+// 发布签名：android/key.properties（不入库），见 docs/07-上架材料与素材清单.md §6
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
