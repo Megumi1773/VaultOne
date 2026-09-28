@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 仅用于 debug 构建：允许通过 adb reverse 连本机开发后端（http://127.0.0.1:8787）。
+     release 构建不包含此文件，仍强制 HTTPS。 -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>
