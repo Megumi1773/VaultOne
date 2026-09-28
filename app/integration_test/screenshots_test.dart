@@ -118,9 +118,16 @@ void main() {
     await waitFor(tester, find.text('保存你的 Recovery Kit'));
     await shot(tester, folder, '03-recovery-kit');
     await tester.tap(find.byTooltip('复制').first);
+    // 复制会弹出 60s 的剪贴板提示，窄屏下会盖住下方按钮；先清掉再继续。
+    await ClipboardService.clearNow();
+    await tester.pump();
+    // 窄屏（如 360×640）下确认框与按钮在首屏之下，需先滚动到可视区再点。
+    await tester.ensureVisible(find.byType(Checkbox));
     await tester.pump();
     await tester.tap(find.byType(Checkbox));
     await tester.pump();
+    await tester.ensureVisible(find.text('进入保险库'));
+    await settle(tester, 300);
     await tester.tap(find.text('进入保险库'));
     await waitFor(tester, find.byType(HomeScreen));
 
