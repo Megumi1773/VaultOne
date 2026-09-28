@@ -12,6 +12,77 @@ use crate::config::Config;
 static SQLITE_MIGRATOR: Migrator = sqlx::migrate!("./migrations/sqlite");
 static POSTGRES_MIGRATOR: Migrator = sqlx::migrate!("./migrations/postgres");
 
+// ───────── 时间存取助手 ─────────
+//
+// 数据库中所有时间列统一为 TEXT，存放 ISO-8601 UTC 字符串（如 `2026-09-28T08:01:33Z`），
+// 字典序即时间序，可直接比较/排序。API 边界仍以 Unix 秒（i64）收发，仅在此处转换。
+// 之所以不用原生时间类型：sqlx Any 驱动不支持任何时间类型（仅 int/str/blob/bool/float）。
+
+/// Unix 秒（i64）→ ISO-8601 UTC 文本，用于绑定 SQL 参数。
+pub fn ts(secs: i64) -> String {
+    format_iso8601(secs)
+}
+
+/// ISO-8601 UTC 文本 → Unix 秒（i64），用于读取行；解析失败返回 0。
+pub fn parse_ts(s: &str) -> i64 {
+    parse_iso8601(s).unwrap_or(0)
+}
+
+/// 读取可空时间列：NULL → None。
+pub fn parse_ts_opt(s: Option<&str>) -> Option<i64> {
+    s.and_then(parse_iso8601)
+}
+
+/// 把 Unix 秒格式化为 `YYYY-MM-DDTHH:MM:SSZ`（纯 UTC，无闰秒，恒定 20 字节）。
+fn format_iso8601(secs: i64) -> String {
+    // 以民用历算法（Howard Hinnant days_from_civil 的逆运算）拆分年月日，避免引入时间库。
+    let days = secs.div_euclid(86400);
+    let secs_of_day = secs.rem_euclid(86400);
+    let (y, m, d) = civil_from_days(days);
+    let (hh, mm, ss) = (secs_of_day / 3600, (secs_of_day % 3600) / 60, secs_of_day % 60);
+    format!("{y:04}-{m:02}-{d:02}T{hh:02}:{mm:02}:{ss:02}Z")
+}
+
+/// 解析 `YYYY-MM-DDTHH:MM:SSZ`（容忍末尾 `+00:00`）；非法输入返回 None。
+fn parse_iso8601(s: &str) -> Option<i64> {
+    let b = s.as_bytes();
+    if b.len() < 19 || b[4] != b'-' || b[7] != b'-' || b[10] != b'T' || b[13] != b':' || b[16] != b':' {
+        return None;
+    }
+    let num = |a: usize, z: usize| s.get(a..z)?.parse::<i64>().ok();
+    let (y, m, d) = (num(0, 4)?, num(5, 7)?, num(8, 10)?);
+    let (hh, mm, ss) = (num(11, 13)?, num(14, 16)?, num(17, 19)?);
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) || hh > 23 || mm > 59 || ss > 60 {
+        return None;
+    }
+    Some(days_from_civil(y, m, d) * 86400 + hh * 3600 + mm * 60 + ss)
+}
+
+/// 天数（相对 1970-01-01）→ (year, month, day)，Howard Hinnant 算法。
+fn civil_from_days(z: i64) -> (i64, u32, u32) {
+    let z = z + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z.rem_euclid(146097);
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    (y + i64::from(m <= 2), m as u32, d as u32)
+}
+
+/// (year, month, day) → 天数（相对 1970-01-01），Howard Hinnant 算法。
+fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let mp = if m > 2 { m - 3 } else { m + 9 };
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146097 + doe - 719468
+}
+
 pub async fn connect(cfg: &Config) -> anyhow::Result<AnyPool> {
     sqlx::any::install_default_drivers();
     let sqlite = cfg.is_sqlite();
@@ -111,10 +182,10 @@ impl DeviceRow {
             id: r.try_get("id")?,
             name: r.try_get("name")?,
             platform: r.try_get("platform")?,
-            approved_at: r.try_get("approved_at")?,
-            last_seen_at: r.try_get("last_seen_at")?,
-            revoked_at: r.try_get("revoked_at")?,
-            created_at: r.try_get("created_at")?,
+            approved_at: parse_ts_opt(r.try_get::<Option<String>, _>("approved_at")?.as_deref()),
+            last_seen_at: parse_ts_opt(r.try_get::<Option<String>, _>("last_seen_at")?.as_deref()),
+            revoked_at: parse_ts_opt(r.try_get::<Option<String>, _>("revoked_at")?.as_deref()),
+            created_at: parse_ts(&r.try_get::<String, _>("created_at")?),
         })
     }
 }
@@ -136,7 +207,7 @@ pub async fn audit(db: &AnyPool, user_id: &str, device_id: Option<&str>, event: 
         .bind(device_id.map(str::to_string))
         .bind(event.to_string())
         .bind(ip_hash)
-        .bind(crate::now())
+        .bind(ts(crate::now()))
         .execute(db)
         .await;
     if let Err(e) = r {
@@ -149,7 +220,7 @@ pub async fn count_events_since(db: &AnyPool, user_id: &str, event: &str, since:
     sqlx::query("SELECT COUNT(*) AS n FROM audit_events WHERE user_id = $1 AND event = $2 AND created_at >= $3")
         .bind(user_id.to_string())
         .bind(event.to_string())
-        .bind(since)
+        .bind(ts(since))
         .fetch_one(db)
         .await?
         .try_get("n")
@@ -158,9 +229,9 @@ pub async fn count_events_since(db: &AnyPool, user_id: &str, event: &str, since:
 /// 周期清理：过期握手、验证码、会话，以及超出保留期的条目历史版本。
 pub async fn gc(db: &AnyPool, version_retention_days: i64) -> sqlx::Result<()> {
     let now = crate::now();
-    db.execute(sqlx::query("DELETE FROM handshakes WHERE expires_at < $1").bind(now)).await?;
-    db.execute(sqlx::query("DELETE FROM device_otps WHERE expires_at < $1").bind(now)).await?;
-    db.execute(sqlx::query("DELETE FROM sessions WHERE expires_at < $1").bind(now)).await?;
-    db.execute(sqlx::query("DELETE FROM item_versions WHERE created_at < $1").bind(now - version_retention_days * 86400)).await?;
+    db.execute(sqlx::query("DELETE FROM handshakes WHERE expires_at < $1").bind(ts(now))).await?;
+    db.execute(sqlx::query("DELETE FROM device_otps WHERE expires_at < $1").bind(ts(now))).await?;
+    db.execute(sqlx::query("DELETE FROM sessions WHERE expires_at < $1").bind(ts(now))).await?;
+    db.execute(sqlx::query("DELETE FROM item_versions WHERE created_at < $1").bind(ts(now - version_retention_days * 86400))).await?;
     Ok(())
 }

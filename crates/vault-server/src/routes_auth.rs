@@ -62,8 +62,8 @@ pub async fn register(
     .bind(req.keys.vk_gen.max(1))
     .bind(req.keys.recovery_wrap.0.clone())
     .bind(req.recovery_auth_hash.0.clone())
-    .bind(now)
-    .bind(now)
+    .bind(db::ts(now))
+    .bind(db::ts(now))
     .execute(&mut *tx)
     .await;
     if inserted.is_err() {
@@ -75,10 +75,10 @@ pub async fn register(
         .bind(req.device.id.clone())
         .bind(req.device.name.trim().to_string())
         .bind(req.device.platform.as_str().to_string())
-        .bind(now)
+        .bind(db::ts(now))
         .bind("registration".to_string())
-        .bind(now)
-        .bind(now)
+        .bind(db::ts(now))
+        .bind(db::ts(now))
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
@@ -126,7 +126,7 @@ pub async fn login_start(State(st): State<AppState>, Json(req): Json<LoginStartR
         .bind(handshake_id.clone())
         .bind(user_id)
         .bind(st.keys.seal_handshake(&handshake_id, &b)?)
-        .bind(now() + HANDSHAKE_TTL)
+        .bind(db::ts(now() + HANDSHAKE_TTL))
         .execute(&st.db)
         .await?;
     Ok(Json(LoginStartResponse { handshake_id, account_id, kdf, srp_salt: srp_salt.into(), b_pub: b_pub.into() }))
@@ -145,7 +145,7 @@ pub async fn login_finish(
         .await?
         .ok_or_else(ApiError::auth_failed)?;
     sqlx::query("DELETE FROM handshakes WHERE id = $1").bind(req.handshake_id.clone()).execute(&st.db).await?;
-    let expires_at: i64 = row.try_get("expires_at")?;
+    let expires_at: i64 = db::parse_ts(&row.try_get::<String, _>("expires_at")?);
     let user_id: Option<String> = row.try_get("user_id")?;
     let (Some(user_id), true) = (user_id, expires_at >= now()) else {
         return Err(ApiError::auth_failed());
@@ -179,7 +179,7 @@ pub async fn login_finish(
         }
         Some(d) => {
             sqlx::query("UPDATE devices SET last_seen_at = $1, name = $2 WHERE user_id = $3 AND id = $4")
-                .bind(now)
+                .bind(db::ts(now))
                 .bind(req.device.name.trim().to_string())
                 .bind(user.id.clone())
                 .bind(req.device.id.clone())
@@ -193,8 +193,8 @@ pub async fn login_finish(
                 .bind(req.device.id.clone())
                 .bind(req.device.name.trim().to_string())
                 .bind(req.device.platform.as_str().to_string())
-                .bind(now)
-                .bind(now)
+                .bind(db::ts(now))
+                .bind(db::ts(now))
                 .execute(&st.db)
                 .await?;
             db::audit(&st.db, &user.id, Some(&req.device.id), "device_added", ip.0.clone()).await;
@@ -228,7 +228,7 @@ async fn send_device_otp(st: &AppState, user_id: &str, device: &DeviceInfo, emai
         .bind(user_id.to_string())
         .bind(device.id.clone())
         .bind(hash)
-        .bind(now() + OTP_TTL)
+        .bind(db::ts(now() + OTP_TTL))
         .execute(&st.db)
         .await?;
     st.mailer.send(Mail {
@@ -258,7 +258,7 @@ pub async fn verify_device(
         .await?
         .ok_or_else(|| ApiError::bad_request("验证码已失效，请重新登录以获取新验证码"))?;
     let attempts: i64 = row.try_get("attempts")?;
-    let expires_at: i64 = row.try_get("expires_at")?;
+    let expires_at: i64 = db::parse_ts(&row.try_get::<String, _>("expires_at")?);
     if attempts >= OTP_MAX_ATTEMPTS || expires_at < now() {
         sqlx::query("DELETE FROM device_otps WHERE user_id = $1 AND device_id = $2")
             .bind(auth.user_id.clone())
@@ -284,7 +284,7 @@ pub async fn verify_device(
 
 pub async fn approve(st: &AppState, user_id: &str, device_id: &str, by: &str) -> ApiResult<()> {
     sqlx::query("UPDATE devices SET approved_at = $1, approved_by = $2 WHERE user_id = $3 AND id = $4 AND revoked_at IS NULL")
-        .bind(now())
+        .bind(db::ts(now()))
         .bind(by.to_string())
         .bind(user_id.to_string())
         .bind(device_id.to_string())
@@ -312,7 +312,7 @@ pub async fn notify(st: &AppState, user_id: &str, subject: &str, body: &str) {
 }
 
 pub async fn logout(State(st): State<AppState>, auth: Authed) -> ApiResult<Json<Value>> {
-    sqlx::query("UPDATE sessions SET revoked_at = $1 WHERE token_hash = $2").bind(now()).bind(auth.token_hash).execute(&st.db).await?;
+    sqlx::query("UPDATE sessions SET revoked_at = $1 WHERE token_hash = $2").bind(db::ts(now())).bind(auth.token_hash).execute(&st.db).await?;
     Ok(Json(json!({ "ok": true })))
 }
 
@@ -370,13 +370,13 @@ pub async fn recovery_complete(
     .bind(req.vk_wrap.0.clone())
     .bind(req.recovery_wrap.0.clone())
     .bind(req.recovery_auth_hash.0.clone())
-    .bind(now)
+    .bind(db::ts(now))
     .bind(user.id.clone())
     .execute(&mut *tx)
     .await?;
     // 恢复意味着旧凭据可能已泄露：撤销所有既有会话
     sqlx::query("UPDATE sessions SET revoked_at = $1 WHERE user_id = $2 AND revoked_at IS NULL")
-        .bind(now)
+        .bind(db::ts(now))
         .bind(user.id.clone())
         .execute(&mut *tx)
         .await?;
@@ -390,10 +390,10 @@ pub async fn recovery_complete(
         .bind(req.device.id.clone())
         .bind(req.device.name.trim().to_string())
         .bind(req.device.platform.as_str().to_string())
-        .bind(now)
+        .bind(db::ts(now))
         .bind("recovery-kit".to_string())
-        .bind(now)
-        .bind(now)
+        .bind(db::ts(now))
+        .bind(db::ts(now))
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;

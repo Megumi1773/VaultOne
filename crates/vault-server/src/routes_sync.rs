@@ -7,6 +7,7 @@ use sqlx::Row;
 use vault_proto::*;
 
 use crate::auth::Approved;
+use crate::db;
 use crate::error::{ApiError, ApiResult};
 use crate::keys::sha256;
 use crate::{now, validate, AppState};
@@ -50,7 +51,7 @@ pub async fn push(State(st): State<AppState>, Approved(a): Approved, Json(req): 
                     .bind(hash)
                     .bind(it.revision)
                     .bind(i64::from(it.deleted))
-                    .bind(it.updated_at)
+                    .bind(db::ts(it.updated_at))
                     .bind(a.device_id.clone())
                     .bind(a.user_id.clone())
                     .bind(it.id.clone())
@@ -73,9 +74,9 @@ pub async fn push(State(st): State<AppState>, Approved(a): Approved, Json(req): 
                 .bind(hash)
                 .bind(it.revision)
                 .bind(i64::from(it.deleted))
-                .bind(it.updated_at)
+                .bind(db::ts(it.updated_at))
                 .bind(a.device_id.clone())
-                .bind(now)
+                .bind(db::ts(now))
                 .execute(&mut *tx)
                 .await?;
                 (PushStatus::Applied, it.revision)
@@ -99,7 +100,7 @@ pub async fn push(State(st): State<AppState>, Approved(a): Approved, Json(req): 
                 .bind(it.revision)
                 .bind(it.blob.0.clone())
                 .bind(a.device_id.clone())
-                .bind(now)
+                .bind(db::ts(now))
                 .execute(&mut *tx)
                 .await?;
                 sqlx::query("DELETE FROM change_log WHERE user_id = $1 AND item_id = $2")
@@ -111,7 +112,7 @@ pub async fn push(State(st): State<AppState>, Approved(a): Approved, Json(req): 
                     .bind(a.user_id.clone())
                     .bind(it.id.clone())
                     .bind(it.revision)
-                    .bind(now)
+                    .bind(db::ts(now))
                     .execute(&mut *tx)
                     .await?;
             }
@@ -155,7 +156,7 @@ pub async fn pull(State(st): State<AppState>, Approved(a): Approved, Query(q): Q
             blob: r.try_get::<Vec<u8>, _>("blob")?.into(),
             revision: r.try_get("revision")?,
             deleted: r.try_get::<i64, _>("deleted")? != 0,
-            updated_at: r.try_get("updated_at")?,
+            updated_at: db::parse_ts(&r.try_get::<String, _>("updated_at")?),
         });
     }
     let vk_gen: i64 =

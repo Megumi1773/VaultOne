@@ -52,7 +52,7 @@ pub async fn change_credentials(
     .bind(new_gen)
     .bind(req.recovery_wrap.as_ref().map(|b| b.0.clone()))
     .bind(req.recovery_auth_hash.as_ref().map(|b| b.0.clone()))
-    .bind(now())
+    .bind(db::ts(now()))
     .bind(a.user_id.clone())
     .bind(user.vk_gen)
     .execute(&st.db)
@@ -139,13 +139,13 @@ pub async fn revoke_device(
     db::device(&st.db, &a.user_id, &id).await?.ok_or_else(ApiError::not_found)?;
     let now = now();
     sqlx::query("UPDATE devices SET revoked_at = $1 WHERE user_id = $2 AND id = $3")
-        .bind(now)
+        .bind(db::ts(now))
         .bind(a.user_id.clone())
         .bind(id.clone())
         .execute(&st.db)
         .await?;
     sqlx::query("UPDATE sessions SET revoked_at = $1 WHERE user_id = $2 AND device_id = $3 AND revoked_at IS NULL")
-        .bind(now)
+        .bind(db::ts(now))
         .bind(a.user_id.clone())
         .bind(id.clone())
         .execute(&st.db)
@@ -162,7 +162,13 @@ pub async fn audit_events(State(st): State<AppState>, Approved(a): Approved) -> 
         .await?;
     let out = rows
         .iter()
-        .map(|r| Ok(AuditEventOut { event: r.try_get("event")?, device_id: r.try_get("device_id")?, created_at: r.try_get("created_at")? }))
+        .map(|r| {
+            Ok(AuditEventOut {
+                event: r.try_get("event")?,
+                device_id: r.try_get("device_id")?,
+                created_at: db::parse_ts(&r.try_get::<String, _>("created_at")?),
+            })
+        })
         .collect::<sqlx::Result<Vec<_>>>()?;
     Ok(Json(out))
 }
