@@ -376,9 +376,12 @@ class _SyncSection extends StatefulWidget {
 }
 
 class _SyncSectionState extends State<_SyncSection> {
-  late final _url = TextEditingController(text: AppScope.read(context).settings.serverUrl);
+  late final _url = TextEditingController(text: AppConfig.defaultServerUrl);
   late final _device = TextEditingController(text: AppScope.read(context).defaultDeviceName);
   bool _busy = false;
+
+  /// 同步服务器固定为官方地址；仅在允许自部署时才采用用户输入。
+  String get _serverUrl => AppConfig.allowCustomServer ? _url.text : AppConfig.defaultServerUrl;
 
   @override
   void dispose() {
@@ -412,8 +415,10 @@ class _SyncSectionState extends State<_SyncSection> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            ZoTextField(controller: _url, label: '同步服务器', hint: AppConfig.defaultServerUrl, prefixIcon: Icons.dns_outlined),
-            const SizedBox(height: 12),
+            if (AppConfig.allowCustomServer) ...[
+              ZoTextField(controller: _url, label: '同步服务器', hint: AppConfig.defaultServerUrl, prefixIcon: Icons.dns_outlined),
+              const SizedBox(height: 12),
+            ],
             ZoTextField(controller: _device, label: '本设备名称', prefixIcon: Icons.devices_outlined),
             const SizedBox(height: 14),
             Wrap(spacing: 8, runSpacing: 8, children: [
@@ -421,12 +426,12 @@ class _SyncSectionState extends State<_SyncSection> {
                 label: '开启同步',
                 icon: Icons.cloud_upload_outlined,
                 loading: _busy,
-                onPressed: () => _run(() => state.enableSync(_url.text, _device.text), ok: '同步已开启'),
+                onPressed: () => _run(() => state.enableSync(_serverUrl, _device.text), ok: '同步已开启'),
               ),
               ZoButton(
                 label: '测试连接',
                 variant: ZoButtonVariant.ghost,
-                onPressed: _busy ? null : () => _run(() => VaultApi.pingServer(_url.text), ok: '服务器连接正常'),
+                onPressed: _busy ? null : () => _run(() => VaultApi.pingServer(_serverUrl), ok: '服务器连接正常'),
               ),
             ]),
           ]),

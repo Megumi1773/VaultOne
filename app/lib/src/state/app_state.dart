@@ -209,7 +209,9 @@ class AppState extends ChangeNotifier {
       clipboardSeconds: intOr(await VaultApi.getSetting('clipboard_seconds'), 30),
       lockOnMinimize: (await VaultApi.getSetting('lock_on_minimize') ?? (mobile ? '1' : '0')) == '1',
       themeMode: ThemeModeSetting.values.firstWhere((m) => m.name == theme, orElse: () => ThemeModeSetting.system),
-      serverUrl: await VaultApi.getSetting('server_url') ?? AppConfig.defaultServerUrl,
+      serverUrl: AppConfig.allowCustomServer
+          ? (await VaultApi.getSetting('server_url') ?? AppConfig.defaultServerUrl)
+          : AppConfig.defaultServerUrl,
       verboseLogs: (await VaultApi.getSetting('verbose_logs')) == '1',
       closeToTray: (await VaultApi.getSetting('close_to_tray')) != '0',
       globalHotkey: (await VaultApi.getSetting('global_hotkey')) != '0',
@@ -416,8 +418,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _saveServerUrl(String url) async {
-    settings = settings.copyWith(serverUrl: url.trim());
-    await VaultApi.setSetting('server_url', url.trim());
+    final fixed = AppConfig.allowCustomServer ? url.trim() : AppConfig.defaultServerUrl;
+    settings = settings.copyWith(serverUrl: fixed);
+    await VaultApi.setSetting('server_url', fixed);
   }
 
   /// 已解锁的本地账户开启云同步（首台设备注册）。

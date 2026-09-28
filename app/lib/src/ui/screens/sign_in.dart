@@ -22,7 +22,7 @@ class SignInForm extends StatefulWidget {
 }
 
 class _SignInFormState extends State<SignInForm> {
-  late final _server = TextEditingController(text: AppScope.read(context).settings.serverUrl);
+  late final _server = TextEditingController(text: AppConfig.defaultServerUrl);
   late final _device = TextEditingController(text: AppScope.read(context).defaultDeviceName);
   final _email = TextEditingController();
   final _sk = TextEditingController();
@@ -53,7 +53,8 @@ class _SignInFormState extends State<SignInForm> {
       _error = null;
     });
     try {
-      await AppScope.read(context).signIn(_server.text, _email.text, _pw.text, _sk.text, _device.text);
+      final server = AppConfig.allowCustomServer ? _server.text : AppConfig.defaultServerUrl;
+      await AppScope.read(context).signIn(server, _email.text, _pw.text, _sk.text, _device.text);
     } on CoreException catch (e) {
       _pw.clear();
       if (mounted) {
@@ -90,11 +91,13 @@ class _SignInFormState extends State<SignInForm> {
           TextButton.icon(
             onPressed: () => setState(() => _advanced = !_advanced),
             icon: Icon(_advanced ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18),
-            label: const Text('服务器与设备名'),
+            label: const Text('设备名称'),
           ),
           if (_advanced) ...[
-            ZoTextField(controller: _server, label: '同步服务器', hint: AppConfig.defaultServerUrl, prefixIcon: Icons.dns_outlined),
-            const SizedBox(height: 12),
+            if (AppConfig.allowCustomServer) ...[
+              ZoTextField(controller: _server, label: '同步服务器', hint: AppConfig.defaultServerUrl, prefixIcon: Icons.dns_outlined),
+              const SizedBox(height: 12),
+            ],
             ZoTextField(controller: _device, label: '本设备名称', prefixIcon: Icons.devices_outlined),
             const SizedBox(height: 8),
           ],
@@ -206,7 +209,7 @@ class CloudRecoverForm extends StatefulWidget {
 }
 
 class _CloudRecoverFormState extends State<CloudRecoverForm> {
-  late final _server = TextEditingController(text: AppScope.read(context).settings.serverUrl);
+  late final _server = TextEditingController(text: AppConfig.defaultServerUrl);
   late final _device = TextEditingController(text: AppScope.read(context).defaultDeviceName);
   final _email = TextEditingController();
   final _sk = TextEditingController();
@@ -238,7 +241,8 @@ class _CloudRecoverFormState extends State<CloudRecoverForm> {
       _error = null;
     });
     try {
-      await AppScope.read(context).recoverFromServer(_server.text, _email.text, _rc.text, _sk.text, _pw.text, _device.text);
+      final server = AppConfig.allowCustomServer ? _server.text : AppConfig.defaultServerUrl;
+      await AppScope.read(context).recoverFromServer(server, _email.text, _rc.text, _sk.text, _pw.text, _device.text);
     } on CoreException catch (e) {
       if (mounted) _fail(e.message);
     } finally {
@@ -260,8 +264,6 @@ class _CloudRecoverFormState extends State<CloudRecoverForm> {
             title: '用 Recovery Kit 恢复账户',
             subtitle: '恢复后需设置新主密码，旧恢复码与所有旧设备会话立即失效，你会拿到一份新的 Recovery Kit。',
           ),
-          ZoTextField(controller: _server, label: '同步服务器', prefixIcon: Icons.dns_outlined),
-          const SizedBox(height: 14),
           ZoTextField(controller: _email, label: '邮箱', prefixIcon: Icons.alternate_email_rounded, keyboardType: TextInputType.emailAddress),
           const SizedBox(height: 14),
           ZoTextField(controller: _sk, label: 'Secret Key', hint: 'V1-…', mono: true),
