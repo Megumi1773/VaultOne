@@ -3,7 +3,7 @@
 [![CI](https://github.com/Megumi1773/VaultOne/actions/workflows/ci.yml/badge.svg)](https://github.com/Megumi1773/VaultOne/actions/workflows/ci.yml)
 ![Rust](https://img.shields.io/badge/rust-1.85%2B-orange)
 ![Flutter](https://img.shields.io/badge/flutter-3.47.5-blue)
-![Tests](https://img.shields.io/badge/tests-79%20passed-success)
+![Tests](https://img.shields.io/badge/tests-156%20passed-success)
 ![License](https://img.shields.io/badge/license-AGPL--3.0--only-green)
 
 一个本地优先的密码管理器。加解密全在 Rust 内核里做,服务端只存密文,自托管也行。
@@ -46,7 +46,7 @@
 | `crates/vault-server` | axum 服务端,SQLite 或 PostgreSQL 都行 |
 | `app/` | Flutter 客户端,`app/rust` 是 FFI 桥,`app/lib/src/rust` 是生成的绑定 |
 | `deploy/` | docker compose + Caddy + 配置样例 |
-| `docs/` | 模块和依赖选型的说明 |
+| `docs/` | 模块选型、功能计划与验收记录 |
 | `legacy/` | 老实现,已经不参与构建了,留着参考 |
 
 ## 怎么跑
@@ -56,12 +56,12 @@ Rust 需要 1.85 以上,Flutter 用 3.47.5。
 跑测试:
 
 ```bash
-cargo test --workspace           # 全部,79 个;e2e 会自己起临时 SQLite,不用外部依赖
+cargo test --workspace           # 全部,156 个;e2e 会自己起临时 SQLite,不用外部依赖
 cargo test -p vault-core         # 只测某个 crate
 cargo test -p vault-core <名字>  # 单个测试
 ```
 
-注意根目录 `cargo build` / `cargo test` 只会构建 `default-members` 那四个 crate,不含 `app/rust`。要带上桥就加 `--workspace`,或者 `-p vaultone_bridge`。
+注意根目录 `cargo build` / `cargo test` 只会构建 `default-members` 那五个 crate,不含 `app/rust`。要带上桥就加 `--workspace`,或者 `-p vaultone_bridge`。
 
 起服务端:
 
@@ -104,6 +104,7 @@ push 和 PR 会跑 `cargo fmt`、`clippy`(警告当错误)、单测和 e2e、Pos
 ## 更多
 
 - [模块拆分与依赖选型](docs/01-模块拆分与依赖选型.md) —— 每个依赖为什么选它
+- [功能对照与开发计划](docs/09-passmgr功能对照与新版开发计划.md) / [执行与验收记录](docs/11-计划执行与验收记录.md) —— 做到哪了、还差什么
 - [AGENTS.md](AGENTS.md) —— 开发约定
 
 AGPL-3.0-only。
