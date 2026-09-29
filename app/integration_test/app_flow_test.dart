@@ -9,6 +9,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:vaultone/src/app.dart';
+import 'package:vaultone/src/core/api.dart';
+import 'package:vaultone/src/core/ffi.dart';
+import 'package:vaultone/src/state/scope.dart';
+import 'package:vaultone/src/ui/screens/conflicts_page.dart';
 import 'package:vaultone/src/ui/screens/item_editor.dart';
 import 'package:vaultone/src/ui/screens/item_list.dart';
 import 'package:vaultone/src/rust/frb_generated.dart';
@@ -113,9 +117,22 @@ void main() {
     await tester.tap(find.text('解锁'));
     await waitFor(tester, inList);
 
-    // 本地数据库文件中没有明文
-    await tester.tap(find.byTooltip('立即锁定 (Ctrl+L)'));
+    // 冲突入口走真实生成绑定与SQLite，空态和历史态均可读；锁定销毁该路由。
+    await tester.tap(find.text('设置'));
+    await waitFor(tester, find.text('查看冲突'));
+    await tester.ensureVisible(find.text('查看冲突'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('查看冲突'));
+    await waitFor(tester, find.text('没有待处理的冲突'));
+    await tester.tap(find.text('显示历史记录'));
+    await waitFor(tester, find.text('暂无冲突记录'));
+    final state = AppScope.read(tester.element(find.byType(ConflictsPage)));
+    await state.lock();
     await waitFor(tester, find.text('欢迎回来'));
+    expect(find.byType(ConflictsPage), findsNothing);
+    await expectLater(VaultApi.listConflicts(false), throwsA(isA<CoreException>()));
+
+    // 本地数据库文件中没有明文
     final raw = String.fromCharCodes(await File('${tmp.path}/vault.db').readAsBytes());
     expect(raw.contains('it@example.com'), isFalse);
     expect(raw.contains('GitHub'), isFalse);

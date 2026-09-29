@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ItemKind {
     Login,
@@ -34,7 +34,7 @@ impl ItemKind {
 }
 
 /// URL 匹配策略。自动填充（M3）按此做 eTLD+1 / host / 精确匹配。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum UrlMatch {
     #[default]
@@ -44,7 +44,7 @@ pub enum UrlMatch {
     Never,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct ItemUrl {
     pub url: String,
     #[serde(rename = "match", default)]
@@ -52,7 +52,7 @@ pub struct ItemUrl {
     pub match_mode: UrlMatch,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct TotpConfig {
     pub secret: String,
     #[serde(default = "default_alg")]
@@ -73,7 +73,7 @@ fn default_period() -> u32 {
     30
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct CustomField {
     pub label: String,
@@ -82,13 +82,13 @@ pub struct CustomField {
     pub sensitive: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct PasswordHistoryEntry {
     pub p: String,
     pub t: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct CardData {
     #[serde(default)]
@@ -103,7 +103,7 @@ pub struct CardData {
     pub pin: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct IdentityData {
     #[serde(default)]
@@ -121,7 +121,7 @@ pub struct IdentityData {
 }
 
 /// 条目明文。所有字符串字段在 drop 时清零。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct ItemData {
     #[serde(rename = "type")]
@@ -155,6 +155,16 @@ pub struct ItemData {
 }
 
 impl ItemData {
+    /// 导入去重键：仅排除新建条目时会重写的创建/更新时间。
+    /// ID、保险库 ID、版本在 Item 上，不参与内容比较。密码历史（含历史时间）是可恢复数据，
+    /// 与类型、收藏、全部 URL/匹配规则、自定义字段等一起保留；数组顺序及 None/空值严格区分。
+    /// 使用完整结构的 Hash + Eq，而非仅比较摘要，避免摘要碰撞被当成重复；drop 时仍清零。
+    pub(crate) fn into_import_content(mut self) -> Self {
+        self.created_at = 0;
+        self.updated_at = 0;
+        self
+    }
+
     pub fn new(kind: ItemKind, title: impl Into<String>) -> Self {
         Self {
             kind,

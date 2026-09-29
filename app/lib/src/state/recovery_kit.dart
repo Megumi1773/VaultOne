@@ -79,8 +79,10 @@ abstract final class RecoveryKit {
   static String get fileName => 'VaultOne-Recovery-Kit.pdf';
 
   /// 返回保存位置描述；用户取消时返回 null。
-  static Future<String?> save(Enrollment e) async {
+  static Future<String?> save(Enrollment e, {required bool Function() canContinue}) async {
+    if (!canContinue()) return null;
     final bytes = await build(e);
+    if (!canContinue()) return null;
     if (Platform.isAndroid || Platform.isIOS) {
       final ok = await Printing.sharePdf(bytes: bytes, filename: fileName);
       return ok ? '已通过系统面板导出' : null;
@@ -89,7 +91,7 @@ abstract final class RecoveryKit {
       suggestedName: fileName,
       acceptedTypeGroups: const [XTypeGroup(label: 'PDF', extensions: ['pdf'])],
     );
-    if (loc == null) return null;
+    if (loc == null || !canContinue()) return null;
     var path = loc.path;
     if (!path.toLowerCase().endsWith('.pdf')) path = '$path.pdf';
     await File(path).writeAsBytes(bytes, flush: true);

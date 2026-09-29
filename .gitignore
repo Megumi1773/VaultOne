@@ -11,3 +11,7 @@ app/android/key.properties
 # 构建产物
 **/build/
 .dart_tool/
+
+# 本地工具链与编辑器/代理工作区（不入库）
+.tools/
+.claude/

@@ -34,11 +34,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final step = state.pendingEnrollment != null ? _Step.kit : _step;
-    if (state.awaitingDeviceApproval) {
-      return const AuthLayout(child: DeviceApprovalView());
-    }
     if (!state.privacyAccepted) {
       return const AuthLayout(child: _PrivacyConsent());
+    }
+    if (state.awaitingDeviceApproval) {
+      return const AuthLayout(child: DeviceApprovalView());
     }
     return AuthLayout(
       child: AnimatedSwitcher(
@@ -261,16 +261,19 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
   String? _savedPath;
 
   Future<void> _save() async {
+    final state = AppScope.of(context);
+    final epoch = state.sessionEpoch;
+    bool canContinue() => mounted && epoch == state.sessionEpoch;
     try {
-      final path = await RecoveryKit.save(widget.enrollment);
-      if (path != null) {
+      final path = await RecoveryKit.save(widget.enrollment, canContinue: canContinue);
+      if (path != null && canContinue()) {
         setState(() {
           _saved = true;
           _savedPath = path;
         });
       }
-    } catch (e) {
-      if (mounted) showZoMessage(context, '保存失败：$e', error: true);
+    } catch (_) {
+      if (canContinue()) showZoMessage(context, '保存失败，请检查目录权限与可用空间。', error: true);
     }
   }
 

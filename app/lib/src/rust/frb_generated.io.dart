@@ -6,6 +6,7 @@
 import 'api.dart';
 import 'api/browser.dart';
 import 'api/clipboard.dart';
+import 'api/conflicts.dart';
 import 'api/logging.dart';
 import 'api/sync.dart';
 import 'api/tools.dart';

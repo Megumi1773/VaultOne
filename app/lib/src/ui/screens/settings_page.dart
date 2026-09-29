@@ -18,6 +18,7 @@ import '../../state/scope.dart';
 import '../theme.dart';
 import '../widgets/controls.dart';
 import '../widgets/vault_widgets.dart';
+import 'conflicts_page.dart';
 import 'item_detail.dart' show confirmDialog;
 
 /// 设置：账户、解锁与安全、云同步与设备、数据导入、桌面托盘与快捷键、浏览器扩展、外观、诊断、关于与法律、危险操作。
@@ -40,6 +41,7 @@ class SettingsPage extends StatelessWidget {
                 _AccountSection(),
                 _SecuritySection(),
                 _SyncSection(),
+                _ConflictSection(),
                 _DataSection(),
                 _DesktopSection(),
                 _BrowserSection(),
@@ -674,6 +676,38 @@ const _importSources = {
   'csv': 'CSV',
 };
 
+class _ConflictSection extends StatelessWidget {
+  const _ConflictSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    return _Section(title: '同步冲突', children: [
+      _Row(
+        title: '比较并裁决冲突',
+        subtitle: '冲突双方版本在本机加密保存。裁决后等待同步确认；有未完成冲突时不能导出，以免漏掉另一方内容。',
+        trailing: ZoButton(
+          label: '查看冲突',
+          dense: true,
+          variant: ZoButtonVariant.secondary,
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => ConflictsPage(
+              listConflicts: VaultApi.listConflicts,
+              getConflict: VaultApi.getConflict,
+              refreshConflict: VaultApi.refreshConflict,
+              resolveConflict: (id, resolution) async {
+                await VaultApi.resolveConflict(id, resolution);
+                await state.refresh(sync: false);
+              },
+              onResolved: () => state.scheduleSync(immediate: true),
+            ),
+          )),
+        ),
+      ),
+    ]);
+  }
+}
+
 class _DataSection extends StatefulWidget {
   const _DataSection();
 
@@ -686,14 +720,18 @@ class _DataSectionState extends State<_DataSection> {
 
   Future<void> _import() async {
     final state = AppScope.of(context);
+    final epoch = state.sessionEpoch;
+    if (!state.isCurrentSession(epoch)) return;
     final file = await openFile(acceptedTypeGroups: const [
       XTypeGroup(label: 'CSV / 1PIF', extensions: ['csv', '1pif', 'txt'], uniformTypeIdentifiers: ['public.comma-separated-values-text', 'public.plain-text', 'public.data']),
     ]);
-    if (file == null || !mounted) return;
+    if (file == null || !mounted || !state.isCurrentSession(epoch)) return;
     setState(() => _busy = true);
     try {
-      final r = await state.importItems(await file.readAsString());
-      if (!mounted) return;
+      final content = await file.readAsString();
+      if (!mounted || !state.isCurrentSession(epoch)) return;
+      final r = await state.importItems(content);
+      if (!mounted || !state.isCurrentSession(epoch)) return;
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -718,47 +756,60 @@ class _DataSectionState extends State<_DataSection> {
 
   Future<void> _exportBackup() async {
     final state = AppScope.of(context);
+    final epoch = state.sessionEpoch;
+    if (!state.isCurrentSession(epoch)) return;
     setState(() => _busy = true);
     try {
       final data = await state.exportBackup();
-      if (!mounted) return;
+      if (!mounted || !state.isCurrentSession(epoch)) return;
       final loc = await getSaveLocation(
         suggestedName: 'vaultone-backup-${DateTime.now().millisecondsSinceEpoch}.wljbak',
         acceptedTypeGroups: const [XTypeGroup(label: 'VaultOne 备份', extensions: ['wljbak'])],
       );
-      if (loc == null || !mounted) return;
-      await File(loc.path).writeAsBytes(data);
-      if (mounted) showZoMessage(context, '已导出备份到 ${loc.path}');
+      if (loc == null || !mounted || !state.isCurrentSession(epoch)) return;
+      await File(loc.path).writeAsBytes(data, flush: true);
+      if (mounted && state.isCurrentSession(epoch)) showZoMessage(context, '已保存加密备份（${data.length} 字节）到 ${loc.path}');
+    } on FileSystemException {
+      if (mounted && state.isCurrentSession(epoch)) showZoMessage(context, '备份保存失败，请检查目录权限与可用空间。若留下不完整文件，请勿用于恢复。', error: true);
     } on CoreException catch (e) {
-      if (mounted) showZoMessage(context, e.message, error: true);
+      if (mounted && state.isCurrentSession(epoch)) showZoMessage(context, e.message, error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _exportCsv() async {
+    final state = AppScope.of(context);
+    final epoch = state.sessionEpoch;
+    if (!state.isCurrentSession(epoch)) return;
     final ok = await confirmDialog(
       context,
       title: '导出明文 CSV？',
-      body: 'CSV 不加密，任何拿到文件的人都能看到全部密码。导出后请尽快从磁盘与回收站彻底删除。',
+      body: 'CSV 不加密，任何拿到文件的人都能看到密码与 TOTP 种子。\n\n'
+          'CSV 不是完整备份：仅导出标题、首个网址、用户名、密码、备注、TOTP 种子、收藏和类型；'
+          '不保留卡片/身份专用字段、自定义字段、其他网址与匹配规则、密码历史及完整 TOTP 参数。'
+          '不含回收站，不能用它无损恢复保险库。完整条目备份请选 .wljbak。\n\n'
+          '导出后请妥善保管，迁移完成后从磁盘与回收站彻底删除；不要用电子表格软件打开不可信内容。',
       confirm: '仍要导出',
       danger: true,
     );
-    if (ok != true || !mounted) return;
-    final state = AppScope.of(context);
+    if (ok != true || !mounted || !state.isCurrentSession(epoch)) return;
     setState(() => _busy = true);
     try {
       final csv = await state.exportCsv();
-      if (!mounted) return;
+      if (!mounted || !state.isCurrentSession(epoch)) return;
       final loc = await getSaveLocation(
         suggestedName: 'vaultone-export-${DateTime.now().millisecondsSinceEpoch}.csv',
         acceptedTypeGroups: const [XTypeGroup(label: 'CSV', extensions: ['csv'])],
       );
-      if (loc == null || !mounted) return;
-      await File(loc.path).writeAsString(csv);
-      if (mounted) showZoMessage(context, '已导出 CSV 到 ${loc.path}');
+      if (loc == null || !mounted || !state.isCurrentSession(epoch)) return;
+      final saved = await File(loc.path).writeAsString(csv, flush: true);
+      final bytes = await saved.length();
+      if (mounted && state.isCurrentSession(epoch)) showZoMessage(context, '已保存有损 CSV（$bytes 字节）到 ${loc.path}；请核对迁移结果，这不是完整备份。');
+    } on FileSystemException {
+      if (mounted && state.isCurrentSession(epoch)) showZoMessage(context, 'CSV 保存失败，请检查目录权限与可用空间，并清理可能留下的明文文件。', error: true);
     } on CoreException catch (e) {
-      if (mounted) showZoMessage(context, e.message, error: true);
+      if (mounted && state.isCurrentSession(epoch)) showZoMessage(context, e.message, error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -766,14 +817,18 @@ class _DataSectionState extends State<_DataSection> {
 
   Future<void> _importBackup() async {
     final state = AppScope.of(context);
+    final epoch = state.sessionEpoch;
+    if (!state.isCurrentSession(epoch)) return;
     final file = await openFile(acceptedTypeGroups: const [
       XTypeGroup(label: 'VaultOne 备份', extensions: ['wljbak'], uniformTypeIdentifiers: ['public.data']),
     ]);
-    if (file == null || !mounted) return;
+    if (file == null || !mounted || !state.isCurrentSession(epoch)) return;
     setState(() => _busy = true);
     try {
-      final r = await state.importBackup(await file.readAsBytes());
-      if (!mounted) return;
+      final content = await file.readAsBytes();
+      if (!mounted || !state.isCurrentSession(epoch)) return;
+      final r = await state.importBackup(content);
+      if (!mounted || !state.isCurrentSession(epoch)) return;
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -798,12 +853,12 @@ class _DataSectionState extends State<_DataSection> {
         ),
         _Row(
           title: '导出加密备份',
-          subtitle: '导出 .wljbak 加密备份包，需本账户的主密码 + Secret Key 才能还原，可在本账户的任意设备导入。',
+          subtitle: '导出本账户的 .wljbak 条目级备份，不含回收站，不是数据库快照。需先恢复同一账户及其 Vault Key，再导入；仅持有文件或新建同名账户无法恢复。导入会重建条目 ID 和创建/更新时间。',
           trailing: ZoButton(label: '导出', dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _exportBackup),
         ),
         _Row(
           title: '导出明文 CSV',
-          subtitle: '导出不加密的 CSV，用于迁移到其他密码管理器。文件含全部密码，请谨慎保管。',
+          subtitle: '仅用于有损迁移，不含完整类型字段、历史、多网址及完整 TOTP 参数。文件不加密，请谨慎保管。',
           trailing: ZoButton(label: '导出', dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _exportCsv),
         ),
         _Row(

@@ -27,20 +27,33 @@ pub async fn push(State(st): State<AppState>, Approved(a): Approved, Json(req): 
     let now = now();
     let mut results = Vec::with_capacity(req.items.len());
     let mut tx = st.db.begin().await?;
+    // 必须是事务的首条查询：PG 锁住账户行，SQLite 在读快照前取得写锁。
+    // 同账户所有 push 串行至提交，包含新条目插入及 change_log 序号分配；
+    // 因而不会出现较大 cursor 先提交、较小 cursor 后提交而被客户端永久跳过。
+    let locked = sqlx::query("UPDATE users SET vk_gen = vk_gen WHERE id = $1").bind(a.user_id.clone()).execute(&mut *tx).await?;
+    if locked.rows_affected() != 1 {
+        return Err(ApiError::unauthorized());
+    }
     for it in &req.items {
         let hash = sha256(&it.blob);
-        let current = sqlx::query("SELECT revision, blob_hash FROM items WHERE user_id = $1 AND id = $2")
+        let current = sqlx::query("SELECT revision, blob_hash, kind, deleted, updated_at FROM items WHERE user_id = $1 AND id = $2")
             .bind(a.user_id.clone())
             .bind(it.id.clone())
             .fetch_optional(&mut *tx)
             .await?;
-        let (status, revision) = match current {
+        let (status, revision, changed) = match current {
             Some(row) => {
                 let cur_rev: i64 = row.try_get("revision")?;
                 let cur_hash: Vec<u8> = row.try_get("blob_hash")?;
-                if cur_rev == it.revision && cur_hash == hash {
-                    // 重放（例如上次响应丢失）：幂等成功
-                    (PushStatus::Applied, cur_rev)
+                if cur_rev == it.revision
+                    && cur_hash == hash
+                    && row.try_get::<String, _>("kind")? == it.kind
+                    && row.try_get::<i64, _>("deleted")? == i64::from(it.deleted)
+                    && row.try_get::<String, _>("updated_at")? == db::ts(it.updated_at)
+                {
+                    // 旧客户端响应丢失后的重试仍携带旧 base_revision；不比较 base 或设备。
+                    // 但所有实际写入字段必须相同，不能把删除/类型/时间变更误当重放吞掉。
+                    (PushStatus::Applied, cur_rev, false)
                 } else if cur_rev == it.base_revision {
                     sqlx::query(
                         "UPDATE items SET kind = $1, blob = $2, blob_hash = $3, revision = $4, deleted = $5, updated_at = $6, device_id = $7
@@ -57,9 +70,9 @@ pub async fn push(State(st): State<AppState>, Approved(a): Approved, Json(req): 
                     .bind(it.id.clone())
                     .execute(&mut *tx)
                     .await?;
-                    (PushStatus::Applied, it.revision)
+                    (PushStatus::Applied, it.revision, true)
                 } else {
-                    (PushStatus::Conflict, cur_rev)
+                    (PushStatus::Conflict, cur_rev, false)
                 }
             }
             None => {
@@ -79,43 +92,34 @@ pub async fn push(State(st): State<AppState>, Approved(a): Approved, Json(req): 
                 .bind(db::ts(now))
                 .execute(&mut *tx)
                 .await?;
-                (PushStatus::Applied, it.revision)
+                (PushStatus::Applied, it.revision, true)
             }
         };
-        if status == PushStatus::Applied && revision == it.revision {
-            // 版本历史（保留 30 天，冲突取证与回滚）+ 变更日志（每条目只保留最新一行）
-            let exists = sqlx::query("SELECT 1 AS x FROM item_versions WHERE user_id = $1 AND item_id = $2 AND revision = $3")
+        if changed {
+            // 只为真正的新写入追加历史和移动游标；历史被 GC 后的合法重试也保持无副作用。
+            sqlx::query(
+                "INSERT INTO item_versions(user_id, item_id, revision, blob, device_id, created_at) VALUES($1, $2, $3, $4, $5, $6)",
+            )
+            .bind(a.user_id.clone())
+            .bind(it.id.clone())
+            .bind(it.revision)
+            .bind(it.blob.0.clone())
+            .bind(a.device_id.clone())
+            .bind(db::ts(now))
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query("DELETE FROM change_log WHERE user_id = $1 AND item_id = $2")
+                .bind(a.user_id.clone())
+                .bind(it.id.clone())
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query("INSERT INTO change_log(user_id, item_id, revision, created_at) VALUES($1, $2, $3, $4)")
                 .bind(a.user_id.clone())
                 .bind(it.id.clone())
                 .bind(it.revision)
-                .fetch_optional(&mut *tx)
-                .await?
-                .is_some();
-            if !exists {
-                sqlx::query(
-                    "INSERT INTO item_versions(user_id, item_id, revision, blob, device_id, created_at) VALUES($1, $2, $3, $4, $5, $6)",
-                )
-                .bind(a.user_id.clone())
-                .bind(it.id.clone())
-                .bind(it.revision)
-                .bind(it.blob.0.clone())
-                .bind(a.device_id.clone())
                 .bind(db::ts(now))
                 .execute(&mut *tx)
                 .await?;
-                sqlx::query("DELETE FROM change_log WHERE user_id = $1 AND item_id = $2")
-                    .bind(a.user_id.clone())
-                    .bind(it.id.clone())
-                    .execute(&mut *tx)
-                    .await?;
-                sqlx::query("INSERT INTO change_log(user_id, item_id, revision, created_at) VALUES($1, $2, $3, $4)")
-                    .bind(a.user_id.clone())
-                    .bind(it.id.clone())
-                    .bind(it.revision)
-                    .bind(db::ts(now))
-                    .execute(&mut *tx)
-                    .await?;
-            }
         }
         results.push(PushResult { id: it.id.clone(), status, revision });
     }

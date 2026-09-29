@@ -3,7 +3,7 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, DeepSeek41]
     tags: ["v*"]
   pull_request:
 
@@ -15,6 +15,29 @@ env:
   FLUTTER_VERSION: "3.47.5"
 
 jobs:
+  java:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21.0.12.1+1'
+          cache: maven
+          cache-dependency-path: server/pom.xml
+      - name: Java 格式、架构、Jetty 与真实 PG/Redis 集成测试
+        run: bash ./mvnw --batch-mode verify
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: java-test-reports
+          path: |
+            server/target/surefire-reports/
+            server/target/failsafe-reports/
+
   rust:
     runs-on: ubuntu-latest
     steps:
@@ -23,9 +46,9 @@ jobs:
         with: { components: "clippy, rustfmt" }
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
-      - run: cargo clippy --locked -p vault-crypto -p vault-proto -p vault-core -p vault-server -p vault-nmhost --all-targets -- -D warnings
-      - name: 单元 + 端到端测试（e2e 自启 SQLite 服务端）
-        run: cargo test --locked -p vault-crypto -p vault-proto -p vault-core -p vault-server -p vault-nmhost
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: 单元 + 端到端测试（含 FRB 桥，e2e 自启 SQLite 服务端）
+        run: cargo test --locked --workspace
       - name: 服务端 PostgreSQL 冒烟（迁移 + 健康检查）
         run: |
           docker run -d --name pg -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=vaultone -p 5432:5432 postgres:16-alpine
@@ -33,6 +56,20 @@ jobs:
           VAULTONE_SERVER_SECRET=$(cargo run -q -p vault-server -- gen-secret) \
           VAULTONE_DATABASE_URL=postgres://postgres:ci@localhost:5432/vaultone \
           cargo run -q -p vault-server -- check
+      - name: PostgreSQL 旧库升级（UTC 与非 UTC 会话）
+        env:
+          VAULTONE_MIGRATION_TEST_PG_URL: postgres://postgres:ci@127.0.0.1:5432/vaultone_migration_test
+          VAULTONE_MIGRATION_TEST_PG_ALLOW: "1"
+        run: |
+          docker exec pg createdb -U postgres vaultone_migration_test
+          cargo test --locked -p vault-server --test migration_upgrade postgres_ -- --ignored --nocapture
+      - name: PostgreSQL 同步竞争与游标提交顺序
+        env:
+          VAULTONE_SYNC_TEST_PG_URL: postgres://postgres:ci@127.0.0.1:5432/vaultone_sync_test
+          VAULTONE_SYNC_TEST_PG_ALLOW: "1"
+        run: |
+          docker exec pg createdb -U postgres vaultone_sync_test
+          cargo test --locked -p vault-server --test sync_concurrency postgres_ -- --ignored --nocapture
 
   coverage:
     runs-on: ubuntu-latest

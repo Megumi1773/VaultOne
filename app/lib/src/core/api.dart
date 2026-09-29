@@ -3,10 +3,12 @@ import 'dart:typed_data';
 
 import '../rust/api/browser.dart' as rbrowser;
 import '../rust/api/clipboard.dart' as rclip;
+import '../rust/api/conflicts.dart' as rconflicts;
 import '../rust/api/logging.dart' as rlog;
 import '../rust/api/sync.dart' as rsync;
 import '../rust/api/tools.dart' as rtools;
 import '../rust/api/vault.dart' as rvault;
+import 'conflict_models.dart';
 import 'ffi.dart';
 import 'models.dart';
 
@@ -16,6 +18,34 @@ export '../rust/api/sync.dart' show DeviceDto, AuditEventDto, RemoteStatusDto, S
 ///
 /// UI 只依赖本类；所有 [BridgeError] 在此统一转换为 [CoreException]。
 abstract final class VaultApi {
+  static const privacyVersion = '2026-09';
+
+  /// 锁定使所有未完成的敏感读取失效；旧结果不得交给页面或回填状态。
+  static int sessionEpoch = 0;
+  static void invalidateSession() => sessionEpoch++;
+
+  static Future<T> _session<T>(Future<T> Function() call) async {
+    final epoch = sessionEpoch;
+    final result = await guard(call);
+    if (epoch != sessionEpoch) {
+      throw CoreException('session_expired', '保险库已锁定，请重新解锁后操作');
+    }
+    return result;
+  }
+
+  /// 所有远程入口共用持久化同意门禁，包括页面直调和独立自动填充引擎。
+  /// 默认拒绝；读取失败也不会发起网络请求。
+  static Future<T> _network<T>(Future<T> Function() call) => _session(() async {
+        final epoch = sessionEpoch;
+        if (await getSetting('privacy_consent') != privacyVersion) {
+          throw CoreException('privacy_required', '请先阅读并同意隐私政策与用户协议');
+        }
+        if (epoch != sessionEpoch) {
+          throw CoreException('session_expired', '保险库已锁定，请重新解锁后操作');
+        }
+        return call();
+      });
+
   static List<VaultItem> _items(String json) =>
       [for (final i in jsonDecode(json) as List) VaultItem.fromJson((i as Map).cast<String, dynamic>())];
 
@@ -43,16 +73,16 @@ abstract final class VaultApi {
 
   static Future<void> unlockWithQuickKey(List<int> key) => guard(() => rvault.unlockWithQuickKey(key: key));
 
-  static Future<List<int>> enableQuickUnlock() => guard(rvault.enableQuickUnlock);
+  static Future<List<int>> enableQuickUnlock() => _session(rvault.enableQuickUnlock);
 
   static Future<void> disableQuickUnlock() => guard(rvault.disableQuickUnlock);
 
   static Future<void> verifyMasterPassword(String password, String secretKey) =>
-      guard(() => rvault.verifyMasterPassword(password: password, secretKey: secretKey));
+      _session(() => rvault.verifyMasterPassword(password: password, secretKey: secretKey));
 
   static Future<void> lock() => guard(rvault.lock);
 
-  static Future<AccountInfo> account() => guard(() async {
+  static Future<AccountInfo> account() => _session(() async {
         final a = await rvault.accountInfo();
         return AccountInfo(
           accountId: a.accountId,
@@ -64,7 +94,7 @@ abstract final class VaultApi {
       });
 
   static Future<void> changePassword(String current, String secretKey, String newPassword) =>
-      guard(() => rvault.changePassword(current: current, secretKey: secretKey, newPassword: newPassword));
+      _session(() => rvault.changePassword(current: current, secretKey: secretKey, newPassword: newPassword));
 
   static Future<Enrollment> recover(String recoveryCode, String secretKey, String newPassword) => guard(() async =>
       _enrollment(await rvault.recoverLocal(recoveryCode: recoveryCode, secretKey: secretKey, newPassword: newPassword)));
@@ -73,53 +103,69 @@ abstract final class VaultApi {
 
   // ---------- 条目 ----------
 
-  static Future<List<VaultItem>> listItems() => guard(() async => _items(await rvault.listItems()));
+  static Future<List<VaultItem>> listItems() => _session(() async => _items(await rvault.listItems()));
 
-  static Future<List<VaultItem>> listTrash() => guard(() async => _items(await rvault.listTrash()));
+  static Future<List<VaultItem>> listTrash() => _session(() async => _items(await rvault.listTrash()));
 
   static Future<VaultItem> createItem(ItemData data) =>
-      guard(() async => _item(await rvault.createItem(dataJson: jsonEncode(data.toJson()))));
+      _session(() async => _item(await rvault.createItem(dataJson: jsonEncode(data.toJson()))));
 
   static Future<VaultItem> updateItem(String id, ItemData data) =>
-      guard(() async => _item(await rvault.updateItem(id: id, dataJson: jsonEncode(data.toJson()))));
+      _session(() async => _item(await rvault.updateItem(id: id, dataJson: jsonEncode(data.toJson()))));
 
-  static Future<void> deleteItem(String id) => guard(() => rvault.deleteItem(id: id));
+  static Future<void> deleteItem(String id) => _session(() => rvault.deleteItem(id: id));
 
-  static Future<void> restoreItem(String id) => guard(() => rvault.restoreItem(id: id));
+  static Future<void> restoreItem(String id) => _session(() => rvault.restoreItem(id: id));
 
-  static Future<List<AuditFinding>> audit() => guard(() async => [
+  static Future<List<AuditFinding>> audit() => _session(() async => [
         for (final f in await rvault.auditLocal())
           AuditFinding(itemId: f.itemId, weak: f.weak, score: f.score, reusedWith: f.reusedWith),
       ]);
 
   /// HIBP k-匿名泄露检测（在 Rust 侧发起请求），返回 条目 ID → 泄露次数。
-  static Future<Map<String, int>> checkBreaches(List<String> itemIds) => guard(() async => {
+  static Future<Map<String, int>> checkBreaches(List<String> itemIds) => _network(() async => {
         for (final r in await rvault.checkBreaches(itemIds: itemIds)) r.itemId: r.count.toInt(),
       });
 
-  static Future<List<String>> matchItems(String pageUrl) => guard(() => rvault.matchItems(pageUrl: pageUrl));
+  static Future<List<String>> matchItems(String pageUrl) => _session(() => rvault.matchItems(pageUrl: pageUrl));
 
   static Future<String?> getSetting(String key) => guard(() => rvault.getSetting(key: key));
 
   static Future<void> setSetting(String key, String value) => guard(() => rvault.setSetting(key: key, value: value));
 
   /// 导入其他密码管理器的导出文件（CSV / 1PIF，格式由内核自动识别）。
-  static Future<ImportSummary> importItems(String content) => guard(() async {
+  static Future<ImportSummary> importItems(String content) => _session(() async {
         final s = await rvault.importItems(content: content);
         return (format: s.format, added: s.added, duplicates: s.duplicates, skipped: s.skipped);
       });
 
   /// 导出加密备份包（`.wljbak`）字节流。
-  static Future<Uint8List> exportBackup() => guard(rvault.exportBackup);
+  static Future<Uint8List> exportBackup() => _session(rvault.exportBackup);
 
   /// 从加密备份包导入。
-  static Future<ImportSummary> importBackup(Uint8List data) => guard(() async {
+  static Future<ImportSummary> importBackup(Uint8List data) => _session(() async {
         final s = await rvault.importBackup(data: data);
         return (format: s.format, added: s.added, duplicates: s.duplicates, skipped: s.skipped);
       });
 
   /// 导出为明文 CSV（迁移用）。
-  static Future<String> exportCsv() => guard(rvault.exportCsv);
+  static Future<String> exportCsv() => _session(rvault.exportCsv);
+
+  // ---------- 本机冲突裁决 ----------
+
+  static Future<List<ConflictDetail>> listConflicts(bool includeHistory) => _session(() async => [
+        for (final value in jsonDecode(await rconflicts.listConflicts(includeHistory: includeHistory)) as List)
+          ConflictDetail.fromJson((value as Map).cast<String, dynamic>()),
+      ]);
+
+  static Future<ConflictDetail> getConflict(String id) => _session(() async =>
+      ConflictDetail.fromJson((jsonDecode(await rconflicts.getConflict(id: id)) as Map).cast<String, dynamic>()));
+
+  static Future<ConflictDetail> refreshConflict(String id) => _session(() async =>
+      ConflictDetail.fromJson((jsonDecode(await rconflicts.refreshConflict(id: id)) as Map).cast<String, dynamic>()));
+
+  static Future<void> resolveConflict(String id, ConflictResolution resolution) => _session(() =>
+      rconflicts.resolveConflict(id: id, resolutionJson: jsonEncode(resolution.toJson())));
 
   // ---------- 浏览器扩展（仅桌面端）----------
 
@@ -132,7 +178,7 @@ abstract final class VaultApi {
   static Future<void> respondPairing(String clientId, bool approved) =>
       guard(() => rbrowser.respondPairing(clientId: clientId, approved: approved));
 
-  static Future<List<BrowserClient>> browserClients() => guard(() async => [
+  static Future<List<BrowserClient>> browserClients() => _session(() async => [
         for (final c in await rbrowser.listBrowserClients())
           (id: c.id, name: c.name, createdAt: c.createdAt.toInt(), lastUsedAt: c.lastUsedAt.toInt()),
       ]);
@@ -144,41 +190,41 @@ abstract final class VaultApi {
 
   // ---------- 同步 ----------
 
-  static Future<rsync.RemoteStatusDto?> remoteStatus() => guard(rsync.remoteStatus);
+  static Future<rsync.RemoteStatusDto?> remoteStatus() => _session(rsync.remoteStatus);
 
-  static Future<void> pingServer(String url) => guard(() => rsync.pingServer(serverUrl: url));
+  static Future<void> pingServer(String url) => _network(() => rsync.pingServer(serverUrl: url));
 
   static Future<rsync.SyncReportDto> connectRegister(String url, String deviceName) =>
-      guard(() => rsync.connectRegister(serverUrl: url, deviceName: deviceName));
+      _network(() => rsync.connectRegister(serverUrl: url, deviceName: deviceName));
 
   static Future<bool> loginExisting(String url, String email, String password, String secretKey, String deviceName) =>
-      guard(() => rsync.loginExisting(serverUrl: url, email: email, password: password, secretKey: secretKey, deviceName: deviceName));
+      _network(() => rsync.loginExisting(serverUrl: url, email: email, password: password, secretKey: secretKey, deviceName: deviceName));
 
-  static Future<void> verifyNewDevice(String code) => guard(() => rsync.verifyNewDevice(code: code));
+  static Future<void> verifyNewDevice(String code) => _network(() => rsync.verifyNewDevice(code: code));
 
-  static Future<bool> checkNewDeviceApproved() => guard(rsync.checkNewDeviceApproved);
+  static Future<bool> checkNewDeviceApproved() => _network(rsync.checkNewDeviceApproved);
 
-  static Future<rsync.SyncReportDto> syncNow() => guard(rsync.syncNow);
+  static Future<rsync.SyncReportDto> syncNow() => _network(rsync.syncNow);
 
   static Future<void> reconnect(String password, String secretKey) =>
-      guard(() => rsync.reconnect(password: password, secretKey: secretKey));
+      _network(() => rsync.reconnect(password: password, secretKey: secretKey));
 
-  static Future<void> disconnect() => guard(rsync.disconnect);
+  static Future<void> disconnect() => _network(rsync.disconnect);
 
   static Future<void> deleteRemoteAccount(String password, String secretKey) =>
-      guard(() => rsync.deleteRemoteAccount(password: password, secretKey: secretKey));
+      _network(() => rsync.deleteRemoteAccount(password: password, secretKey: secretKey));
 
-  static Future<List<rsync.DeviceDto>> listDevices() => guard(rsync.listDevices);
+  static Future<List<rsync.DeviceDto>> listDevices() => _network(rsync.listDevices);
 
-  static Future<void> approveDevice(String id) => guard(() => rsync.approveDevice(deviceId: id));
+  static Future<void> approveDevice(String id) => _network(() => rsync.approveDevice(deviceId: id));
 
-  static Future<void> revokeDevice(String id) => guard(() => rsync.revokeDevice(deviceId: id));
+  static Future<void> revokeDevice(String id) => _network(() => rsync.revokeDevice(deviceId: id));
 
-  static Future<List<rsync.AuditEventDto>> auditEvents() => guard(rsync.auditEvents);
+  static Future<List<rsync.AuditEventDto>> auditEvents() => _network(rsync.auditEvents);
 
   static Future<Enrollment> recoverFromServer(
           String url, String email, String recoveryCode, String secretKey, String newPassword, String deviceName) =>
-      guard(() async => _enrollment(await rsync.recoverFromServer(
+      _network(() async => _enrollment(await rsync.recoverFromServer(
             serverUrl: url,
             email: email,
             recoveryCode: recoveryCode,

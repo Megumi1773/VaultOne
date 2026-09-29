@@ -15,6 +15,7 @@
 //! | [`security`] | 弱密码 / 重复 / 泄露检测 | `zxcvbn` / HIBP k-匿名 |
 
 pub mod browser;
+pub mod conflict;
 pub mod envelope;
 pub mod error;
 pub mod export;

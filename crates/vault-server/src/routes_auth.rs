@@ -312,7 +312,11 @@ pub async fn notify(st: &AppState, user_id: &str, subject: &str, body: &str) {
 }
 
 pub async fn logout(State(st): State<AppState>, auth: Authed) -> ApiResult<Json<Value>> {
-    sqlx::query("UPDATE sessions SET revoked_at = $1 WHERE token_hash = $2").bind(db::ts(now())).bind(auth.token_hash).execute(&st.db).await?;
+    sqlx::query("UPDATE sessions SET revoked_at = $1 WHERE token_hash = $2")
+        .bind(db::ts(now()))
+        .bind(auth.token_hash)
+        .execute(&st.db)
+        .await?;
     Ok(Json(json!({ "ok": true })))
 }
 

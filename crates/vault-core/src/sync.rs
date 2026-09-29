@@ -218,6 +218,9 @@ impl Vault {
         if self.store.load_remote()?.is_some() {
             return Err(VaultError::InvalidInput("已连接同步服务".into()));
         }
+        if self.store.conflicts(&s.account.vault_id)?.iter().any(|c| matches!(c.state.as_str(), "pending" | "resolution_pending")) {
+            return Err(VaultError::ConflictStale);
+        }
         let a = &s.account;
         let device = device_info(self.store.device_id()?, device_name)?;
         let api = ApiClient::new(server_url)?;
@@ -230,9 +233,11 @@ impl Vault {
             device: device.clone(),
         };
         let resp: LoginFinishResponse = api.post("/v1/auth/register", &req)?;
-        self.save_session(&api.base, &device, &resp.session)?;
-        self.store.mark_all_dirty()?;
-        self.store.reset_sync_state()?;
+        self.store.transaction(|store| {
+            store.mark_all_dirty()?;
+            store.reset_sync_state()?;
+            self.save_session(&api.base, &device, &resp.session)
+        })?;
         tracing::info!(target: "sync", "registered on sync server");
         self.sync_now()
     }
@@ -430,23 +435,40 @@ impl Vault {
         Ok(Enrollment { account_id: keys.account_id, email, secret_key: sk.format(), recovery_code: recovery.code.format() })
     }
 
-    /// 断开同步（注销本设备会话），本地数据保留。
-    pub fn disconnect(&mut self) -> Result<()> {
-        if let Ok((api, _)) = self.remote_api() {
-            let _: std::result::Result<serde_json::Value, _> = api.post("/v1/auth/logout", &serde_json::json!({}));
+    fn ensure_remote_removal_allowed(&self) -> Result<()> {
+        if let Some(account) = self.store.load_account()? {
+            if self.store.conflicts(&account.vault_id)?.iter().any(|c| matches!(c.state.as_str(), "pending" | "resolution_pending")) {
+                return Err(VaultError::ConflictPending);
+            }
         }
-        self.store.clear_remote()?;
-        self.store.reset_sync_state()?;
         Ok(())
+    }
+
+    /// 断开同步（注销本设备会话），本地数据保留。活动冲突必须先完成，不能切断其 ACK 通道。
+    pub fn disconnect(&mut self) -> Result<()> {
+        // 主动断连属于低频维护操作：锁住写入直到远端/本机清理结束，避免另一连接在检查后创建冲突。
+        self.store.transaction(|store| {
+            self.ensure_remote_removal_allowed()?;
+            // 无活动冲突时维持本地优先：过期会话或离线不阻止本机断开，远端注销尽力。
+            if let Ok((api, _)) = self.remote_api() {
+                let _: Result<serde_json::Value> = api.post("/v1/auth/logout", &serde_json::json!({}));
+            }
+            store.clear_remote()?;
+            store.reset_sync_state()
+        })
     }
 
     /// 注销云端账户（PIPL/GDPR 删除权）。需要主密码二次确认。
     pub fn delete_remote_account(&mut self, master_password: &str, secret_key: &str) -> Result<()> {
+        self.ensure_remote_removal_allowed()?;
         self.verify_master_password(master_password, secret_key)?;
-        let (api, _) = self.remote_api()?;
-        api.call::<(), serde_json::Value>(reqwest::Method::DELETE, "/v1/account", None)?;
-        self.store.clear_remote()?;
-        self.store.reset_sync_state()?;
+        self.store.transaction(|store| {
+            self.ensure_remote_removal_allowed()?;
+            let (api, _) = self.remote_api()?;
+            api.call::<(), serde_json::Value>(reqwest::Method::DELETE, "/v1/account", None)?;
+            store.clear_remote()?;
+            store.reset_sync_state()
+        })?;
         tracing::warn!(target: "sync", "remote account deleted");
         Ok(())
     }
@@ -540,11 +562,8 @@ impl Vault {
         let mut cursor = self.store.cursor(&vault_id)?;
         loop {
             let page: PullResponse = api.get(&format!("/v1/sync/pull?cursor={cursor}&limit={PULL_PAGE_SIZE}"))?;
-            for item in &page.items {
-                self.apply_remote(item, report)?;
-            }
+            self.apply_pull_page(&page, cursor, report)?;
             cursor = page.cursor;
-            self.store.set_cursor(&vault_id, cursor, now())?;
             if let Some(gen) = page.vk_gen {
                 if gen > self.session()?.account.vk_gen {
                     self.adopt_remote_credentials(api)?;
@@ -558,27 +577,124 @@ impl Vault {
         Ok(())
     }
 
-    fn apply_remote(&mut self, remote: &RemoteItem, report: &mut SyncReport) -> Result<()> {
+    /// 每条提交都是可重放的原子操作；全页成功后才推进游标，重启可重复应用已提交前缀。
+    pub(crate) fn apply_pull_page(&mut self, page: &PullResponse, expected_cursor: i64, report: &mut SyncReport) -> Result<()> {
         let vault_id = self.session()?.account.vault_id.clone();
-        let remote_data = match self.decrypt_blob(&remote.id, remote.revision, &remote.blob) {
-            Ok(d) => d,
-            Err(e) => {
-                tracing::error!(target: "sync", item = %remote.id, error = %e, "remote item failed integrity check, ignored");
+        if page.cursor < expected_cursor {
+            return Err(VaultError::Integrity);
+        }
+        for item in &page.items {
+            self.apply_remote(item, report)?;
+        }
+        self.store.transaction(|s| {
+            if s.cursor(&vault_id)? != expected_cursor {
+                return Err(VaultError::ConflictStale);
+            }
+            s.set_cursor(&vault_id, page.cursor, now())
+        })
+    }
+
+    pub(crate) fn apply_remote(&mut self, remote: &RemoteItem, report: &mut SyncReport) -> Result<()> {
+        use crate::conflict::{ConflictField, StoredBase};
+        let vault_id = self.session()?.account.vault_id.clone();
+        // 损坏不能被视为成功，否则 pull 游标将永久越过未应用的数据。
+        if remote.revision < 1 {
+            return Err(VaultError::Integrity);
+        }
+        let remote_data = self.decrypt_blob(&remote.id, remote.revision, &remote.blob)?;
+        crate::vault::validate_item(&remote_data)?;
+        if remote.kind != remote_data.kind.as_str() {
+            return Err(VaultError::Integrity);
+        }
+        let remote_row = ItemRow {
+            id: remote.id.clone(),
+            vault_id: vault_id.clone(),
+            kind: remote.kind.clone(),
+            blob: remote.blob.0.clone(),
+            revision: remote.revision,
+            server_rev: remote.revision,
+            base_blob: Some(remote.blob.0.clone()),
+            base_deleted: Some(remote.deleted),
+            dirty: false,
+            deleted_at: remote.deleted.then_some(remote.updated_at),
+            created_at: remote_data.created_at,
+            updated_at: remote_data.updated_at,
+        };
+        let local = self.store.get_item(&remote.id)?;
+        let active = self.store.active_conflict(&vault_id, &remote.id)?;
+        let payload = active.as_ref().map(|c| self.open_conflict(c)).transpose()?;
+        if let Some(l) = &local {
+            if l.vault_id != vault_id {
+                return Err(VaultError::Integrity);
+            }
+            // 响应丢失后的重复拉取，只认可精确信封与墓碑，不重新密封或按时间覆盖。
+            if remote.revision == l.revision
+                && remote.blob.0 == l.blob
+                && remote.deleted == l.deleted_at.is_some()
+                && active.as_ref().is_none_or(|c| c.state == "resolution_pending")
+                && self.acknowledge_snapshot(l)?
+            {
                 return Ok(());
             }
-        };
-        let deleted_at = remote.deleted.then_some(remote.updated_at);
-        let local = self.store.get_item(&remote.id)?;
-        match local {
-            Some(l) if remote.revision <= l.server_rev => {}
-            Some(l) if l.dirty => {
-                // 双方都改了：字段级三方合并
+            if let Some(p) = &payload {
+                if remote.revision < p.remote.revision {
+                    return Ok(());
+                }
+                if remote.revision == p.remote.revision {
+                    if remote.blob.0 != p.remote.blob || remote.deleted != p.remote.deleted_at.is_some() {
+                        return Err(VaultError::Integrity);
+                    }
+                    return Ok(());
+                }
+            }
+            if remote.revision <= l.server_rev {
+                if remote.revision == l.server_rev
+                    && (l.base_blob.as_ref() != Some(&remote.blob.0) || l.base_deleted.is_some_and(|d| d != remote.deleted))
+                {
+                    return Err(VaultError::Integrity);
+                }
+                return Ok(());
+            }
+            if l.dirty || active.is_some() {
                 let local_data = self.decrypt_blob(&l.id, l.revision, &l.blob)?;
-                let base = l.base_blob.as_ref().and_then(|b| self.decrypt_blob(&l.id, l.server_rev, b).ok());
+                let base_snapshot = if active.as_ref().is_some_and(|c| c.state == "pending") {
+                    payload.as_ref().and_then(|p| p.base.clone())
+                } else {
+                    l.base_blob.as_ref().map(|blob| StoredBase { revision: l.server_rev, blob: blob.clone(), deleted: l.base_deleted })
+                };
+                let base = base_snapshot.as_ref().map(|b| self.decrypt_blob(&l.id, b.revision, &b.blob)).transpose()?;
                 let outcome = merge(base.as_ref(), &local_data, &remote_data);
-                // 删除语义：只有双方都删除才保持删除，否则保留编辑，避免丢数据
-                let deleted = if l.deleted_at.is_some() && remote.deleted { deleted_at.or(l.deleted_at) } else { None };
-                let revision = l.revision.max(remote.revision) + 1;
+                let (deleted, deletion_conflict) = crate::merge::merge_deleted(
+                    base.as_ref(),
+                    base_snapshot.as_ref().and_then(|b| b.deleted),
+                    &local_data,
+                    l.deleted_at.is_some(),
+                    &remote_data,
+                    remote.deleted,
+                );
+                let mut fields: Vec<_> = outcome.conflicts.iter().map(|s| ConflictField::from_merge(s)).collect();
+                if deletion_conflict {
+                    fields.push(ConflictField::Deleted);
+                }
+                // 已存在裁决工作记录时，新远端必须重新确认；不把旧决定自动套到新数据上。
+                if active.is_some() && fields.is_empty() {
+                    fields.push(ConflictField::Resolution);
+                }
+                if !fields.is_empty() {
+                    let count = fields.len() as u32;
+                    let record = self.prepare_conflict(l, &remote_row, fields, base_snapshot)?;
+                    self.store.transaction(|s| {
+                        s.check_item(Some(l), &l.id)?;
+                        s.check_conflict(active.as_ref(), &vault_id, &l.id)?;
+                        if let Some(old) = &active {
+                            s.retire_conflict(&old.id, "superseded")?;
+                        }
+                        s.put_conflict(&record)
+                    })?;
+                    report.conflicts += count;
+                    return Ok(());
+                }
+                let revision = l.revision.max(remote.revision).checked_add(1).ok_or(VaultError::Integrity)?;
                 let row = ItemRow {
                     id: l.id.clone(),
                     vault_id: vault_id.clone(),
@@ -587,39 +703,36 @@ impl Vault {
                     revision,
                     server_rev: remote.revision,
                     base_blob: Some(remote.blob.0.clone()),
+                    base_deleted: Some(remote.deleted),
                     dirty: true,
-                    deleted_at: deleted,
+                    deleted_at: deleted.then_some(outcome.data.updated_at),
                     created_at: l.created_at,
                     updated_at: outcome.data.updated_at,
                 };
-                self.store.put_item(&row)?;
-                report.merged += 1;
-                report.conflicts += outcome.conflicts.len() as u32;
-                tracing::info!(target: "sync", item = %l.id, fields = ?outcome.conflicts, "merged concurrent edits");
-            }
-            _ => {
-                self.store.put_item(&ItemRow {
-                    id: remote.id.clone(),
-                    vault_id,
-                    kind: remote.kind.clone(),
-                    blob: remote.blob.0.clone(),
-                    revision: remote.revision,
-                    server_rev: remote.revision,
-                    base_blob: Some(remote.blob.0.clone()),
-                    dirty: false,
-                    deleted_at,
-                    created_at: remote_data.created_at,
-                    updated_at: remote_data.updated_at,
+                self.store.transaction(|s| {
+                    s.check_item(Some(l), &l.id)?;
+                    s.check_conflict(None, &vault_id, &l.id)?;
+                    s.put_item(&row)
                 })?;
-                report.pulled += 1;
+                report.merged += 1;
+                return Ok(());
             }
         }
+        self.store.transaction(|s| {
+            s.check_item(local.as_ref(), &remote.id)?;
+            s.check_conflict(None, &vault_id, &remote.id)?;
+            s.put_item(&remote_row)
+        })?;
+        report.pulled += 1;
         Ok(())
     }
 
     /// 推送脏条目，返回是否有冲突（需要重新拉取合并）。
     fn push_dirty(&mut self, api: &ApiClient, report: &mut SyncReport) -> Result<bool> {
         let dirty = self.store.dirty_items()?;
+        for row in &dirty {
+            self.validate_outgoing_snapshot(row)?;
+        }
         let mut conflicted = false;
         for chunk in dirty.chunks(PUSH_MAX_ITEMS) {
             let items: Vec<PushItem> = chunk
@@ -638,9 +751,13 @@ impl Vault {
             for res in resp.results {
                 match res.status {
                     PushStatus::Applied => {
-                        let rev = chunk.iter().find(|r| r.id == res.id).map_or(res.revision, |r| r.revision);
-                        self.store.mark_synced(&res.id, rev)?;
-                        report.pushed += 1;
+                        let sent = chunk.iter().find(|r| r.id == res.id).ok_or(VaultError::Integrity)?;
+                        if res.revision != sent.revision {
+                            return Err(VaultError::Integrity);
+                        }
+                        if self.acknowledge_snapshot(sent)? {
+                            report.pushed += 1;
+                        }
                     }
                     PushStatus::Conflict => conflicted = true,
                 }

@@ -80,6 +80,9 @@ class _VaultOneAppState extends State<VaultOneApp> {
       child: ListenableBuilder(
         listenable: _state,
         builder: (context, _) => MaterialApp(
+          // 安全边界改变时销毁整个 Navigator（含已 push 的页面、弹窗和编辑器）。
+          // 不对锁定做出场动画，避免上一会话的明文短暂留在屏幕上。
+          key: ValueKey((_state.phase, _state.privacyAccepted, _state.sessionEpoch)),
           title: 'VaultOne',
           debugShowCheckedModeBanner: false,
           theme: buildTheme(Brightness.light),
@@ -119,7 +122,9 @@ class _PhaseRouter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget page = switch (state.phase) {
+    final Widget page = !state.privacyAccepted && state.phase != AppPhase.loading && state.phase != AppPhase.error
+        ? const OnboardingScreen()
+        : switch (state.phase) {
       AppPhase.loading => const _Splash(),
       AppPhase.onboarding => const OnboardingScreen(),
       AppPhase.locked => state.pendingEnrollment != null ? const OnboardingScreen() : const UnlockScreen(),

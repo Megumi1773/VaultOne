@@ -99,6 +99,31 @@ pub fn merge(base: Option<&ItemData>, local: &ItemData, remote: &ItemData) -> Me
     MergeOutcome { data: out, conflicts }
 }
 
+/// 墓碑三方合并。返回（删除结果，是否需要人工裁决）。未知基线保守处理。
+/// 一方删除/恢复且另一方完全未改可以自动采用；删除与内容编辑并发必须留给用户。
+pub(crate) fn merge_deleted(
+    base: Option<&ItemData>,
+    base_deleted: Option<bool>,
+    local: &ItemData,
+    local_deleted: bool,
+    remote: &ItemData,
+    remote_deleted: bool,
+) -> (bool, bool) {
+    if local_deleted == remote_deleted {
+        return (local_deleted, false);
+    }
+    if let (Some(base), Some(deleted)) = (base, base_deleted) {
+        let b = base.clone().into_import_content();
+        if local_deleted == deleted && local.clone().into_import_content() == b {
+            return (remote_deleted, false);
+        }
+        if remote_deleted == deleted && remote.clone().into_import_content() == b {
+            return (local_deleted, false);
+        }
+    }
+    (local_deleted, true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

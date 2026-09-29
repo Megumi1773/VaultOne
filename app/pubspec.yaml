@@ -53,6 +53,8 @@ dependencies:
   hotkey_manager: ^0.2.3
 
 dev_dependencies:
+  # 文件保存对话框的官方测试替身接口（沿用已解析版本）。
+  file_selector_platform_interface: 2.7.0
   flutter_test:
     sdk: flutter
 

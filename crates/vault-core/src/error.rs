@@ -19,6 +19,10 @@ pub enum VaultError {
     AlreadyInitialized,
     #[error("条目不存在")]
     ItemNotFound,
+    #[error("存在未完成的同步冲突，请先裁决并完成同步后再导出")]
+    ConflictPending,
+    #[error("冲突候选已变化，请重新加载")]
+    ConflictStale,
     #[error("数据完整性校验失败")]
     Integrity,
     #[error("参数不合法: {0}")]
@@ -48,6 +52,8 @@ impl VaultError {
             VaultError::NotInitialized => "not_initialized",
             VaultError::AlreadyInitialized => "already_initialized",
             VaultError::ItemNotFound => "not_found",
+            VaultError::ConflictPending => "conflict_pending",
+            VaultError::ConflictStale => "conflict_stale",
             VaultError::Integrity => "integrity",
             VaultError::InvalidInput(_) => "invalid_input",
             VaultError::Crypto(_) => "crypto",

@@ -134,7 +134,24 @@ class AppState extends ChangeNotifier {
 
   /// 首次启动须同意隐私政策与用户协议（个人信息保护法 / 应用商店要求）；同意前不发起任何网络请求。
   bool privacyAccepted = false;
-  static const privacyVersion = '2026-09';
+  static const privacyVersion = VaultApi.privacyVersion;
+
+  int get sessionEpoch => VaultApi.sessionEpoch;
+  bool isCurrentSession(int epoch) => phase == AppPhase.unlocked && epoch == sessionEpoch;
+
+  Future<T> _withSession<T>(Future<T> Function() call) async {
+    final epoch = sessionEpoch;
+    void check() {
+      if (!isCurrentSession(epoch)) {
+        throw CoreException('session_expired', '保险库已锁定，请重新解锁后操作');
+      }
+    }
+    check();
+    final result = await call();
+    check();
+    return result;
+  }
+
 
   /// 新设备登录：等待邮件验证码或其他设备批准。
   bool awaitingDeviceApproval = false;
@@ -225,6 +242,10 @@ class AppState extends ChangeNotifier {
     privacyAccepted = true;
     VaultApi.log('privacy policy accepted');
     notifyListeners();
+    if (phase == AppPhase.unlocked) {
+      _startPeriodicSync();
+      scheduleSync(immediate: true);
+    }
   }
 
   // ---------- 注册 / 解锁 ----------
@@ -323,17 +344,23 @@ class AppState extends ChangeNotifier {
   }
 
   /// 查看 Secret Key 前要求再次输入主密码，防止旁人趁未锁定时查看。
-  Future<String> revealSecretKey(String masterPassword) async {
+  Future<String> revealSecretKey(String masterPassword) => _withSession(() async {
     final sk = await _secretKey(null);
     await VaultApi.verifyMasterPassword(masterPassword, sk);
     return sk;
-  }
+  });
 
   Future<void> _enterUnlocked() async {
+    final epoch = sessionEpoch;
     phase = AppPhase.unlocked;
-    account = await VaultApi.account();
+    final nextAccount = await VaultApi.account();
+    if (!isCurrentSession(epoch)) return;
+    account = nextAccount;
     await refresh(sync: false);
-    remote = await VaultApi.remoteStatus();
+    if (!isCurrentSession(epoch)) return;
+    final nextRemote = await VaultApi.remoteStatus();
+    if (!isCurrentSession(epoch)) return;
+    remote = nextRemote;
     syncState = remote == null ? SyncState.off : SyncState.idle;
     _startIdleTimer();
     _startPeriodicSync();
@@ -343,19 +370,25 @@ class AppState extends ChangeNotifier {
 
   Future<void> lock() async {
     if (phase != AppPhase.unlocked) return;
-    await respondPairing(false);
+    // 在任何 await 之前撤销 UI 会话，移除 Navigator 敏感页面并使旧读取失效。
+    VaultApi.invalidateSession();
+    phase = AppPhase.locked;
     _idleTimer?.cancel();
     _syncPeriodic?.cancel();
     _syncDebounce?.cancel();
-    await VaultApi.lock();
     items = const [];
     trash = const [];
     account = null;
-    phase = AppPhase.locked;
-    // 锁定时清空剪贴板中我们写入的内容（桌面端由 Rust 比对哈希后清除，移动端比对系统剪贴板）
-    unawaited(ClipboardService.clearNow());
-    VaultApi.log('locked');
+    pendingEnrollment = null;
     notifyListeners();
+    unawaited(ClipboardService.clearNow());
+    // 配对失败不得阻止内核锁定。
+    try {
+      await respondPairing(false);
+    } finally {
+      await VaultApi.lock();
+    }
+    VaultApi.log('locked');
   }
 
   // ---------- 云同步 ----------
@@ -461,23 +494,25 @@ class AppState extends ChangeNotifier {
 
   void _startPeriodicSync() {
     _syncPeriodic?.cancel();
-    if (remote == null) return;
+    if (remote == null || !privacyAccepted || phase != AppPhase.unlocked) return;
     _syncPeriodic = Timer.periodic(const Duration(minutes: 5), (_) => syncNow(silent: true));
   }
 
   /// 本地修改后 2 秒去抖同步；失败的修改留在离线队列，下次自动补传。
   void scheduleSync({bool immediate = false}) {
-    if (remote == null || phase != AppPhase.unlocked) return;
+    if (!privacyAccepted || remote == null || phase != AppPhase.unlocked) return;
     _syncDebounce?.cancel();
     _syncDebounce = Timer(immediate ? Duration.zero : const Duration(seconds: 2), () => syncNow(silent: true));
   }
 
   Future<SyncReportDto?> syncNow({bool silent = false}) async {
-    if (remote == null || phase != AppPhase.unlocked || syncState == SyncState.syncing) return null;
+    if (!privacyAccepted || remote == null || phase != AppPhase.unlocked || syncState == SyncState.syncing) return null;
+    final epoch = sessionEpoch;
     syncState = SyncState.syncing;
     notifyListeners();
     try {
       final r = await VaultApi.syncNow();
+      if (!isCurrentSession(epoch)) return null;
       syncState = SyncState.idle;
       syncError = null;
       if (r.credentialsUpdated) {
@@ -488,6 +523,7 @@ class AppState extends ChangeNotifier {
       remote = await VaultApi.remoteStatus();
       return r;
     } on CoreException catch (e) {
+      if (!isCurrentSession(epoch)) return null;
       syncState = e.isUnauthorized ? SyncState.needsReconnect : SyncState.error;
       syncError = e.message;
       if (!silent) rethrow;
@@ -526,13 +562,23 @@ class AppState extends ChangeNotifier {
   // ---------- 条目 ----------
 
   Future<void> refresh({bool sync = true}) async {
-    items = await VaultApi.listItems();
-    trash = await VaultApi.listTrash();
+    final epoch = sessionEpoch;
+    if (!isCurrentSession(epoch)) return;
     try {
-      account = await VaultApi.account();
-    } catch (_) {}
-    notifyListeners();
-    if (sync) scheduleSync();
+      final nextItems = await VaultApi.listItems();
+      if (!isCurrentSession(epoch)) return;
+      final nextTrash = await VaultApi.listTrash();
+      if (!isCurrentSession(epoch)) return;
+      final nextAccount = await VaultApi.account();
+      if (!isCurrentSession(epoch)) return;
+      items = nextItems;
+      trash = nextTrash;
+      account = nextAccount;
+      notifyListeners();
+      if (sync) scheduleSync();
+    } on CoreException {
+      if (isCurrentSession(epoch)) rethrow;
+    }
   }
 
   VaultItem? byId(String? id) {
@@ -546,45 +592,45 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  Future<VaultItem> save(String? id, ItemData data) async {
+  Future<VaultItem> save(String? id, ItemData data) => _withSession(() async {
     final item = id == null ? await VaultApi.createItem(data) : await VaultApi.updateItem(id, data);
     await refresh();
     return item;
-  }
+  });
 
-  Future<void> toggleFavorite(VaultItem item) async {
+  Future<void> toggleFavorite(VaultItem item) => _withSession(() async {
     await VaultApi.updateItem(item.id, item.data.copyWith(favorite: !item.data.favorite));
     await refresh();
-  }
+  });
 
-  Future<void> delete(String id) async {
+  Future<void> delete(String id) => _withSession(() async {
     await VaultApi.deleteItem(id);
     await refresh();
-  }
+  });
 
-  Future<void> restore(String id) async {
+  Future<void> restore(String id) => _withSession(() async {
     await VaultApi.restoreItem(id);
     await refresh();
-  }
+  });
 
-  Future<ImportSummary> importItems(String content) async {
+  Future<ImportSummary> importItems(String content) => _withSession(() async {
     final summary = await VaultApi.importItems(content);
     await refresh();
     return summary;
-  }
+  });
 
   /// 从加密备份包（`.wljbak`）导入，导入后刷新。
-  Future<ImportSummary> importBackup(Uint8List data) async {
+  Future<ImportSummary> importBackup(Uint8List data) => _withSession(() async {
     final summary = await VaultApi.importBackup(data);
     await refresh();
     return summary;
-  }
+  });
 
   /// 导出加密备份包字节流。
-  Future<Uint8List> exportBackup() => VaultApi.exportBackup();
+  Future<Uint8List> exportBackup() => _withSession(VaultApi.exportBackup);
 
   /// 导出明文 CSV。
-  Future<String> exportCsv() => VaultApi.exportCsv();
+  Future<String> exportCsv() => _withSession(VaultApi.exportCsv);
 
   // ---------- 设置 ----------
 
@@ -643,6 +689,8 @@ class AppState extends ChangeNotifier {
   /// 清除本机全部数据（不影响云端）。之后回到欢迎页。
   Future<void> wipeThisDevice() async {
     final id = accountId;
+    VaultApi.invalidateSession();
+    _syncDebounce?.cancel();
     _idleTimer?.cancel();
     _syncPeriodic?.cancel();
     await VaultApi.wipeLocal();

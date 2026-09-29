@@ -1,0 +1,1 @@
+org.springframework.context.ApplicationContextInitializer=app.vaultone.server.config.DeploymentGuard

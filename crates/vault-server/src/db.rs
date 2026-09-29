@@ -102,13 +102,29 @@ pub async fn connect(cfg: &Config) -> anyhow::Result<AnyPool> {
         })
         .connect(&cfg.database_url)
         .await?;
-    if sqlite {
-        SQLITE_MIGRATOR.run(&pool).await?;
-    } else {
-        POSTGRES_MIGRATOR.run(&pool).await?;
-    }
+    migrate(&pool, sqlite).await?;
     tracing::info!(backend = if sqlite { "sqlite" } else { "postgres" }, "database ready");
     Ok(pool)
+}
+
+/// 启动迁移共用入口。PG 旧迁移的 to_timestamp/to_char 依赖会话时区，必须在 UTC 执行。
+/// 已经转换为 TEXT 的历史数据不重写；无法从带 Z 的文本判断原始会话时区。
+pub async fn migrate(pool: &AnyPool, sqlite: bool) -> anyhow::Result<()> {
+    if sqlite {
+        SQLITE_MIGRATOR.run(pool).await?;
+        return Ok(());
+    }
+    // 脱离连接池：取消或失败也不会把携带迁移锁/临时时区的连接交还业务请求。
+    let mut conn = pool.acquire().await?.detach();
+    let timezone: String = sqlx::query_scalar("SHOW TIME ZONE").fetch_one(&mut conn).await?;
+    sqlx::query("SELECT set_config('TimeZone', 'UTC', false)").execute(&mut conn).await?;
+    let result = POSTGRES_MIGRATOR.run(&mut conn).await;
+    let restored = sqlx::query("SELECT set_config('TimeZone', $1, false)").bind(timezone).execute(&mut conn).await;
+    let closed = sqlx::Connection::close(conn).await;
+    result?;
+    restored?;
+    closed?;
+    Ok(())
 }
 
 // ───────── 行映射 ─────────

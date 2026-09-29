@@ -32,8 +32,15 @@ class _SecurityPageState extends State<SecurityPage> {
   }
 
   Future<void> _load() async {
-    final f = await VaultApi.audit();
-    if (mounted) setState(() => _findings = f);
+    try {
+      final f = await VaultApi.audit();
+      if (mounted) setState(() => _findings = f);
+    } on CoreException catch (e) {
+      // 页面可能在审计返回前被全局锁定销毁，不再展示旧会话结果。
+      if (mounted && e.code != 'session_expired') {
+        setState(() => _breachError = '审计失败：${e.message}');
+      }
+    }
   }
 
   /// k-匿名查询（在 Rust 内核中执行）：每个密码只发送 SHA-1 前 5 位，并开启 Add-Padding 让响应长度不泄露信息。
