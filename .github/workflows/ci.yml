@@ -28,8 +28,26 @@ jobs:
           java-version: '21.0.12.1+1'
           cache: maven
           cache-dependency-path: server/pom.xml
-      - name: Java 格式、架构、Jetty 与真实 PG/Redis 集成测试
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: java-client-interop
+      - name: Java 格式、架构、真实 PG/Redis 与 Rust 客户端互通
         run: bash ./mvnw --batch-mode verify
+      - name: Java 可执行包 SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: server/target/vaultone-server-0.0.1-SNAPSHOT.jar
+          format: spdx-json
+          artifact-name: vaultone-java-sbom.spdx.json
+      - name: Java 依赖漏洞门禁
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: server/target
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -37,6 +55,10 @@ jobs:
           path: |
             server/target/surefire-reports/
             server/target/failsafe-reports/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vaultone-java-server
+          path: server/target/*.jar
 
   rust:
     runs-on: ubuntu-latest

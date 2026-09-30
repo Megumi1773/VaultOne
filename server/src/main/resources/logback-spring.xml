@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 运行日志：控制台便于开发，文件按时间+大小滚动、压缩、限制总量与保留期。
+     目录不被 Web 暴露；不得输出 HTTP body、Authorization、token、SQL 绑定值或密文。 -->
+<configuration>
+  <springProperty scope="context" name="LOG_DIR" source="vaultone.ops.log-directory" defaultValue="logs"/>
+  <springProperty scope="context" name="LOG_HISTORY" source="vaultone.ops.log-max-history" defaultValue="30"/>
+  <springProperty scope="context" name="LOG_MAX_SIZE" source="vaultone.ops.log-max-file-size" defaultValue="100MB"/>
+  <springProperty scope="context" name="LOG_TOTAL_CAP" source="vaultone.ops.log-total-size-cap" defaultValue="2GB"/>
+
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{requestId:-}] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_DIR}/vaultone.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_DIR}/vaultone.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxFileSize>${LOG_MAX_SIZE}</maxFileSize>
+      <maxHistory>${LOG_HISTORY}</maxHistory>
+      <totalSizeCap>${LOG_TOTAL_CAP}</totalSizeCap>
+      <cleanHistoryOnStart>true</cleanHistoryOnStart>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{requestId:-}] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- 第三方与框架噪声收敛；SQL 绑定/结果日志由启动门禁强制 OFF。 -->
+  <logger name="org.hibernate.SQL" level="OFF"/>
+  <logger name="org.hibernate.orm.jdbc.bind" level="OFF"/>
+  <logger name="org.hibernate.orm.jdbc.extract" level="OFF"/>
+  <logger name="org.hibernate.orm.results" level="OFF"/>
+  <logger name="org.redisson" level="WARN"/>
+  <!-- 邮件库可能打印收件人/正文；只允许业务事件日志（vaultone.mail），第三方降到 WARN。 -->
+  <logger name="org.springframework.mail" level="WARN"/>
+  <logger name="jakarta.mail" level="WARN"/>
+  <logger name="org.eclipse.angus" level="WARN"/>
+  <logger name="vaultone.mail" level="INFO"/>
+  <!-- 系统诊断白名单：只输出异常类型/SQLState/位置，不输出原始 message。 -->
+  <logger name="vaultone.diagnostics" level="ERROR"/>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
+  </root>
+</configuration>

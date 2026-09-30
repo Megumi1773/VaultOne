@@ -8,19 +8,18 @@ import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 
 @Configuration(proxyBeanMethods = false)
 public class RedisConfiguration {
   /** 全进程唯一客户端；池有界，销毁时关闭线程，不采用每请求new client。 */
   @Bean(destroyMethod = "shutdown")
-  RedissonClient redissonClient(Environment env) {
+  RedissonClient redissonClient(VaultOneProperties properties) {
     Config config = new Config();
     config.setThreads(2).setNettyThreads(4);
     var single =
         config
             .useSingleServer()
-            .setAddress(env.getRequiredProperty("vaultone.redis.address"))
+            .setAddress(properties.redis().address())
             .setConnectionMinimumIdleSize(2)
             .setConnectionPoolSize(8)
             .setSubscriptionConnectionMinimumIdleSize(1)
@@ -29,8 +28,8 @@ public class RedisConfiguration {
             .setTimeout(3000)
             .setRetryAttempts(1)
             .setSslVerificationMode(SslVerificationMode.STRICT);
-    String password = env.getProperty("vaultone.redis.password", "");
-    if (!password.isBlank()) single.setPassword(password);
+    String password = properties.redis().password();
+    if (password != null && !password.isBlank()) single.setPassword(password);
     return Redisson.create(config);
   }
 

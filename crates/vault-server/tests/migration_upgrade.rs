@@ -169,7 +169,7 @@ async fn payload(pool: &AnyPool) -> Result<Vec<String>> {
 
 async fn indexes(pool: &AnyPool, postgres: bool) -> Result<Vec<(String, String)>> {
     let sql = if postgres {
-        "SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = current_schema() AND tablename <> '_sqlx_migrations' ORDER BY indexname"
+        "SELECT indexname::text AS indexname, indexdef::text AS indexdef FROM pg_indexes WHERE schemaname = current_schema() AND tablename <> '_sqlx_migrations' ORDER BY indexname"
     } else {
         "SELECT name, COALESCE(sql, '') FROM sqlite_master WHERE type = 'index' AND tbl_name <> '_sqlx_migrations' ORDER BY name"
     };
@@ -221,7 +221,7 @@ async fn check_not_null(pool: &AnyPool, postgres: bool) -> Result<()> {
     for t in TABLES {
         for c in t.dates.iter().filter(|c| !t.nullable.contains(c)) {
             let required = if postgres {
-                let value: String = sqlx::query_scalar("SELECT is_nullable FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1 AND column_name = $2").bind(t.name).bind(*c).fetch_one(pool).await?;
+                let value: String = sqlx::query_scalar("SELECT is_nullable::text FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1 AND column_name = $2").bind(t.name).bind(*c).fetch_one(pool).await?;
                 value == "NO"
             } else {
                 let value: i64 = sqlx::query_scalar(&format!("SELECT \"notnull\" FROM pragma_table_info('{}') WHERE name = $1", t.name))
@@ -243,7 +243,7 @@ async fn check_column_types(pool: &AnyPool, postgres: bool, upgraded: bool) -> R
     for t in TABLES {
         for c in t.dates {
             let ty: String = if postgres {
-                sqlx::query_scalar("SELECT data_type FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1 AND column_name = $2")
+                sqlx::query_scalar("SELECT data_type::text FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1 AND column_name = $2")
                     .bind(t.name).bind(*c).fetch_one(pool).await?
             } else {
                 sqlx::query_scalar(&format!("SELECT type FROM pragma_table_info('{}') WHERE name = $1", t.name))

@@ -1,11 +1,7 @@
 package app.vaultone.server.security;
 
-import app.vaultone.server.web.ErrorBody;
+import app.vaultone.server.common.ErrorCatalog;
 import jakarta.servlet.DispatcherType;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,15 +10,19 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
-import org.springframework.web.filter.OncePerRequestFilter;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * 无状态安全边界：禁用 Basic/表单/登出/请求缓存，不产生容器会话或 Cookie。
+ *
+ * <p>{@code /v1/**} 放行到 MVC（业务身份由 {@link AuthArgumentResolver} 解析并做对象级授权）；
+ * 健康探针公开；其余路径默认拒绝。认证/拒绝响应统一为 {@code {code,message}}。
+ */
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfiguration {
   @Bean
   org.springframework.security.authentication.AuthenticationManager authenticationManager() {
-    // 阻止默认用户/随机密码自动配置；没有S2会话服务时不接受任何身份。
+    // 阻止默认用户/随机密码自动配置；身份由 Bearer 会话解析器提供，不使用 AuthenticationManager。
     return authentication -> {
       throw new org.springframework.security.authentication.BadCredentialsException("认证尚未接入");
     };
@@ -44,42 +44,26 @@ public class SecurityConfiguration {
             a ->
                 a.dispatcherTypeMatchers(DispatcherType.ERROR)
                     .permitAll()
-                    .requestMatchers("/actuator/health/liveness", "/actuator/health/readiness")
+                    .requestMatchers(
+                        "/actuator/health/liveness",
+                        "/actuator/health/readiness",
+                        "/healthz",
+                        "/readyz")
+                    .permitAll()
+                    .requestMatchers("/v1/**")
                     .permitAll()
                     .anyRequest()
-                    .denyAll())
-        .addFilterBefore(new BearerBoundary(json), AnonymousAuthenticationFilter.class);
+                    .denyAll());
     return http.build();
   }
 
-  private static void write(ObjectMapper json, HttpServletResponse res, int status)
+  private static void write(
+      ObjectMapper json, jakarta.servlet.http.HttpServletResponse res, int status)
       throws IOException {
     res.setStatus(status);
     res.setContentType("application/json");
     res.setCharacterEncoding("UTF-8");
     res.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
-    json.writeValue(res.getOutputStream(), ErrorBody.forStatus(status));
-  }
-
-  /** S1不签发或验证token。任何凭据均拒绝，绝不伪装S2认证成功。 */
-  private static final class BearerBoundary extends OncePerRequestFilter {
-    private final ObjectMapper json;
-
-    BearerBoundary(ObjectMapper json) {
-      this.json = json;
-    }
-
-    @Override
-    protected void doFilterInternal(
-        HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-        throws ServletException, IOException {
-      String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-      if (header != null) {
-        // 保留Bearer扩展边界；S2将接入真实会话哈希查验，S1没有测试后门token。
-        write(json, response, 401);
-        return;
-      }
-      chain.doFilter(request, response);
-    }
+    json.writeValue(res.getOutputStream(), ErrorCatalog.body(status));
   }
 }

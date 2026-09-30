@@ -1,0 +1,28 @@
+# 仅显式激活 dev profile 时加载：本机回环开发环境的全部具体值都在这里，公共 YAML 不承载任何可用连接或密钥。
+# 数据服务是本机独立开发库 vaultone_java_dev（owner 为迁移角色），与 Rust 服务端在用的 vaultone 库分离。
+server:
+  address: 127.0.0.1
+spring:
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/vaultone_java_dev
+    username: vaultone_java_runtime
+    password: vaultone_java_runtime_dev_pw
+  flyway:
+    # 不写 spring.flyway.url：迁移地址沿用 spring.datasource.url，只切换角色。
+    # runtime_role 必须等于 spring.datasource.username，migrator_role 必须等于 spring.flyway.user，且两者不同。
+    user: vaultone_java_migrator
+    password: vaultone_java_migrator_dev_pw
+    placeholders:
+      runtime_role: vaultone_java_runtime
+      migrator_role: vaultone_java_migrator
+vaultone:
+  environment: dev
+  # 本机开发密钥：64 位十六进制、字节不全相同（DeploymentGuard 只接受该形态）。生产必须使用独立密钥。
+  server-secret: 3f9a1c47b2d85e60a4c71f3b9d206e5a8c417f2d6b3e905a1f7c2d48b6e30195
+  redis:
+    # 本机 Redis 8.2.1 standalone 免密；如需口令直接写在 password 上。
+    address: redis://127.0.0.1:6379
+    password: ""
+    namespace: vaultone:dev
+  development:
+    enabled: true

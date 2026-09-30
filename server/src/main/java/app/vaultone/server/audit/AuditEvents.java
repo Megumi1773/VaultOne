@@ -1,0 +1,38 @@
+package app.vaultone.server.audit;
+
+import java.util.Map;
+
+/** 审计事件目录：事件名沿用既有用户审计事件（客户端/旧服务端可见），并固定敏感等级。 新增事件必须先在此登记，避免散落魔法字符串。 */
+public final class AuditEvents {
+  public static final String REGISTER = "register";
+  public static final String LOGIN_OK = "login_ok";
+  public static final String LOGIN_FAIL = "login_fail";
+  public static final String DEVICE_ADDED = "device_added";
+  public static final String DEVICE_APPROVED = "device_approved";
+  public static final String DEVICE_REVOKED = "device_revoked";
+  public static final String PWD_CHANGED = "pwd_changed";
+  public static final String RECOVERY_USED = "recovery_used";
+  public static final String RECOVERY_FAIL = "recovery_fail";
+  public static final String LOGOUT = "logout";
+  public static final String ACCOUNT_DELETED = "account_deleted";
+
+  private static final Map<String, AuditSeverity> SEVERITIES =
+      Map.ofEntries(
+          Map.entry(REGISTER, AuditSeverity.MEDIUM),
+          Map.entry(LOGIN_OK, AuditSeverity.LOW),
+          Map.entry(LOGIN_FAIL, AuditSeverity.MEDIUM),
+          Map.entry(DEVICE_ADDED, AuditSeverity.MEDIUM),
+          Map.entry(DEVICE_APPROVED, AuditSeverity.HIGH),
+          Map.entry(DEVICE_REVOKED, AuditSeverity.HIGH),
+          Map.entry(PWD_CHANGED, AuditSeverity.HIGH),
+          Map.entry(RECOVERY_USED, AuditSeverity.HIGH),
+          Map.entry(RECOVERY_FAIL, AuditSeverity.HIGH),
+          Map.entry(LOGOUT, AuditSeverity.LOW),
+          Map.entry(ACCOUNT_DELETED, AuditSeverity.HIGH));
+
+  private AuditEvents() {}
+
+  public static AuditSeverity severityOf(String event) {
+    return SEVERITIES.getOrDefault(event, AuditSeverity.MEDIUM);
+  }
+}

@@ -1,0 +1,46 @@
+# 生产：强制服务端 TLS、PG 主机身份校验（sslmode=verify-full）、Redis TLS 与真实 SMTP。
+# 禁止开启 vaultone.development.enabled / allow-test-kdf；DeploymentGuard 拒绝任何降级覆盖。
+# CHANGE_ME_* 是部署前必须替换的真实凭据；证书路径必须指向部署机上的 PEM（缺失即启动失败，不静默降级）。
+server:
+  address: 0.0.0.0
+  ssl:
+    enabled: true
+    certificate: /etc/vaultone/tls/fullchain.pem
+    certificate-private-key: /etc/vaultone/tls/privkey.pem
+    enabled-protocols: TLSv1.3,TLSv1.2
+spring:
+  datasource:
+    url: jdbc:postgresql://pg.vaultone.internal:5432/vaultone?sslmode=verify-full
+    username: vaultone_runtime
+    password: CHANGE_ME_prod_runtime_password
+  flyway:
+    # 不写 spring.flyway.url：迁移与运行必须同库，地址沿用 spring.datasource.url，只切换角色。
+    # 两个角色必须分离，runtime_role 与 datasource.username 一致，migrator_role 与 flyway.user 一致。
+    user: vaultone_migrator
+    password: CHANGE_ME_prod_migrator_password
+    placeholders:
+      runtime_role: vaultone_runtime
+      migrator_role: vaultone_migrator
+vaultone:
+  environment: prod
+  # 生产日志目录必须显式指向受权限保护的挂载路径，不用相对目录。
+  ops:
+    log-directory: /var/log/vaultone
+  # 生产密钥必须与 dev 不同；部署时替换为独立 CSPRNG 生成的 64 位十六进制。
+  server-secret: 7b2e58c1d94a6037e5f18b4c2a7d9306b8e24f7c1a5d8063f92b4e7a1c6d5830
+  redis:
+    address: rediss://redis.vaultone.internal:6379
+    password: CHANGE_ME_prod_redis_password
+    namespace: vaultone:prod
+  development:
+    enabled: false
+    allow-test-kdf: false
+  mail:
+    mode: smtp
+    from: VaultOne <no-reply@vaultone.app>
+    smtp-host: smtp.vaultone.internal
+    smtp-port: 587
+    smtp-username: vaultone-notify
+    smtp-password: CHANGE_ME_prod_smtp_password
+    start-tls-required: true
+    ssl-enabled: false

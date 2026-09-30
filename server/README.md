@@ -1,164 +1,136 @@
-# VaultOne Java 服务端：S1 工程底座
+# VaultOne Java 服务端
 
-## 状态与边界
+Java 21 / Spring Boot 4 的零知识同步后端，兼容当前 Flutter + Rust 客户端的 `/v1` 协议。独立 Maven 工程，**没有替换生产 Rust 服务端，也不会自动接管已有数据库**。
 
-这是 **S1部分底座，完整S1尚未验收**（Docker阻塞，verify保持失败）。这是独立 `server/` Maven 工程，**不替换正在工作的 Rust 服务端**。当前只有基础设施、安全默认值和健康探针，没有注册、SRP、同步、恢复等 `/v1` 业务 API；任意 Bearer 凭据都拒绝，不能把本工程的启动或健康响应当作 S2 协议互通成功。
+注册、SRP 登录、设备批准/撤销、账户与凭据、恢复、审计、加密增量同步已经实现，并通过本机真实 PostgreSQL / Redis / Jetty 和 Rust 生产客户端联调。最新命令、通过数及未完成门禁统一记录在 [验收记录](../docs/11-计划执行与验收记录.md)。单元测试、互通验证和生产验收是不同状态。
 
-用户指定方向：Java21、Spring Boot4 MVC、Jetty、PostgreSQL、JPA/Envers、Redis/Redisson。未引入 WebFlux、H2、Lettuce、Jedis、Spring Data Redis。主工作区文档与CI不由本工程改动。
+## 1. 技术栈与模块
 
-### 本次实际验证
+工程最初由 Spring Initializr 生成，保留官方 Maven Wrapper，不加入 Cargo 工作区。
 
-| 命令/检查 | 实际结果 |
-|---|---|
-| 官方 Initializr 下载与 Maven Wrapper | 成功；Wrapper 3.3.4 `only-script`，Maven 3.9.16，不含手工制作的 wrapper jar |
-| 隔离 Temurin21 校验 | 21.0.12.1+1，官方ZIP SHA256核对一致，未安装到系统/修改系统JAVA_HOME |
-| `./mvnw spotless:apply validate` | **通过**；已实际格式化Java源码，Spotless check绑定validate，因此test/verify都会执行 |
-| `./mvnw test` | **11 tests，0 failures，0 errors，0 skipped** |
-| `./mvnw verify` | 单元/架构/真实Jetty/EL插值11项仍通过；**Failsafe失败**，Testcontainers找不到Docker，类初始化1 error，0 skipped，两个容器测试方法未执行 |
-| `docker version` | 客户端29.6.1；desktop-linux daemon命名管道不存在 |
-
-**未完成验收**：真实PG/Flyway/JPA启动、Redis/Redisson连接与TTL、数据库并发、Envers业务审计、生产TLS、Java与原客户端协议互通。不能以 `test` 通过替代 `verify` 通过；未设置 `disabledWithoutDocker`、skipITs或H2/mock数据库绕过验收。
-
-测试期间启动的Jetty绑定回环临时端口并由测试关闭，不保留长驻服务。没有读取或访问用户数据库/线上实例；连接参数只来自容器或明确不连接数据服务的传输层测试。
-
-## 脚手架与版本来源
-
-Initializr参数先按官方元数据核对再下载：
-
-```text
-GET https://start.spring.io/starter.zip
-  type=maven-project
-  language=java
-  bootVersion=4.1.1.RELEASE
-  javaVersion=21
-  groupId=app.vaultone
-  artifactId=vaultone-server
-  name=VaultOneServer
-  packageName=app.vaultone.server
-  packaging=jar
-  dependencies=web,security,validation,data-jpa,postgresql,flyway,actuator,testcontainers
-```
-
-元数据 `web` 实际生成 `spring-boot-starter-webmvc`。Initializr产生的POM带 `4.1.1.RELEASE` 后缀；按 Maven Central 正式发布坐标规范为 **4.1.1**，不是另选旧版本。其余代码在官方脚手架基础上编辑；`mvnw`、`mvnw.cmd` 和 `.mvn/wrapper/maven-wrapper.properties` 来自该下载包。
-
-| 组件 | 固定版本/来源 |
-|---|---|
-| Spring Boot | 4.1.1 parent/BOM |
-| Hibernate ORM / Envers | **7.4.5.Final**，两者使用同一Boot BOM，无单独覆盖 |
-| Jetty | **12.1.12**，Boot BOM |
-| Testcontainers | **2.0.5**，Boot BOM |
-| Redisson核心 | **4.7.0**，Central发行元数据核验后固定 |
-| ArchUnit | **1.5.1**，Central发行元数据核验后固定 |
-| Jakarta EL实现 | **Expressly 6.0.0**，官方POM依赖Jakarta EL API 6.0.1；替代Tomcat EL |
-| 格式门禁 | **Spotless Maven 3.10.3 / google-java-format 1.36.1**，Central元数据核验并固定 |
-| 容器镜像 | 首期沿用PG16；Redis8稳定候选经官方registry实核，完整tag+digest见下表，Docker恢复后仍需实际拉取/运行验证 |
-
-### 官方镜像锁定（2026-09-29核验）
-
-PostgreSQL官方支持表列出16系列最新补丁 **16.15**，支持截止 **2028-11-09**。Docker Hub官方 `library/postgres`、`library/redis` 的下列tag均为active；使用返回的多架构索引digest锁定，不能只写会漂移的tag。Redis **8.10.2** 已实核存在，不沿用未经依据选择的7.x镜像。
-
-| 用途 | Testcontainers完整引用 | registry更新时间 |
+| 组件 | 版本/来源 | 用途 |
 |---|---|---|
-| PG16 | `postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea` | 2026-09-21T04:08:02.149832Z |
-| Redis8候选 | `redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0` | 2026-09-24T21:05:07.843284Z |
+| Java / Maven | Java 21；Wrapper 使用 Maven 3.9.16 | 不使用 preview 特性；不要求修改系统默认 Java |
+| Spring Boot | 4.1.1 parent/BOM | MVC、Security、Validation、Actuator、Mail |
+| Jetty | 12.1.12，Boot BOM | 嵌入式服务器、真实虚拟线程请求 |
+| Hibernate / Envers | 7.4.5.Final，统一 Boot BOM | JPA、低频非敏感元数据修订 |
+| PostgreSQL / Flyway | Boot BOM | 持久真相源、唯一 schema 变更入口 |
+| Redisson | 4.7.0 | 单客户端、会话、展示缓存、分布式限流及维护锁 |
+| Bouncy Castle | 1.86 | HKDF；AES-GCM/HMAC/SHA-256 复用 JCA |
+| Expressly | 6.0.0 | Jakarta EL 实现，避免引入 Tomcat EL |
+| 测试 | Testcontainers 2.0.5、ArchUnit 1.5.1 | 真实基础设施与架构边界 |
+| 格式 | Spotless 3.10.3 / google-java-format 1.36.1 | Maven validate 门禁 |
 
-核验registry元数据不等于镜像已拉取/启动、Redis许可部署审查通过或PG/Redis兼容性验收通过。
+不引入 WebFlux、Tomcat、Lettuce、Jedis、H2 或第二套 Redis 连接工厂。
 
-版本证据：
+`identity`、`account`、`sync`、`audit` 按业务域组织；`security`、`crypto`、`proto`、`validate`、`config`、`web`、`common` 承载横切能力。Controller 不访问数据库或进行密码运算，服务事务不得将 Entity 直接返回 HTTP。
 
-- <https://www.postgresql.org/support/versioning/>
-- <https://hub.docker.com/v2/repositories/library/postgres/tags/16.15-alpine>
-- <https://hub.docker.com/v2/repositories/library/redis/tags/8.10.2-alpine>
-- <https://repo.maven.apache.org/maven2/com/diffplug/spotless/spotless-maven-plugin/maven-metadata.xml>
-- <https://repo.maven.apache.org/maven2/com/google/googlejavaformat/google-java-format/maven-metadata.xml>
-- <https://start.spring.io/metadata/client>
-- <https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-dependencies/4.1.1/spring-boot-dependencies-4.1.1.pom>
-- <https://repo.maven.apache.org/maven2/org/redisson/redisson/maven-metadata.xml>
-- <https://repo.maven.apache.org/maven2/org/glassfish/expressly/expressly/6.0.0/expressly-6.0.0.pom>
-- <https://repo.maven.apache.org/maven2/com/tngtech/archunit/archunit-junit5/maven-metadata.xml>
-- <https://api.adoptium.net/v3/assets/latest/21/hotspot?architecture=x64&image_type=jdk&os=windows&vendor=eclipse>
+架构与依赖理由见 [docs/01](../docs/01-模块拆分与依赖选型.md)，长期约束见根 [AGENTS.md](../AGENTS.md)。
 
-本次Temurin ZIP文件名 `OpenJDK21U-jdk_x64_windows_hotspot_21.0.12.1_1.zip`，SHA256：
+## 2. 协议与数据边界
 
-```text
-f9d6e191ab098c0d416e7d588a24420a8621cd2f4720dab2459b8b7b2d2d8b4e
+- 保留 `/v1` 注册、两阶段 SRP、退出、设备、账户、凭据更新、恢复、审计及同步接口，以及 `/healthz`、`/readyz`。成功 DTO/数组不新增全局 `data` 外壳。
+- JSON 保留 snake_case、严格 STANDARD Base64、显式 null、lowercase 枚举和 Unix 秒整数；错误集中返回 `{code,message}`，关联编号在 `x-request-id`。
+- 参数、认证、权限、冲突、限流、依赖故障与内部错误分开处理。系统异常不向客户端返回 SQL、堆栈、地址或原始异常文本；服务端使用白名单诊断字段。
+- SRP 必须与 Rust 的 3072-bit / SHA-256、最短无符号整数及 M1/M2 证明格式互通；不是直接采用第三方库的默认 SRP 证明。黄金向量见 [docs/10](../docs/10-服务端迁移契约基线.md)。
+- 服务端只处理不透明条目、密钥封装和恢复包，不获得主密码、Secret Key、Vault Key、AuthKey 或条目明文。邮箱仍为 HMAC 索引和服务端密封盒。
+- 同步按账户锁串行提交，保留协议 revision、墓碑、精确重放及 `change_log.seq` 游标；不能用 Redis 锁、Envers revision 或 ORM 版本替代同步语义。
+
+## 3. 会话、缓存与事务
+
+- Redis 以 Token 文本的 SHA-256 摘要索引会话，只保存账户/设备关联、代次与时间元数据，不保存原始 Token。
+- 创建与 TTL、续期与到期时间均原子处理；续期不重建删除键、不缩短有效期。按设备维护摘要索引，撤销定向、分批清理，不扫描全部账户会话。
+- PG 的账户/设备状态、会话失效代次和持久注销标记仍是授权依据。敏感业务在自身事务中重验完整会话身份，不能只信请求开始时的快照；普通改密不会无故注销其他合法设备。
+- 注册/恢复先准备 Redis 候选，再提交数据库状态，成功后交付会话；没有宣称 PG 与 Redis 是一个分布式事务。Redis 不可用时安全拒绝，不回源旧 PG sessions 复活令牌。
+- 设备展示缓存不含 `current`，按请求设备映射；每次命中前仍验证当前 PG 权限。缓存短 TTL、容量有界、提交后失效，故障回源；它不负责授权。
+- 成功审计与业务事务一致；失败审计独立处理。欢迎/安全通知等非关键邮件失败不能把已提交操作报告为回滚。**持久通知 outbox、归档和完整故障演练仍属后续发布门禁，当前不承诺通知必达。**
+
+## 4. 多环境配置
+
+| 文件 | 内容 |
+|---|---|
+| `application.yaml` | 与环境无关的结构性配置：连接池、TTL、请求预算、日志、限额、UTC 时区、优雅停机，以及默认环境声明 `spring.profiles.active: dev` |
+| `application-dev.yaml` | 本机开发环境的全部具体值：回环数据服务（独立库 `vaultone_java_dev`）、开发密钥、Redis 地址与命名空间、`development.enabled=true` |
+| `application-prod.yaml` | 生产环境的全部具体值：TLS 证书、SMTP、生产 PG/Redis、日志目录与待替换的 `CHANGE_ME_*` 凭据 |
+
+配置项全部内联在 YAML，不从环境变量读取；`YamlConfigRegressionTest.sourceYamlKeepsEveryValueInline` 是禁止 `${...}` 占位回流的门禁。环境选择同样写在配置里：`application.yaml` 的 `spring.profiles.active: dev` 声明默认使用 dev，生产部署必须显式覆盖为 prod（`--spring.profiles.active=prod`）。公共 YAML 不承载任何可用连接或密钥，环境值只在环境文件里；`YamlConfigRegressionTest.commonYamlCarriesNoEnvironmentSpecificValues` 是该边界的门禁。dev/prod 不能同时使用，`DeploymentGuard` 在连接池创建前拒绝无 profile、缺密钥或降级配置的启动。生产密钥与口令以 `CHANGE_ME_*` 形式留在 `application-prod.yaml`，部署前必须替换为真实值，且生产密钥不得与 dev 相同。
+
+默认端口 **9777**；测试使用随机端口。生产要求 Jetty TLS、PG `sslmode=verify-full`、Redis `rediss://`、真实 SMTP 和必要凭据；不信任未经配置审查的转发头。测试低成本 KDF 仅在显式开发测试配置下开放。
+
+### IDEA 本机开发
+
+1. Project SDK 选择已有 Java 21，例如 `C:/Users/qq479/.jdks/temurin-21.0.12.1`。不必切换系统 Java，避免影响其他项目。
+2. 本机开发数据服务内联在 `application-dev.yaml`：库 `vaultone_java_dev`（owner 为迁移角色 `vaultone_java_migrator`）、运行角色 `vaultone_java_runtime`、Redis `redis://127.0.0.1:6379`（免密）。**不要指向 Rust 服务端在用的 `vaultone` 库，也不要让应用使用本机管理角色 `root`。**
+3. 换机器时按同一口径重建（口令与 `application-dev.yaml` 一致；迁移角色是库 owner，运行角色非 owner、无 DDL、非超级用户、无 BYPASSRLS）：
+
+```sql
+CREATE ROLE vaultone_java_migrator LOGIN PASSWORD '<见 application-dev.yaml>' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+CREATE ROLE vaultone_java_runtime  LOGIN PASSWORD '<见 application-dev.yaml>' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+CREATE DATABASE vaultone_java_dev OWNER vaultone_java_migrator;
+GRANT CONNECT ON DATABASE vaultone_java_dev TO vaultone_java_runtime;
 ```
 
-JDK与下载包只作本地工具，**不得提交二进制**。这不是生产Java版本升级策略或供应链完整审计。
+4. Run Configuration 不需要设置任何环境变量：根 YAML 已声明 `spring.profiles.active: dev`，直接运行即可。要验证 prod 时才显式覆盖 `--spring.profiles.active=prod`。
 
-## 工程约束
+迁移与运行必须指向同一数据库：`spring.flyway.url` 刻意不写，地址沿用 `spring.datasource.url`，只切换角色；`runtime_role` / `migrator_role` 必须分别与 `spring.datasource.username` / `spring.flyway.user` 一致，避免误授予权限。
 
-### MVC + Jetty + 有界资源
+已在发布步骤完成迁移时，可设置 `SPRING_FLYWAY_ENABLED=false`，运行进程只保留受限用户凭据；本机测试 fixture 也是先迁移、后启动受限应用。生产迁移、切流和回滚流程尚未实际演练。
 
-- 显式从webmvc starter排除Tomcat starter，加入Jetty starter，并从Jetty/validation依赖链排除 `tomcat-embed-el`，改用官方POM核验的 **Expressly 6.0.0 / Jakarta EL 6**。Maven Enforcer拒绝所有Tomcat组件（包括EL）、Lettuce、Jedis、Redis starter、H2，并要求Java `[21,22)`。
-- `ValidationTest`实际执行Hibernate Validator约束，断言 `{value}` 参数与 `${validatedValue}` EL表达式都成功插值，并确认使用Expressly的ExpressionFactory；不通过关闭EL来绕过依赖门禁。
-- 默认监听端口保留 **8787**；仅测试用 `server.port=0`，并发启动Rust服务需由用户显式安排端口，不能为避免冲突悄悄改变协议默认值。
-- `spring.threads.virtual.enabled=true`。`JettyVirtualThreadsTest`通过真实Jetty HTTP请求，在Servlet filter内断言 `Thread.currentThread().isVirtual()`，不是只检查配置字符串或MockMvc。
-- Jetty `NetworkConnectionLimit` 为256个网络连接；应用同步Servlet执行预算128个，超预算立即429 JSON，不排无界等待队列。
-- Hikari最大10、最小空闲2、连接获取超时5s；Redisson最大8普通连接/2订阅连接、最小空闲2/1，工作线程2、Netty线程4，连接/命令超时3s，有限重试。
-- 上述限制为S1固定默认值，未做容量/高并发验收；异步请求、S2大体积push需要单独资源设计，不能据此声称所有内存分配都有界。
+从 `server/` 启动（默认即为 dev，无需额外参数）：
 
-### 默认拒绝与部署门禁
-
-- `DeploymentGuard`通过 `META-INF/spring.factories` 注册为 `ApplicationContextInitializer`，在创建DB/Redis客户端之前检查配置。默认缺少server_secret/数据服务地址时拒绝启动。
-- 不内置服务端密钥。只接受显式64位hex/32B且非全重复字节值；此检查不是熵证明，运维仍必须CSPRNG生成并通过secret注入。
-- 生产必须启用本进程TLS；PostgreSQL必须 `sslmode=verify-full`；Redis必须 `rediss://`，使用严格TLS主机校验；必须注入DB和Redis口令。S1不接受未经审核的代理头方案，`server.forward-headers-strategy=none`。
-- 本地开发需要**同时**显式激活 `local` profile和 `vaultone.development.enabled=true`；必须绑定回环地址且PG/Redis也只指向回环。没有自动local默认值，也不会因测试环境而绕过密钥门禁。
-- Security stateless，禁用Basic、form login、logout、request cache，不产生认证session/cookie，不生成默认用户/随机密码。
-- 仅 `/actuator/health/liveness` 和 `/actuator/health/readiness` 公开，所有其他路径默认拒绝。readiness包含readinessState、DB、Redis实际连接检查，show-details=never。
-- Bearer边界当前对**任何 Authorization**拒绝401，尚没有会话查询/签发实现或测试后门token。S2必须接入真正的SHA256(token文本)会话验证后才能允许业务路径。
-- 应用Security/MVC/error dispatcher响应使用 `{code,message}`，不回传异常消息/堆栈或默认ProblemDetail；no-store。容器在Servlet之前拒绝的畸形HTTP/头部超限不是此层完全可控的错误。S0已经记录Rust存在非JSON框架拒绝；S1统一错误外形不等于已通过旧客户端全量状态/消息契约验证。
-
-### 数据与迁移
-
-- `spring.jpa.hibernate.ddl-auto=validate`，`open-in-view=false`，`generate-ddl=false`，`hibernate.default_batch_fetch_size=32`；不允许ORM自动建库/升级。SQL、JDBC绑定/提取、结果日志分类默认OFF。
-- 以上不是仅靠默认属性：启动门禁拒绝ddl-auto非validate、原生Hibernate hbm2ddl覆盖、JPA schema-generation动作、generate-ddl、OSIV、show-sql、列出的SQL日志分类非OFF、自动baseline等危险覆盖，已有逐项测试（本地profile也不豁免）。守卫是启动期配置检查，不是禁止第三方代码/运维运行期修改logger的沙盒；未来新增数据访问或审计日志分类仍需审查。
-- Flyway独立目录 `db/migration/java`、独立历史表 `vaultone_java_schema_history`，`baseline-on-migrate=false`、`clean-disabled=true`。不认领已有Rust迁移历史，不对已有用户库自动baseline。
-- V1只是 `SELECT 1` 的Java迁移链锚点，Flyway创建自己的历史记录；**没有业务实体/DDL**，因此不能把S1的JPA validate当作业务schema验证成功。S2开始增加业务DDL与实体，旧库迁移另行设计/审查。
-- Envers仅接入同版本依赖，尚未定义业务审计实体或默认审计全部字段，避免将密钥/密文内部字段通过实体序列化泄露；后续审计白名单需单独实现与验证。
-- Redisson核心单例 `@Bean(destroyMethod="shutdown")`，不使用每请求创建客户端；没有Lettuce/Jedis并存。S1没有把同步真相源或序列号迁到Redis，也没有声称已实现分布式限流/锁。
-
-## 本机验证命令
-
-从 `server/` 执行，JAVA_HOME仅设置在当前命令/终端，不能改系统默认Java以影响Flutter/Rust工具链：
-
-```sh
-# 需要已安装/校验的Java21；Windows PowerShell可运行 .\mvnw.cmd test
-JAVA_HOME=/absolute/path/to/jdk-21 ./mvnw spotless:apply validate
-JAVA_HOME=/absolute/path/to/jdk-21 ./mvnw test
-# 必须先有可用Docker daemon；此命令不忽略容器失败
-JAVA_HOME=/absolute/path/to/jdk-21 ./mvnw verify
+```bash
+JAVA_HOME="C:/Users/qq479/.jdks/temurin-21.0.12.1" ./mvnw spring-boot:run
 ```
 
-- `validate`：自动执行Spotless check（Java固定google-java-format、文档/属性/SQL末尾空白与换行），格式不符即阻止test/verify。修改代码后先 `spotless:apply`。
-- `test`：5项部署门禁（含真实应用默认拒启、ORM/日志危险覆盖拒绝） + 4项ArchUnit边界 + 1项真实Jetty/VT/无Basic无cookie/默认拒绝 + 1项真实Bean Validation/EL插值。
-- `verify`：以上测试，加真实Testcontainers PostgreSQL、Redis和完整生产应用配置；断言Flyway迁移历史、拒绝非空库自动baseline、JPA validate/OSIV、Hibernate与Envers版本、Redisson单例/连接池/TTL。无Docker会在容器启动阶段直接失败。
-- `JettyVirtualThreadsTest`是明确的**传输层测试**，只排除本测试中的DB/JPA/Flyway自动配置，不注入模拟数据服务；它不替代 `InfrastructureIT`。测试的无连接回环地址只用于通过配置格式门禁。
-- 本次Windows终端部分javac中文输出出现编码乱码，不影响测试断言；Maven报告在 `target/surefire-reports` 和 `target/failsafe-reports`。target及日志不提交。
+要验证生产配置时显式覆盖环境：`./mvnw spring-boot:run -Dspring-boot.run.arguments=--spring.profiles.active=prod`。
 
-## 启动前准备（未代用户执行）
+此命令不创建开发数据库或角色，不应指向 Rust 正在使用的数据库。
 
-本地运行需要用户自行提供一次性PG/Redis开发实例、生成新的测试server_secret，并显式设置环境变量：
+## 5. 可重复验证
 
-```text
-SPRING_PROFILES_ACTIVE=local
-VAULTONE_DEVELOPMENT_ENABLED=true
-VAULTONE_SERVER_SECRET=<CSPRNG生成的64位hex，不使用测试夹具>
-VAULTONE_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/<专用空白开发库>
-VAULTONE_DB_USER=<开发用户>
-VAULTONE_DB_PASSWORD=<开发口令>
-VAULTONE_REDIS_ADDRESS=redis://127.0.0.1:6379
-VAULTONE_REDIS_PASSWORD=<开发Redis若设置了口令则填写>
+所有 Maven 命令在 `server/` 执行；Java 21 通过进程 `JAVA_HOME` 或 IDEA SDK 指定。
+
+```bash
+JAVA_HOME="C:/Users/qq479/.jdks/temurin-21.0.12.1" ./mvnw spotless:apply test
 ```
 
-随后才可由用户运行 `./mvnw spring-boot:run`。不得指向Rust正在使用的数据库或生产Redis。本次未运行此长驻命令。
+### 本机已有 PostgreSQL / Redis
 
-## S1完成与阻塞清单
+本机实测 PostgreSQL **16.15**、Redis **8.2.1 standalone**。以下 FlyEnv 示例使用已核实的本机管理角色 `root`，**仅由 fixture 创建和回收临时资源，绝不作为被测应用的运行用户**；需要口令时另行设置 `VAULTONE_IT_DB_PASSWORD` / `VAULTONE_IT_REDIS_PASSWORD`。
 
-**已落地且本机验证**：官方脚手架/Wrapper、Java21编译、MVC+Jetty、实际VT、资源限制配置、Security默认拒绝、统一应用错误、启动安全门禁、ArchUnit及依赖禁用规则。
+```bash
+JAVA_HOME="C:/Users/qq479/.jdks/temurin-21.0.12.1" VAULTONE_IT_MODE=external VAULTONE_IT_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/postgres VAULTONE_IT_DB_USER=root VAULTONE_IT_REDIS_ADDRESS=redis://127.0.0.1:6379 ./mvnw clean verify
+```
 
-**已落地但待真实基础设施验证**：PG/JPA/Flyway/Envers依赖及配置、独立迁移链、Redisson单例与有界池、readiness DB/Redis检查、Testcontainers断言。Docker不可用导致验收阻塞，完整verify保持失败。
+fixture 严格限制回环连接；每次建立随机数据库、非超级用户迁移角色、受限运行角色和独立 Redis 前缀。结束时只清理本次资源，清理失败可见；禁止 FLUSHDB/FLUSHALL。外部模式不会启动 Docker。
 
-**S1尚未实现的业务相关门禁**：尚无租户/业务表，故未创建PostgreSQL RLS策略、未设置事务级租户上下文，也没有Envers审计实体、revision metadata与敏感字段审计白名单。不能把无实体的配置和依赖当作这些S1要求完成；需随首次真实业务DDL/实体补齐并通过PG容器测试。
+### CI 默认模式
 
-**未开始/不能冒充完成**：旧协议认证/恢复/同步业务、服务端crypto Java黄金向量对齐、Rust/Flutter客户端互通、业务实体/Envers审计、旧PG数据迁移、Redis分布式原子语义、生产部署和灾备。
+不设置 `VAULTONE_IT_MODE=external` 时使用 Testcontainers，执行同一套测试；Docker 不可用就失败，不静默跳过。容器版本锁定在 `support/ContainerBackend.java`：
+
+- PostgreSQL：`postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea`
+- Redis：`redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0`
+
+`BackendContractIT` 会调用 Cargo，用真实 `vault-core::Vault` 执行注册、设备批准、同步/冲突/分页、改密、恢复、撤销、退出和注销。因此 Java CI 也要有 Rust 工具链。它不是 Java 自写客户端的自测。
+
+其余测试覆盖：协议黄金向量、真实 Jetty/虚拟线程、RLS/连接复用/临时表遮蔽、迁移角色权限、Redis 会话/索引/限流、OTP 失败计数与并发、同步事务内身份重验、注册失败回滚与恢复竞争。报告位于 `target/surefire-reports`、`target/failsafe-reports`。
+
+## 6. 发布前仍需完成
+
+- Rust 旧 PG/SQLite 服务库接管、旧 sessions 一次性迁移或受控作废、字节/序列高水位核对，以及回切后不丢新写入的演练。
+- 真实生产 TLS/SMTP、代理信任链、Redis/PG 故障切换、饱和压测、虚拟线程 pinning、审计保留/归档与持久通知投递。
+- 新空库本机互通不等于已有账户迁移成功；测试配置不替代生产权限评审。
+- CI 配置已接入 Java 校验、Rust 互通、制品/SBOM 与扫描，但未经本轮推送运行，不宣称远端 CI 已通过。
+
+已有 Rust 服务端、客户端 Rust 内核和 Flutter 构建入口继续保留；本工程不会自动发布或切流。
+
+## 7. 版本与协议来源
+
+- [Spring Initializr](https://start.spring.io/metadata/client)
+- [Spring Boot 4.1.1 BOM](https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-dependencies/4.1.1/spring-boot-dependencies-4.1.1.pom)
+- [Redisson 发布元数据](https://repo.maven.apache.org/maven2/org/redisson/redisson/maven-metadata.xml)
+- [Bouncy Castle 制品](https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.86/)
+- [FlyEnv PostgreSQL 默认配置](https://flyenv.com/features/postgresql)
+- [本仓库字节级契约](../docs/10-服务端迁移契约基线.md)
+
+在线版本与镜像信息是选型证据，不替代对应运行环境中的验收。旧阶段记录见 [docs/11](../docs/11-计划执行与验收记录.md)，不再把已过时的“仅S1/无业务”说明混入当前启动指南。

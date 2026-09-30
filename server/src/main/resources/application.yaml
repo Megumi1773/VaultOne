@@ -1,0 +1,148 @@
+# 公共默认：只放与环境无关的结构性配置（连接池、TTL、请求预算、日志、限额）。
+# 环境专属值（数据源地址与角色、服务端密钥、Redis 地址与命名空间、Flyway 角色）一律由
+# application-dev.yaml / application-prod.yaml 提供；本文件不承载任何可用的连接或密钥。
+# 必须显式激活 dev 或 prod；未激活任何 profile 时 DeploymentGuard 在连接池创建前拒绝启动。
+spring:
+  application:
+    name: vaultone-server
+  # 默认环境：本机开发（dev）。环境选择本身也是配置，写在根 YAML，不再依赖 SPRING_PROFILES_ACTIVE。
+  # 生产部署必须显式覆盖为 prod（--spring.profiles.active=prod 或环境变量 SPRING_PROFILES_ACTIVE=prod）；
+  # DeploymentGuard 仍拒绝 dev 与 prod 同时激活，也拒绝无任何 profile 的启动。
+  profiles:
+    active: dev
+  # 优雅停机的等待上界（配合 server.shutdown=graceful）。
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  threads:
+    virtual:
+      enabled: true
+  main:
+    keep-alive: true
+  servlet:
+    multipart:
+      max-file-size: 1MB
+      max-request-size: 1MB
+  datasource:
+    # 空值即缺配置：激活 dev/prod 后由环境文件填具体值，未填时启动即失败，不静默降级。
+    url: ""
+    username: ""
+    password: ""
+    hikari:
+      pool-name: vaultone-hikari
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 5000
+      validation-timeout: 2000
+      max-lifetime: 1800000
+      idle-timeout: 600000
+  jpa:
+    open-in-view: false
+    generate-ddl: false
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_batch_fetch_size: 32
+        # 时间统一按 UTC 读写，避免依赖主机时区；审计与同步时间戳均以 UTC 表达。
+        jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    clean-disabled: true
+    validate-on-migrate: true
+    locations: classpath:db/migration/java
+    table: vaultone_java_schema_history
+    # 不写 spring.flyway.url：迁移地址沿用 spring.datasource.url，只切换角色，避免两处漂移。
+    # 迁移用户与 runtime_role / migrator_role 占位符同样属于环境值，由环境文件提供。
+    user: ""
+    password: ""
+  mvc:
+    problemdetails:
+      enabled: false
+  web:
+    error:
+      include-message: never
+      include-stacktrace: never
+      include-binding-errors: never
+server:
+  port: 9777
+  forward-headers-strategy: none
+  max-http-request-header-size: 8KB
+  # 停机时先停止接收新请求并等待在途请求结束，避免同步写入被硬切断。
+  shutdown: graceful
+# 绑定值与结果可能包含敏感材料，默认关闭，启动门禁拒绝危险覆盖。
+# 注意：OFF 必须显式加引号，否则 SnakeYAML(YAML 1.1) 会解析为布尔 false。
+logging:
+  level:
+    org.hibernate.SQL: "OFF"
+    org.hibernate.orm.jdbc.bind: "OFF"
+    org.hibernate.orm.jdbc.extract: "OFF"
+    org.hibernate.orm.results: "OFF"
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        readiness:
+          include: readinessState,db,redisConnectivity
+  health:
+    redis:
+      enabled: false
+vaultone:
+  # 环境标识参与 Redis 键命名；真实取值由环境文件覆盖。
+  environment: local
+  api-version: 1.0.0
+  # 空值即缺配置：服务端密钥必须由环境文件提供（64 位十六进制、字节不全相同）。
+  server-secret: ""
+  redis:
+    address: ""
+    password: ""
+    # 所有 session/cache/rate/maintenance 键的统一前缀；dev/prod 用不同前缀隔离。
+    namespace: vaultone
+  development:
+    enabled: false
+    allow-test-kdf: false
+  session:
+    ttl-days: 60
+    renew-threshold-seconds: 3600
+    handshake-ttl-seconds: 120
+    otp-ttl-seconds: 600
+    otp-max-attempts: 5
+    auth-rate-millis: 3000
+    auth-burst: 10
+    api-rate-millis: 100
+    api-burst: 120
+    srp-max-concurrent: 16
+  mail:
+    mode: log
+    from: VaultOne <no-reply@vaultone.app>
+    smtp-host: ""
+    smtp-port: 587
+    smtp-username: ""
+    smtp-password: ""
+    start-tls-required: true
+    ssl-enabled: false
+    connection-timeout-millis: 10000
+    read-timeout-millis: 10000
+    write-timeout-millis: 10000
+  ops:
+    version-retention-days: 30
+    log-max-history: 30
+    log-max-file-size: 100MB
+    log-total-size-cap: 2GB
+    log-directory: logs
+    request-id-max-length: 64
+  web:
+    max-body-bytes: 1048576
+    max-push-body-bytes: 67108864
+    max-concurrent-requests: 128
+    max-json-depth: 100
+    max-connections: 256
+    allowed-origins: []

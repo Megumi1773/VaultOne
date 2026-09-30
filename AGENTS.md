@@ -10,6 +10,7 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
   - `vault-core` 保险库逻辑：建号/解锁/条目 CRUD、SQLite 真相源、增量同步、三方合并、URL 匹配、TOTP、安全审计
   - `vault-server` axum HTTP 服务端
   - `vault-nmhost` 浏览器扩展的 Native Messaging 宿主（只做 stdin/stdout ⇄ 本地套接字转发）
+- `server/` — Java 21 / Spring Boot 4 后端，独立 Maven 工程；兼容当前客户端协议，按后文工程规范实施。未完成迁移验收前保留 Rust 服务端，不自动切流。
 - `app/` — Flutter 客户端。`app/rust`（crate `vaultone_bridge`）是 FFI 桥；`app/lib/src/rust/**` 全是生成代码。Android 自动填充的原生部分在 `app/android/app/src/main/kotlin/com/vaultone/app/autofill/`，其 Flutter 界面是独立 Dart 入口 `autofillMain`（`lib/main.dart` → `lib/src/autofill/`）。
 - `extension/` — Chrome / Edge MV3 扩展（纯 JS，无构建步骤）。协议在 `vault-core/src/browser.rs`，两端靠交叉向量测试对齐。
 - `fuzz/` — cargo-fuzz 目标，**独立工作区**（需 nightly），不在根工作区内。
@@ -44,12 +45,67 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 - `app/lib/src/rust/**`（`frb_generated*.dart`、`api/*.dart`）由 flutter_rust_bridge 从 `app/rust/src/api/**` 生成，**不要手改**。改 Rust API 后在 `app/` 运行 `flutter_rust_bridge_codegen generate`（配置见 `app/flutter_rust_bridge.yaml`）。
 - FRB 版本在两处精确锁定为 `=2.13.0`（`app/rust/Cargo.toml`、`app/pubspec.yaml`），必须保持一致。
 
-## 服务端配置
+## Rust 服务端配置（既有实现）
 
 - 分层加载：默认值 → `vaultone.toml`（或 `$VAULTONE_CONFIG`）→ 环境变量 `VAULTONE_*`（嵌套用 `__`）。
 - `server_secret` **无默认值**，缺失即拒绝启动；用 `gen-secret` 生成 64 位十六进制。
 - DB 用 `sqlx` Any 驱动（`sqlite:` 或 `postgres://`），迁移在启动时自动执行（`migrations/{sqlite,postgres}`）。代码用运行时 `sqlx::query`，**无编译期宏**，构建不需要 `DATABASE_URL`。
 - 开发期邮件 `mail.mode=log` 写日志；`smtp` 走真实投递。
+
+## Java 后端工程规范（2026-09-30 决策）
+
+以下是新开发的强制约束，不是已实现或已验收声明；与旧计划的目标方案冲突时以本节为准。现有协议事实仍以代码及交叉测试为准。`AGENTS.md` 与 `CLAUDE.md` 本节须同步维护。
+
+### 协作、范围与可维护性
+
+- 主代理负责需求澄清、架构决策、任务边界、代码审查和最终验收；开发实现优先委派 OpenCode，OpenCode 不可用时主代理直接接手，不能因工具故障停止推进。网页检索由 OpenCode 执行。委派不转移质量责任，必须核验实际 diff 和测试，不能直接转述“已完成”。
+- 持续目标按 `docs/09` 推进：当前开发包完成后继续主线功能，逐包更新 `docs/11` 的真实进度；外部环境和生产授权阻塞单独记录，不把待验收项目记为完成。
+- 优先官方脚手架、成熟组件和已选技术栈；不以“大厂规范”为由增加无业务收益的微服务、接口层、通用框架或中间件。每个组件必须有明确用途、负责人可理解的边界和故障策略。
+- Java 采用按业务域组织的模块化单体，域内区分 controller / dto / service / model / repository；公共能力集中于 config / security / crypto / common。Controller 不写 SQL、密码运算或事务；Repository 不决定 HTTP 响应；Entity 不出现在 API 返回体。
+- 使用构造器注入、明确类型和简短方法；禁止万能 Service、巨大工具类、裸 Map 贯穿业务、魔法数字、吞异常和无意义接口。敏感 record/Entity 禁止自动输出字段的 toString；集合和数组须控制可变性。
+- 每个需求明确成功、失败、空态、取消、重试、权限及数据保留语义；先交付可验收闭环，不用空接口、TODO 或前端假数据宣称完成。功能新增不顺手重写无关模块。
+
+### 配置与环境
+
+- Java 统一采用 `application.yaml`、`application-dev.yaml`、`application-prod.yaml`：公共默认只放与环境无关的结构性配置，环境文件提供该环境的全部具体值。**配置值直接内联在 YAML（2026-10-01 决策），不再使用 `${ENV:default}` 占位**；默认环境由根 YAML 的 `spring.profiles.active: dev` 声明，生产必须显式覆盖为 prod，dev/prod 不可同时激活。`YamlConfigRegressionTest` 有"禁止占位回流"与"公共层不得含环境值"两条门禁；缺关键配置时由 `DeploymentGuard` 在连接池创建前拒绝启动。
+- 配置以 `@ConfigurationProperties` 分组并校验，避免散落 `@Value`。端口、超时、连接池、限额、TTL、日志保留参数可配置且有单位及合理上界；未知/缺失的关键安全配置启动即失败。
+- 本机开发库与凭据（独立库 `vaultone_java_dev`、`vaultone_java_migrator` / `vaultone_java_runtime`、回环 Redis）内联在 YAML；不得指向 Rust 服务端在用的 `vaultone` 库，也不得使用本机管理角色。生产用 `CHANGE_ME_*` 占位并必须在部署前替换，生产密钥不得与 dev 相同；生产禁止测试 KDF、固定 OTP、开发邮件明文日志及宽松 TLS。dev 仅回环开放，不能因切换 profile 绕过零知识和数据库安全约束。
+- 使用 Java 21 SDK；本机优先已有 `.jdks`，以 IDEA 项目 SDK 或进程级 JAVA_HOME 指定，不擅改全局环境。开发优先使用用户已提供的本机 PostgreSQL/Redis，不自动另起 Docker 数据服务。
+
+### Redis 会话、缓存与协调
+
+- **Java 会话主存采用 Redis，而非逐请求读写 PG sessions 表。** 保留现有非 JWT Bearer 线协议；只使用 `SHA-256(token UTF-8)` 摘要索引，Redis 与日志均不得保存原始 Token。
+- 会话元数据含账户/设备关联、签发/过期时间及必要的撤销代次；统一管理 TTL、节流滑动续期、退出、单设备撤销、全账户失效和并发刷新。续期不得重建已删除会话；过期边界与客户端兼容；索引随主键过期/清理，不产生无限集合。
+- 设备权限、账户状态、凭据代次和恢复凭据仍以 PG 为持久真相源。恢复/撤销与会话签发的竞争必须闭合；敏感操作不能只相信过期缓存。PG/Redis 双存储不假装具有单事务，必须定义提交失败、补偿、重试与恢复策略并测试。
+- Redis 故障时受保护接口安全拒绝，不自动回退旧 PG 会话并复活失效令牌；不影响客户端合法本地解锁。Redis 数据丢失及恢复旧快照必须有重新登录或代次校验策略。旧 PG 会话迁移单独设计、校验和演练，不做长期双写。
+- 缓存仅存可重建、经白名单批准的非敏感元数据，按环境/业务/账户隔离命名，版本化格式，设置容量与带抖动 TTL；定义更新后失效、防穿透/击穿和故障降级。会话存储、业务缓存、分布式协调须分清职责。
+- 禁止缓存保险库条目及其密文、密钥信封、恢复包、邮箱密文、验证码原文、SRP 临时私值；禁止 JPA 二级缓存自动复制敏感实体。权限缓存必须有可验证的立即失效机制，不能用短 TTL 冒充撤销即时生效。
+- 仅使用一个受控 RedissonClient；连接池、线程、命令超时与重试有界。分布式锁仅用于确需跨实例互斥的任务，有限 wait/lease、同线程释放；数据库 CAS/唯一约束或 fencing 才是最终正确性边界。禁止把锁加到所有 CRUD，或依赖无限 watchdog。
+
+### API 契约与异常
+
+- API 先定义契约再实现：字段命名、nullable、分页、时间、枚举、版本和幂等语义统一记录并测试。**已有 `/v1` 成功 DTO/数组保持兼容，禁止通过全局 ResponseBodyAdvice 突然套壳**；新增或破坏性契约需显式版本化及客户端迁移测试。
+- 统一错误模型与集中异常转换，Security、MVC、参数校验采用同一稳定错误码目录；区分参数错误、未认证、未授权、不存在、冲突、限流、依赖暂不可用和内部故障。HTTP 状态与含义一致，禁止所有异常返回 200 或全转成“操作失败”。
+- 业务异常返回明确、安全、可执行的提示；客户端按 code 分支，不解析 message。认证防枚举场景有意保持一致，不能为了“具体”暴露账户存在、验证码匹配情况或内部权限细节。
+- 系统异常不返回异常类名、堆栈、SQL、地址、配置和依赖原始消息；返回约定安全提示及请求关联标识，完整诊断留服务端。既有错误码不能私自重新定义；新增字段/错误码须证明旧客户端兼容。
+- 全局请求关联 ID 长度/字符受限，不盲信外部头；贯穿响应头、日志和审计。请求大小、JSON 深度、批量数、分页、SRP 并发及超时有界；拒绝请求也要有合理响应与可观察结果。
+
+### 日志、操作审计与隐私
+
+- 区分运行日志、用户安全操作审计和 Envers 元数据修订，三者不能互相冒充。操作审计记录最小 actor/账户范围、操作类型、对象类别、成功/失败、敏感等级、UTC 时间与请求 ID，不记录对象内容。
+- 操作敏感等级固定为低/中/高并按事件目录维护；改密、恢复、设备授权/撤销、导出和注销属于重点审计。客户端本地行为不伪称服务端可见；新增上报只传最小动作元数据，不传恢复材料或条目。
+- 运行日志使用 SLF4J/Logback 的参数化、结构化白名单字段，控制台便于开发阅读，生产文件按时间+大小轮转、压缩，限制总容量及保留期；日志目录不被 Web 暴露，持有者权限受限。
+- 正常关键事件 INFO，可预期业务拒绝按需 WARN/计数，意外系统故障 ERROR 并在边界记录一次诊断。禁止每层重复打印堆栈、每条同步内容刷屏、无上界 DEBUG 或将所有 4xx 当服务器故障；高频事件采样但不能漏掉要求持久留存的安全审计。
+- 禁止输出 Authorization/Cookie、密码、Secret Key、Vault Key、AuthKey、OTP、完整邮箱/请求响应体、SQL 绑定值和密文包。异常文本、MDC、第三方客户端、邮件与日志换行注入同样纳入脱敏测试；仅靠正则遮罩不是白名单的替代。
+- 成功审计与业务提交一致，失败审计不随失败业务回滚而丢失；邮件和外部投递在提交后执行，关键事件采用可重试 outbox。明确日志/审计归档、访问权限、注销清理及法定保留策略，不无限保留。
+
+### 数据、质量与发布门禁
+
+- PG 事务负责持久一致性；短事务、账户范围查询、条件更新检查影响行数；禁止无条件批量 DML。同步 cursor、协议 revision、内部乐观锁和 Envers revision 分离，同账户提交顺序不得被序列预分配破坏。
+- Flyway 是 schema 唯一变更入口，DDL validate、OSIV=false，迁移与运行角色隔离；RLS 在真实非超级用户/非 owner 角色下验证，事务级账户上下文不得串连接。禁止将开发管理员身份当作生产权限方案。
+- 验收包括低成本单测、架构/格式、真实 Jetty、真实 PG/Redis、Rust 生产客户端互通与并发/故障路径。默认 CI 可用 Testcontainers，本机可显式选真实本地服务；禁止以 H2、Mock Redis、skip 或环境缺失提前 return 伪装成功。
+- 本机测试使用显式授权的独立测试库/schema、随机 Redis 前缀；只清理本次创建资源，禁止 FLUSHDB/FLUSHALL、清空用户库或在业务库直接试迁移。缺连接凭据时报告阻塞，不能猜密码。
+- 每次交付同步架构与验收记录，区分“实现”“本机通过”“跨端通过”“生产验收”；不以编译通过宣称迁移完成。提交、推送、接管旧库、生产切流和破坏性操作需明确授权；保留单一生产写入者及不丢新写入的回滚方案。
 
 ## 约定与不变量
 
@@ -64,12 +120,12 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 ## 当前状态（2026-09-30 核对）
 
 - **Flutter UI 已接通并可构建**：`app/lib/src/{core,state,ui,autofill}` 约 8900 行（不含生成代码）。12 个页面：home / item_list / item_detail / item_editor / generator / security / settings / sign_in / unlock / onboarding / qr_scan / conflicts；另有 Android 自动填充界面。
-- **验证命令（本机 2026-09-30 实测）**：`cargo test --workspace` 156 项通过、3 ignored；`cargo clippy --workspace --all-targets -D warnings` 无警告；`cargo fmt --all --check` 通过。`dart analyze`、`flutter test`、集成测试与 `node --test extension/test/protocol.test.mjs` 的最近结果见 [docs/11](docs/11-计划执行与验收记录.md)；`server/` 的 `mvnw verify` 需 Docker 跑 Testcontainers，本机无 Docker 时会失败。
+- **验证命令（本机 2026-09-30 实测）**：`cargo test --workspace` 156 项通过、3 ignored；`cargo clippy --workspace --all-targets -D warnings` 无警告；`cargo fmt --all --check` 通过。`dart analyze`、`flutter test`、集成测试与 `node --test extension/test/protocol.test.mjs` 的最近结果见 [docs/11](docs/11-计划执行与验收记录.md)；`server/` 的 `mvnw verify` 默认使用 Testcontainers，本机可显式选择 external 模式连接已有 PG/Redis；最新结果与未通过项统一记录在 docs/11。
 - `app/rust/src/api/**` 暴露约 62 个 FRB 函数（vault / sync / tools / clipboard / logging / browser / conflicts），与 UI 侧 `core/api.dart` 已对齐。
-- 服务端（Rust axum）19 个路由：auth（register / login start+finish / logout）、devices（self / verify / list / approve / revoke）、recovery（start / fetch / complete）、account（get / delete / credentials）、audit、sync（pull / push），另有 `healthz` / `readyz`。另有 `server/`：Java 21 + Spring Boot 4 的 S1 基础设施底座（**无协议业务**）。
+- 服务端（Rust axum）覆盖 auth、devices、recovery、account、audit、sync 及健康接口。`server/` 的 Java 21 + Spring Boot 4 版本已增加对应业务首版、Redis 会话、多环境 YAML 与安全门禁，正在进行真实 PG/Redis/Jetty/客户端兼容收口；未替换生产 Rust 服务端。
 - 已实现：E1 导出闭环（`.wljbak` 加密备份 + CSV + 导入，UI / 桥 / 内核全通）；E4 本机加密冲突记录与裁决（候选快照、完整行 CAS、推送屏障 + 比较/裁决页面 + FRB）；P1 导入（Chrome / Edge / Firefox / Bitwarden / LastPass / 1Password CSV + 1PIF，幂等去重）；桌面托盘 + 全局快捷键 Ctrl+Shift+Space；F-05 浏览器扩展（配对 + HMAC 认证 + 按页面严格匹配释放凭据 + 保存/更新提示 + TOTP）；F-05 Android AutofillService（填充 + 保存）。
 - 有 CI（`ci.yml`：fmt + clippy + 测试 + 覆盖率门禁 + fuzz 冒烟 + 扩展测试与打包 + PG 冒烟 + cargo-deny + SBOM + Trivy + Flutter + 多平台构建，tag 时 cosign 签名镜像；`fuzz.yml`：每晚每目标 5 h，语料库跨次累积）；有 `docs/01`、`03`、`04`、`05`、`07`、`09`、`10`、`11`（`08` 已移除；历史文档在 `docs/archive/`）；有 `deploy/`；有 `store/screenshots`；有根 `LICENSE`（AGPL-3.0 全文）。
-- **未完成**：iOS AutoFill Credential Provider 扩展（需在 Xcode 新增 App Extension target、App Group 共享保险库文件与钥匙串，无法在 Windows 上构建验证）；浏览器扩展与 Android 自动填充只做了构建 / 协议级验证，尚未在真实浏览器与真机上跑通；macOS 沙盒版无法写入浏览器的宿主清单目录（需 Developer ID 分发或额外 entitlement）；Java 服务端 S0（字节级契约与黄金向量已就绪）尚未全协议互通，S2–S5 迁移 / 切流未开始。
+- **未完成**：iOS AutoFill Credential Provider 扩展（需在 Xcode 新增 App Extension target、App Group 共享保险库文件与钥匙串，无法在 Windows 上构建验证）；浏览器扩展与 Android 自动填充只做了构建 / 协议级验证，尚未在真实浏览器与真机上跑通；macOS 沙盒版无法写入浏览器的宿主清单目录（需 Developer ID 分发或额外 entitlement）；Java 服务端的身份/同步兼容、RLS、Redis 与审计正在真实环境收口；旧库接管、稳定性演练与生产切流/回滚尚未验收。
 
 ## 功能进度（对照 `docs/archive/App功能总览-重构基线.md`）
 
@@ -93,4 +149,4 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 
 - **P0 收口**：iOS AutoFill 扩展；浏览器扩展与 Android 填充的真实环境验证；E1 / E4 的真实跨端与 PG 综合验收。
 - **P1 核心体验**：条目模板、分组 / 分类 / 标签、备份卡图 + PDF 与二次确认。
-- **P2 SaaS 外围**：通知、组织协作、积分社区、意见反馈、应用内更新（需先补服务端路由）。
+- **P2 SaaS 外围**：通知、积分社区、意见反馈、应用内更新（先补 Java 服务端闭环）；组织协作 E9 已按 docs/09 明确排除，不进入开发欠账。

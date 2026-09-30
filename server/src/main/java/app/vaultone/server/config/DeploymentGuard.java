@@ -3,7 +3,9 @@ package app.vaultone.server.config;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
@@ -12,6 +14,12 @@ import org.springframework.core.env.Environment;
 public final class DeploymentGuard
     implements ApplicationContextInitializer<ConfigurableApplicationContext> {
   private static final Set<String> LOOPBACK = Set.of("127.0.0.1", "localhost", "::1", "[::1]");
+
+  /** 允许的 Redis 键命名空间：字母数字与分隔符，避免通配/空白注入。 */
+  private static final Pattern NAMESPACE = Pattern.compile("[A-Za-z0-9:_-]{1,64}");
+
+  /** 严格 SQL 标识符：小写开头，仅小写字母/数字/下划线，长度 <= 63。 */
+  private static final Pattern SQL_IDENTIFIER = Pattern.compile("[a-z_][a-z0-9_]{0,62}");
 
   @Override
   public void initialize(ConfigurableApplicationContext context) {
@@ -71,31 +79,103 @@ public final class DeploymentGuard
     String jdbc = env.getProperty("spring.datasource.url", "");
     require(jdbc.startsWith("jdbc:postgresql://"), "仅允许显式 PostgreSQL JDBC 地址");
     URI pg = parse(jdbc.substring(5));
+    require(pg.getUserInfo() == null, "PostgreSQL凭据需通过独立配置注入");
+    URI migrationPg = pg;
+    if (env.getProperty("spring.flyway.enabled", Boolean.class, true)) {
+      String migrationJdbc = env.getProperty("spring.flyway.url", jdbc);
+      if (migrationJdbc.isBlank()) migrationJdbc = jdbc;
+      require(migrationJdbc.startsWith("jdbc:postgresql://"), "Flyway仅允许PostgreSQL连接");
+      migrationPg = parse(migrationJdbc.substring(5));
+      require(migrationPg.getUserInfo() == null, "Flyway凭据需通过独立配置注入");
+      require(
+          java.util.Objects.equals(pg.getHost(), migrationPg.getHost())
+              && postgresPort(pg) == postgresPort(migrationPg)
+              && java.util.Objects.equals(pg.getRawPath(), migrationPg.getRawPath()),
+          "Flyway必须与运行连接指向同一数据库");
+    }
     URI redis = parse(env.getProperty("vaultone.redis.address", ""));
     require(pg.getHost() != null && redis.getHost() != null, "数据服务必须配置有效主机");
     require(Set.of("redis", "rediss").contains(redis.getScheme()), "Redis 地址协议不合法");
     require(redis.getUserInfo() == null, "Redis凭据需通过独立secret注入");
     require("none".equals(env.getProperty("server.forward-headers-strategy", "none")), "S1不信任转发头");
-    boolean devProfile = Arrays.asList(env.getActiveProfiles()).contains("local");
-    boolean devOptIn = env.getProperty("vaultone.development.enabled", Boolean.class, false);
-    if (devProfile && devOptIn) {
+    require(
+        NAMESPACE.matcher(env.getProperty("vaultone.redis.namespace", "")).matches(),
+        "Redis键命名空间不合法");
+    validateDatabaseRoles(env);
+
+    List<String> profiles = Arrays.asList(env.getActiveProfiles());
+    boolean dev = profiles.contains("dev");
+    boolean prod = profiles.contains("prod");
+    require(!(dev && prod), "dev 与 prod 不能同时激活");
+    require(dev || prod, "必须显式激活 dev 或 prod profile");
+    boolean development = env.getProperty("vaultone.development.enabled", Boolean.class, false);
+    boolean allowTestKdf =
+        env.getProperty("vaultone.development.allow-test-kdf", Boolean.class, false);
+    String mailMode = env.getProperty("vaultone.mail.mode", "log");
+    String smtpHost = env.getProperty("vaultone.mail.smtp-host", "");
+    String smtpFrom = env.getProperty("vaultone.mail.from", "");
+    if (dev) {
+      require(development, "dev 需显式启用 vaultone.development.enabled");
       require(LOOPBACK.contains(env.getProperty("server.address", "")), "本地开发必须绑定回环地址");
       require(
           LOOPBACK.contains(pg.getHost()) && LOOPBACK.contains(redis.getHost()), "本地开发仅允许回环数据服务");
+      if (!"log".equals(mailMode)) {
+        require(!smtpHost.isBlank() && !smtpFrom.isBlank(), "SMTP 模式必须配置 smtp-host 与 from");
+      }
       return;
     }
-    require(!devProfile && !devOptIn, "local profile与开发开关必须同时显式设置");
-    require(env.getProperty("server.ssl.enabled", Boolean.class, false), "非本地部署必须启用服务端TLS");
-    String[] query = pg.getRawQuery() == null ? new String[0] : pg.getRawQuery().split("&");
+    require(!development, "生产环境禁止启用 development");
+    require(!allowTestKdf, "生产环境禁止启用低成本测试 KDF");
+    require("smtp".equals(mailMode), "生产环境必须使用 SMTP 邮件模式");
+    require(!smtpHost.isBlank(), "生产环境必须配置 SMTP 主机");
+    require(!smtpFrom.isBlank(), "生产环境必须配置发件人");
+    require(
+        !env.getProperty("vaultone.mail.smtp-username", "").isBlank()
+            && !env.getProperty("vaultone.mail.smtp-password", "").isBlank(),
+        "生产环境必须配置 SMTP 凭据");
+    boolean startTls = env.getProperty("vaultone.mail.start-tls-required", Boolean.class, true);
+    boolean ssl = env.getProperty("vaultone.mail.ssl-enabled", Boolean.class, false);
+    require(startTls || ssl, "生产 SMTP 必须启用 STARTTLS 或 TLS");
+    require(env.getProperty("server.ssl.enabled", Boolean.class, false), "生产部署必须启用服务端TLS");
+    requireVerifiedPostgresTls(pg);
+    requireVerifiedPostgresTls(migrationPg);
+    require("rediss".equals(redis.getScheme()), "Redis必须使用TLS");
+    require(!env.getProperty("spring.datasource.password", "").isBlank(), "需要数据库凭据");
+    require(!env.getProperty("vaultone.redis.password", "").isBlank(), "需要Redis凭据");
+  }
+
+  /** 角色占位符必须与实际连接身份一致，不能把运行权限意外授予迁移角色。 */
+  private static void validateDatabaseRoles(Environment env) {
+    String runtimeRole = env.getProperty("spring.flyway.placeholders.runtime_role", "");
+    if (!runtimeRole.isBlank()) {
+      require(SQL_IDENTIFIER.matcher(runtimeRole).matches(), "Flyway runtime_role 标识符不合法");
+      require(
+          runtimeRole.equals(env.getProperty("spring.datasource.username", "")),
+          "Flyway runtime_role 必须与运行数据库用户一致");
+    }
+    String migratorRole = env.getProperty("spring.flyway.placeholders.migrator_role", "");
+    if (!migratorRole.isBlank()) {
+      require(SQL_IDENTIFIER.matcher(migratorRole).matches(), "Flyway migrator_role 标识符不合法");
+      require(
+          migratorRole.equals(env.getProperty("spring.flyway.user", "")),
+          "Flyway migrator_role 必须与迁移数据库用户一致");
+      require(!migratorRole.equals(runtimeRole), "迁移角色与运行角色必须分离");
+    }
+  }
+
+  private static int postgresPort(URI address) {
+    return address.getPort() == -1 ? 5432 : address.getPort();
+  }
+
+  private static void requireVerifiedPostgresTls(URI address) {
+    String[] query =
+        address.getRawQuery() == null ? new String[0] : address.getRawQuery().split("&");
     require(
         Arrays.stream(query)
             .filter(s -> s.startsWith("sslmode="))
             .toList()
-            .equals(java.util.List.of("sslmode=verify-full")),
-        "PostgreSQL必须验证TLS主机身份");
-    require("rediss".equals(redis.getScheme()), "Redis必须使用TLS");
-    require(!env.getProperty("spring.datasource.password", "").isBlank(), "需要数据库凭据");
-    require(!env.getProperty("vaultone.redis.password", "").isBlank(), "需要Redis凭据");
+            .equals(List.of("sslmode=verify-full")),
+        "PostgreSQL运行与迁移连接必须验证TLS主机身份");
   }
 
   private static URI parse(String value) {
