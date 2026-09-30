@@ -2,7 +2,7 @@
 
 Java 21 / Spring Boot 4 的零知识同步后端，兼容当前 Flutter + Rust 客户端的 `/v1` 协议。独立 Maven 工程，**没有替换生产 Rust 服务端，也不会自动接管已有数据库**。
 
-注册、SRP 登录、设备批准/撤销、账户与凭据、恢复、审计、加密增量同步已经实现，并通过本机真实 PostgreSQL / Redis / Jetty 和 Rust 生产客户端联调。最新命令、通过数及未完成门禁统一记录在 [验收记录](../docs/11-计划执行与验收记录.md)。单元测试、互通验证和生产验收是不同状态。
+注册、SRP 登录、设备批准/撤销、账户与凭据、恢复、审计、加密增量同步的实现已提交（`ec83b6a`）。2026-10-01 复核发现 external/容器 IT 启动被 `DeploymentGuard` 拒绝的测试夹具缺陷并已修复；修复后 external `verify` **BUILD SUCCESS**：单元/格式/架构 105 项 + 真实 PG/Redis/Jetty 集成 31 项全绿，含 `BackendContractIT`（真实 Rust 客户端互通）。容器路径由 CI 覆盖。详见 [docs/11 §7](../docs/11-计划执行与验收记录.md)。**本工程未替换生产 Rust 服务端，未切流，未接管已有数据库。**
 
 ## 1. 技术栈与模块
 
@@ -103,6 +103,8 @@ JAVA_HOME="C:/Users/qq479/.jdks/temurin-21.0.12.1" VAULTONE_IT_MODE=external VAU
 ```
 
 fixture 严格限制回环连接；每次建立随机数据库、非超级用户迁移角色、受限运行角色和独立 Redis 前缀。结束时只清理本次资源，清理失败可见；禁止 FLUSHDB/FLUSHALL。外部模式不会启动 Docker。
+
+> **2026-10-01 修复记录**：此前 external/容器 `verify` 会在应用启动阶段被 `DeploymentGuard` 拒绝（报 `Flyway runtime_role 必须与运行数据库用户一致`），根因是 `LocalTestServices` 用 `builder.properties(...)`（最低优先级）注入随机 `runtime_role`，被 `application-dev.yaml` 内联的同名占位符覆盖。已改为命令行参数注入 `runtime_role`/`migrator_role` 并同步 `spring.flyway.user`；修复后 external `verify` BUILD SUCCESS（105 单测 + 31 IT，含 Rust 客户端互通）。容器路径由 CI 覆盖。
 
 ### CI 默认模式
 

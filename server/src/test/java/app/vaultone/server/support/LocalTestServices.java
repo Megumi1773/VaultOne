@@ -93,7 +93,6 @@ public final class LocalTestServices implements AutoCloseable {
     String environment = safeEnvironment(redisNamespace);
     String namespace = redisNamespace; // 形如 vaultone:it:<uuid>:，匹配 DeploymentGuard 的命名空间白名单
     var builder = new SpringApplicationBuilder(app.vaultone.server.VaultOneServerApplication.class);
-    builder.properties("spring.flyway.placeholders.runtime_role=" + runtime.user());
     return builder.run(
         "--spring.profiles.active=dev",
         "--vaultone.development.enabled=true",
@@ -106,6 +105,11 @@ public final class LocalTestServices implements AutoCloseable {
         "--spring.datasource.hikari.maximum-pool-size=4",
         // 迁移已由 fixture 用 migrator 执行；运行角色无迁移历史表权限，业务启动不再自跑 Flyway（对齐生产“迁移角色独立”）。
         "--spring.flyway.enabled=false",
+        // 角色占位符必须用命令行参数（最高优先级）注入：builder.properties 属最低优先级，会被
+        // application-dev.yaml 内联的 runtime_role/migrator_role 覆盖，导致 DeploymentGuard 拒绝启动。
+        "--spring.flyway.user=" + migrator.user(),
+        "--spring.flyway.placeholders.runtime_role=" + runtime.user(),
+        "--spring.flyway.placeholders.migrator_role=" + migrator.user(),
         "--vaultone.redis.address=" + backend.redis().address(),
         "--vaultone.redis.password=" + backend.redis().password(),
         "--vaultone.redis.namespace=" + namespace,
