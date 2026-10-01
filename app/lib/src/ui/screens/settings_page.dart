@@ -135,11 +135,42 @@ String _fmtTime(int? unix) {
 
 /// 通用：要求输入主密码的对话框，返回输入值（取消返回 null）。
 Future<String?> askMasterPassword(BuildContext context, {required String title, String? body, String confirm = '确认'}) {
-  final ctrl = TextEditingController();
   return showDialog<String>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.55),
-    builder: (ctx) => Dialog(
+    builder: (ctx) => _MasterPasswordDialog(title: title, body: body, confirm: confirm),
+  );
+}
+
+/// 主密码输入对话框。控制器由本 State 持有并在 [dispose] 释放：
+/// 若改用 `showDialog(...).whenComplete(ctrl.dispose)`，对话框退场动画期间
+/// 内部 `TextField` 仍会重建并重新监听控制器，会命中 “used after being disposed”。
+class _MasterPasswordDialog extends StatefulWidget {
+  const _MasterPasswordDialog({required this.title, this.body, required this.confirm});
+
+  final String title;
+  final String? body;
+  final String confirm;
+
+  @override
+  State<_MasterPasswordDialog> createState() => _MasterPasswordDialogState();
+}
+
+class _MasterPasswordDialogState extends State<_MasterPasswordDialog> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.pop(context, _ctrl.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final ctx = context;
+    return Dialog(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
@@ -148,32 +179,32 @@ Future<String?> askMasterPassword(BuildContext context, {required String title, 
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(title, style: ctx.text.headlineSmall),
-              if (body != null) ...[
+              Text(widget.title, style: ctx.text.headlineSmall),
+              if (widget.body != null) ...[
                 const SizedBox(height: 8),
-                Text(body, style: ctx.text.bodyMedium?.copyWith(color: ctx.zo.textMuted)),
+                Text(widget.body!, style: ctx.text.bodyMedium?.copyWith(color: ctx.zo.textMuted)),
               ],
               const SizedBox(height: 18),
               ZoTextField(
-                controller: ctrl,
+                controller: _ctrl,
                 label: '主密码',
                 obscure: true,
                 autofocus: true,
                 prefixIcon: Icons.key_rounded,
-                onSubmitted: (v) => Navigator.pop(ctx, v),
+                onSubmitted: (_) => _submit(),
               ),
               const SizedBox(height: 20),
               Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                 ZoButton(label: '取消', variant: ZoButtonVariant.ghost, onPressed: () => Navigator.pop(ctx)),
                 const SizedBox(width: 8),
-                ZoButton(label: confirm, onPressed: () => Navigator.pop(ctx, ctrl.text)),
+                ZoButton(label: widget.confirm, onPressed: _submit),
               ]),
             ],
           ),
         ),
       ),
-    ),
-  ).whenComplete(ctrl.dispose);
+    );
+  }
 }
 
 // ───────────────────────── 账户 ─────────────────────────
@@ -1023,13 +1054,29 @@ class _DiagnosticsSection extends StatelessWidget {
             label: '打开目录',
             dense: true,
             variant: ZoButtonVariant.secondary,
-            onPressed: () async {
-              final dir = await getApplicationSupportDirectory();
-              await launchUrl(Uri.file('${dir.path}${Platform.pathSeparator}logs'));
-            },
+            onPressed: () => _openLogsDir(context),
           ),
         ),
     ]);
+  }
+
+  /// 在系统文件管理器中打开日志目录。
+  ///
+  /// 目录 URL 必须以分隔符结尾，否则 Windows 的 ShellExecuteW 会把它当成普通文件，
+  /// 既可能打不开、也可能让 shell 长时间阻塞在平台线程上（表现为界面无响应）。
+  /// 因此这里显式构造目录形式的 file URL，并保证一定有结尾分隔符。
+  Future<void> _openLogsDir(BuildContext context) async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      var path = '${dir.path}${Platform.pathSeparator}logs';
+      if (!path.endsWith(Platform.pathSeparator)) path = '$path${Platform.pathSeparator}';
+      final uri = Uri.file(path);
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && context.mounted) {
+        showZoMessage(context, '无法打开日志目录，请手动前往：${dir.path}${Platform.pathSeparator}logs', error: true);
+      }
+    } catch (_) {
+      if (context.mounted) showZoMessage(context, '打开日志目录失败，请手动前往应用数据目录下的 logs 文件夹', error: true);
+    }
   }
 }
 
