@@ -8,12 +8,17 @@ use std::sync::OnceLock;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_appender::rolling::{Builder, Rotation};
 use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, EnvFilter};
 
 static GUARD: OnceLock<WorkerGuard> = OnceLock::new();
 
 /// 初始化日志（重复调用无副作用）。`verbose` 为诊断模式，输出 debug 级别。
+///
+/// Android 上 flutter_rust_bridge 的 `init_app` 会经 `setup_default_user_utils()`
+/// 调用 `android_logger::init_once`，抢先占用 `log` crate 的全局 logger。
+/// 因此这里用 `tracing::subscriber::set_global_default`（只设 tracing 的全局订阅者，
+/// 不触碰 `log` 桥接），而不是 `try_init`；后者在已有 logger 时必然失败，
+/// 会导致日志静默失效、文件恒为 0 字节。
 pub fn init_logging(log_dir: String, verbose: bool) -> Result<(), super::BridgeError> {
     if GUARD.get().is_some() {
         return Ok(());
@@ -30,12 +35,9 @@ pub fn init_logging(log_dir: String, verbose: bool) -> Result<(), super::BridgeE
     let filter = EnvFilter::new(format!(
         "warn,vault_core={level},vaultone_bridge={level},vault={level},sync={level},bridge={level},ui={level},browser={level}"
     ));
-    // 进程内可能已存在全局订阅者（如 flutter_rust_bridge 的默认工具）。
-    // 此处必须失败即报：否则日志静默失效，文件恒为 0 字节，真机故障无法事后诊断。
-    tracing_subscriber::registry()
-        .with(filter)
-        .with(fmt::layer().with_writer(writer).with_ansi(false).with_target(true))
-        .try_init()
+    let subscriber = tracing_subscriber::registry().with(filter).with(fmt::layer().with_writer(writer).with_ansi(false).with_target(true));
+    // 失败即报：静默成功会让真机故障无法事后诊断（见文件头注释）。
+    tracing::subscriber::set_global_default(subscriber)
         .map_err(|e| super::BridgeError { code: "logging".into(), message: e.to_string() })?;
     let _ = GUARD.set(guard);
     std::panic::set_hook(Box::new(|info| {

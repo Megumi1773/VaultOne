@@ -195,8 +195,7 @@ class AppState extends ChangeNotifier {
   Future<void> init(String dbPath, String logDir) async {
     // 日志必须最先初始化：否则 open/_loadSettings 一旦抛错，日志从未建立，
     // 现场只剩 0 字节文件，故障无法事后诊断。
-    // 日志初始化自身失败不能中断启动（否则连保险库都打不开），故单独兜住；
-    // 此时内存订阅者仍在，错误至少能进 logcat。
+    // 日志初始化自身失败不能中断启动（否则连保险库都打不开），故单独兜住。
     try {
       await VaultApi.initLogging(logDir, verbose: false);
     } catch (e) {
