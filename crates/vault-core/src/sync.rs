@@ -36,27 +36,76 @@ pub struct ApiClient {
     token: Option<Zeroizing<String>>,
 }
 
-/// 只允许 HTTPS；回环地址（本地开发/测试）例外。
-fn validate_server_url(url: &str) -> Result<String> {
+static DEVELOPMENT_HTTP_SERVER: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// 只为调试构建登记一个明确的私网 HTTP 端点；发布构建不能启用。
+pub fn configure_development_http_server(server: Option<&str>) -> Result<()> {
+    let configured = match server {
+        None => None,
+        Some(value) if cfg!(debug_assertions) => {
+            let parsed = url::Url::parse(value).map_err(|_| VaultError::InvalidInput("调试服务器地址无效".into()))?;
+            if parsed.scheme() != "http"
+                || !private_ipv4_host(&parsed)
+                || parsed.path() != "/"
+                || parsed.port() == Some(0)
+                || !parsed.username().is_empty()
+                || parsed.password().is_some()
+                || parsed.query().is_some()
+                || parsed.fragment().is_some()
+            {
+                return Err(VaultError::InvalidInput("局域网调试仅允许指定私网 IPv4 的 HTTP 根地址".into()));
+            }
+            Some(parsed.as_str().trim_end_matches('/').to_string())
+        }
+        Some(_) => return Err(VaultError::InvalidInput("发布构建不允许局域网 HTTP 调试".into())),
+    };
+    *DEVELOPMENT_HTTP_SERVER.lock().map_err(|_| VaultError::InvalidInput("调试网络配置不可用".into()))? = configured;
+    Ok(())
+}
+
+fn private_ipv4_host(url: &url::Url) -> bool {
+    matches!(url.host(), Some(url::Host::Ipv4(ip)) if ip.is_private())
+}
+
+/// HTTPS 为默认；回环保留既有开发例外，私网 HTTP 还需调试构建及精确端点登记。
+pub(crate) fn validate_server_url(url: &str) -> Result<String> {
+    let configured = DEVELOPMENT_HTTP_SERVER.lock().map_err(|_| VaultError::InvalidInput("调试网络配置不可用".into()))?;
+    validate_server_url_with_override(url, configured.as_deref(), cfg!(debug_assertions))
+}
+
+fn validate_server_url_with_override(url: &str, configured: Option<&str>, debug: bool) -> Result<String> {
     let parsed = url::Url::parse(url.trim()).map_err(|_| VaultError::InvalidInput("服务器地址格式不正确".into()))?;
+    if !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+        || parsed.port() == Some(0)
+    {
+        return Err(VaultError::InvalidInput("服务器地址不得包含凭据、查询参数或片段".into()));
+    }
+    let normalized = parsed.as_str().trim_end_matches('/').to_string();
     let loopback = matches!(parsed.host_str(), Some("localhost" | "127.0.0.1" | "[::1]" | "10.0.2.2"));
+    let approved_lan = debug && private_ipv4_host(&parsed) && configured == Some(normalized.as_str());
     match parsed.scheme() {
         "https" => {}
-        "http" if loopback => {}
-        _ => return Err(VaultError::InvalidInput("同步服务必须使用 HTTPS".into())),
+        "http" if loopback || approved_lan => {}
+        _ => return Err(VaultError::InvalidInput("同步服务必须使用 HTTPS；真机 HTTP 调试需显式登记私网端点".into())),
     }
-    Ok(parsed.as_str().trim_end_matches('/').to_string())
+    Ok(normalized)
 }
 
 impl ApiClient {
     pub fn new(base: &str) -> Result<Self> {
-        let http = reqwest::blocking::Client::builder()
+        let base = validate_server_url(base)?;
+        let builder = reqwest::blocking::Client::builder()
             .timeout(HTTP_TIMEOUT)
             .https_only(false)
-            .user_agent(concat!("VaultOne/", env!("CARGO_PKG_VERSION")))
-            .build()
-            .map_err(|e| VaultError::Network(e.to_string()))?;
-        Ok(Self { base: validate_server_url(base)?, http, token: None })
+            .redirect(reqwest::redirect::Policy::none())
+            .user_agent(concat!("VaultOne/", env!("CARGO_PKG_VERSION")));
+        // 开发 HTTP 仅通往本机/已批准私网，避免经环境变量代理传出会话令牌。
+        let builder = if base.starts_with("http://") { builder.no_proxy() } else { builder };
+        let http = builder.build().map_err(|e| VaultError::Network(e.to_string()))?;
+        Ok(Self { base, http, token: None })
     }
 
     pub fn with_token(mut self, token: Zeroizing<String>) -> Self {
@@ -64,7 +113,12 @@ impl ApiClient {
         self
     }
 
-    fn call<Req: Serialize, Resp: DeserializeOwned>(&self, method: reqwest::Method, path: &str, body: Option<&Req>) -> Result<Resp> {
+    pub(crate) fn call<Req: Serialize, Resp: DeserializeOwned>(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        body: Option<&Req>,
+    ) -> Result<Resp> {
         let mut req = self.http.request(method.clone(), format!("{}{path}", self.base));
         if let Some(t) = &self.token {
             req = req.bearer_auth(t.as_str());
@@ -88,16 +142,16 @@ impl ApiClient {
         Err(VaultError::Server { status: status.as_u16(), code: err.code, message: err.message })
     }
 
-    fn get<Resp: DeserializeOwned>(&self, path: &str) -> Result<Resp> {
+    pub(crate) fn get<Resp: DeserializeOwned>(&self, path: &str) -> Result<Resp> {
         self.call::<(), Resp>(reqwest::Method::GET, path, None)
     }
 
-    fn post<Req: Serialize, Resp: DeserializeOwned>(&self, path: &str, body: &Req) -> Result<Resp> {
+    pub(crate) fn post<Req: Serialize, Resp: DeserializeOwned>(&self, path: &str, body: &Req) -> Result<Resp> {
         self.call(reqwest::Method::POST, path, Some(body))
     }
 
     /// SRP-6a 登录。返回 (登录结果, AuthKey 派生所用的账户信息)。
-    fn srp_login(
+    pub(crate) fn srp_login(
         &self,
         email: &str,
         master_password: &str,
@@ -166,7 +220,7 @@ pub struct RemoteStatus {
     pub pending: u64,
 }
 
-fn device_info(id: String, name: &str) -> Result<DeviceInfo> {
+pub(crate) fn device_info(id: String, name: &str) -> Result<DeviceInfo> {
     let name = name.trim();
     if name.is_empty() || name.chars().count() > 64 {
         return Err(VaultError::InvalidInput("设备名需为 1-64 个字符".into()));
@@ -182,7 +236,7 @@ impl Vault {
         Ok(B64.encode(sealed::seal(&s.vault_key, token.as_bytes(), &aad("session-token", &s.account.account_id))?))
     }
 
-    fn remote_api(&self) -> Result<(ApiClient, RemoteRecord)> {
+    pub(crate) fn remote_api(&self) -> Result<(ApiClient, RemoteRecord)> {
         let s = self.session()?;
         let remote = self.store.load_remote()?.ok_or(VaultError::NotConnected)?;
         let token = sealed::open(&s.vault_key, &b64d(&remote.token_enc)?, &aad("session-token", &s.account.account_id))?;
@@ -341,11 +395,25 @@ impl Vault {
             credentials_dirty: false,
             created_at: now(),
         };
-        self.store.save_account(&account)?;
+        let remote = RemoteRecord {
+            server_url: pending.api.base.clone(),
+            device_id: pending.device.id.clone(),
+            device_name: pending.device.name.clone(),
+            token_enc: B64.encode(sealed::seal(&vault_key, pending.session.token.as_bytes(), &aad("session-token", &account.account_id))?),
+            expires_at: pending.session.expires_at,
+        };
+        self.store.transaction(|store| {
+            if store.load_account()?.is_some() {
+                return Err(VaultError::AlreadyInitialized);
+            }
+            store.save_account(&account)?;
+            store.save_remote(&remote)
+        })?;
         self.session = Some(Session { account, vault_key });
-        self.save_session(&pending.api.base, &pending.device, &pending.session)?;
         tracing::info!(target: "sync", "joined existing account");
-        self.sync_now()?;
+        if let Err(error) = self.sync_now() {
+            tracing::warn!(target: "sync", code = error.code(), "initial item sync deferred after login");
+        }
         Ok(())
     }
 
@@ -495,6 +563,9 @@ impl Vault {
     // ───────── 同步主流程 ─────────
 
     pub fn sync_now(&mut self) -> Result<SyncReport> {
+        if self.pending_cloud_operation()?.is_some() {
+            return Err(VaultError::InvalidInput("账户操作尚未确认，请先原样重试；本机条目已保留".into()));
+        }
         let (api, _) = self.remote_api()?;
         let mut report = SyncReport::default();
         self.push_credentials(&api, &mut report)?;
@@ -767,7 +838,7 @@ impl Vault {
     }
 }
 
-fn account_keys(a: &AccountRecord) -> Result<AccountKeys> {
+pub(crate) fn account_keys(a: &AccountRecord) -> Result<AccountKeys> {
     Ok(AccountKeys {
         account_id: a.account_id.clone(),
         vault_id: a.vault_id.clone(),
@@ -788,6 +859,41 @@ pub fn ping(server_url: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lan_http_requires_debug_and_exact_explicit_origin() {
+        let selected = "http://192.168.0.4:9777";
+        assert!(validate_server_url_with_override(selected, None, true).is_err());
+        assert!(validate_server_url_with_override(selected, Some(selected), false).is_err());
+        assert_eq!(validate_server_url_with_override(selected, Some(selected), true).unwrap(), selected);
+        for other in ["http://192.168.0.5:9777", "http://192.168.0.4:9778", "http://192.168.0.4:9777/path", "http://8.8.8.8:9777"] {
+            assert!(validate_server_url_with_override(other, Some(selected), true).is_err());
+        }
+        for value in ["http://8.8.8.8", "http://198.18.0.1", "http://private.example.test", "http://192.168.0.4?token=x"] {
+            assert!(configure_development_http_server(Some(value)).is_err());
+        }
+    }
+
+    #[test]
+    fn authentication_client_does_not_follow_redirects() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let worker = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            let mut request = [0; 4096];
+            let _ = stream.read(&mut request).unwrap();
+            stream
+                .write_all(
+                    b"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:1/forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                )
+                .unwrap();
+        });
+        let result = ApiClient::new(&base).unwrap().get::<serde_json::Value>("/healthz");
+        assert!(matches!(result, Err(VaultError::Server { status: 302, .. })));
+        worker.join().unwrap();
+    }
 
     #[test]
     fn server_url_policy() {

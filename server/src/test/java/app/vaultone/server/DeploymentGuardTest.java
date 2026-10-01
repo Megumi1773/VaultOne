@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.vaultone.server.config.DeploymentGuard;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
@@ -101,6 +102,40 @@ class DeploymentGuardTest {
         .isInstanceOf(IllegalStateException.class);
     // dev 允许无口令的本机 PG/Redis。
     assertThatCode(() -> DeploymentGuard.validate(dev())).doesNotThrowAnyException();
+  }
+
+  @Test
+  void lanDevelopmentIsExplicitAndNeverWeakensDatabaseOrProductionGuards() {
+    var lan = dev().withProperty("vaultone.development.allow-lan", "true");
+    for (String bind : List.of("0.0.0.0", "192.168.0.4", "10.1.2.3", "172.16.0.2")) {
+      assertThatCode(() -> DeploymentGuard.validate(lan.withProperty("server.address", bind)))
+          .doesNotThrowAnyException();
+    }
+    for (String bind : List.of("8.8.8.8", "198.18.0.1", "172.32.0.1", "dev.example.com", "")) {
+      assertThatThrownBy(() -> DeploymentGuard.validate(lan.withProperty("server.address", bind)))
+          .isInstanceOf(IllegalStateException.class);
+    }
+    assertThatThrownBy(
+            () ->
+                DeploymentGuard.validate(
+                    lan.withProperty("server.address", "0.0.0.0")
+                        .withProperty("vaultone.development.allow-test-kdf", "true")))
+        .isInstanceOf(IllegalStateException.class);
+    assertThatCode(() -> DeploymentGuard.validate(lan.withProperty("server.address", "127.0.0.1")))
+        .doesNotThrowAnyException();
+    assertThatThrownBy(
+            () ->
+                DeploymentGuard.validate(
+                    dev()
+                        .withProperty("vaultone.development.allow-lan", "true")
+                        .withProperty(
+                            "spring.datasource.url", "jdbc:postgresql://192.168.0.4/test")))
+        .isInstanceOf(IllegalStateException.class);
+    assertThatThrownBy(
+            () ->
+                DeploymentGuard.validate(
+                    prod().withProperty("vaultone.development.allow-lan", "true")))
+        .isInstanceOf(IllegalStateException.class);
   }
 
   @Test

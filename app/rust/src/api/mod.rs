@@ -6,7 +6,9 @@
 
 pub mod browser;
 pub mod clipboard;
+pub mod cloud_account;
 pub mod conflicts;
+pub mod feedback;
 pub mod logging;
 pub mod sync;
 pub mod tools;

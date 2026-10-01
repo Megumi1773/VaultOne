@@ -9,10 +9,11 @@ import 'package:local_auth/local_auth.dart';
 import '../core/api.dart';
 import '../core/config.dart';
 import '../core/ffi.dart';
+import '../core/feedback_models.dart';
 import '../core/models.dart';
 import 'clipboard.dart';
 
-enum AppPhase { loading, onboarding, locked, unlocked, error }
+enum AppPhase { loading, onboarding, locked, cloudSetup, unlocked, error }
 
 enum ThemeModeSetting { dark, light, system }
 
@@ -131,6 +132,8 @@ class AppState extends ChangeNotifier {
 
   /// 注册 / 恢复完成、尚未确认保存 Recovery Kit 时持有；确认后立即丢弃。
   Enrollment? pendingEnrollment;
+  String? cloudSetupError;
+  String? pendingAccountOperation;
 
   /// 首次启动须同意隐私政策与用户协议（个人信息保护法 / 应用商店要求）；同意前不发起任何网络请求。
   bool privacyAccepted = false;
@@ -152,6 +155,14 @@ class AppState extends ChangeNotifier {
     return result;
   }
 
+
+  Future<String> newFeedbackId() => _withSession(VaultApi.newFeedbackId);
+  Future<FeedbackDetail> submitFeedback(FeedbackSubmission request) =>
+      _withSession(() => VaultApi.submitFeedback(request));
+  Future<FeedbackPageResult> listFeedback(int? before) =>
+      _withSession(() => VaultApi.listFeedback(before));
+  Future<FeedbackDetail> getFeedback(String id) =>
+      _withSession(() => VaultApi.getFeedback(id));
 
   /// 新设备登录：等待邮件验证码或其他设备批准。
   bool awaitingDeviceApproval = false;
@@ -206,7 +217,8 @@ class AppState extends ChangeNotifier {
     accountId = s.accountId;
     hasStoredSecretKey = (await SecureStore.readSecretKey(accountId!)) != null;
     quickUnlockEnabled = s.quickUnlockEnabled && (await SecureStore.readQuickKey(accountId!)) != null;
-    phase = s.unlocked ? AppPhase.unlocked : AppPhase.locked;
+    phase = AppPhase.locked;
+    if (s.unlocked) await _enterUnlocked();
   }
 
   Future<bool> _canUseBiometrics() async {
@@ -226,9 +238,7 @@ class AppState extends ChangeNotifier {
       clipboardSeconds: intOr(await VaultApi.getSetting('clipboard_seconds'), 30),
       lockOnMinimize: (await VaultApi.getSetting('lock_on_minimize') ?? (mobile ? '1' : '0')) == '1',
       themeMode: ThemeModeSetting.values.firstWhere((m) => m.name == theme, orElse: () => ThemeModeSetting.system),
-      serverUrl: AppConfig.allowCustomServer
-          ? (await VaultApi.getSetting('server_url') ?? AppConfig.defaultServerUrl)
-          : AppConfig.defaultServerUrl,
+      serverUrl: AppConfig.serverUrl(await VaultApi.getSetting('server_url') ?? AppConfig.defaultServerUrl),
       verboseLogs: (await VaultApi.getSetting('verbose_logs')) == '1',
       closeToTray: (await VaultApi.getSetting('close_to_tray')) != '0',
       globalHotkey: (await VaultApi.getSetting('global_hotkey')) != '0',
@@ -251,18 +261,45 @@ class AppState extends ChangeNotifier {
   // ---------- 注册 / 解锁 ----------
 
   Future<Enrollment> createAccount(String email, String password) async {
-    final e = await VaultApi.createAccount(email, password);
-    await SecureStore.writeSecretKey(e.accountId, e.secretKey);
+    final epoch = sessionEpoch;
+    final server = AppConfig.serverUrl(settings.serverUrl);
+    final e = await VaultApi.prepareCloudRegistration(server, email, password, defaultDeviceName);
+    if (epoch != sessionEpoch) throw CoreException('session_expired', '账户操作已取消');
     accountId = e.accountId;
-    hasStoredSecretKey = true;
-    pendingEnrollment = e;
-    VaultApi.log('account created');
+    phase = AppPhase.cloudSetup;
+    pendingAccountOperation = 'register';
+    cloudSetupError = null;
     notifyListeners();
+    try {
+      await SecureStore.writeSecretKey(e.accountId, e.secretKey);
+      hasStoredSecretKey = true;
+      await completeCloudRegistration(password, secretKey: e.secretKey);
+    } catch (error) {
+      if (epoch == sessionEpoch) {
+        cloudSetupError = error is CoreException ? error.message : '安全存储或注册未完成，请保留恢复材料后重试';
+        notifyListeners();
+      }
+      rethrow;
+    }
     return e;
   }
 
-  /// 用户确认已保存 Recovery Kit 后进入保险库。
+  Future<void> completeCloudRegistration(String password, {String? secretKey}) async {
+    if (phase != AppPhase.cloudSetup) throw CoreException('session_expired', '请先解锁账户草稿');
+    final epoch = sessionEpoch;
+    final sk = await _secretKey(secretKey);
+    await VaultApi.completeCloudRegistration(AppConfig.serverUrl(settings.serverUrl), password, sk, defaultDeviceName);
+    if (epoch != sessionEpoch) return;
+    await SecureStore.writeSecretKey(accountId!, sk);
+    hasStoredSecretKey = true;
+    cloudSetupError = null;
+    await _enterUnlocked();
+  }
+
+  /// 云账户已确认且用户保存恢复套件后，才进入条目界面。
   Future<void> finishOnboarding() async {
+    if (await VaultApi.remoteStatus() == null) throw CoreException('not_connected', '请先完成云账户注册');
+    await VaultApi.confirmCloudEnrollment();
     pendingEnrollment = null;
     await _enterUnlocked();
   }
@@ -322,21 +359,23 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Enrollment> recover(String recoveryCode, String newPassword, {String? secretKey}) async {
+  Future<Enrollment> recover(String recoveryCode, String newPassword, {String? secretKey, required String email}) async {
     final sk = await _secretKey(secretKey);
-    final e = await VaultApi.recover(recoveryCode, sk, newPassword);
-    await SecureStore.writeSecretKey(accountId!, e.secretKey);
-    await SecureStore.deleteQuickKey(accountId!);
-    hasStoredSecretKey = true;
-    quickUnlockEnabled = false;
-    pendingEnrollment = e;
-    notifyListeners();
-    return e;
+    return recoverFromServer(settings.serverUrl, email, recoveryCode, sk, newPassword, defaultDeviceName);
   }
 
   Future<void> changePassword(String current, String next) async {
     final sk = await _secretKey(null);
-    await VaultApi.changePassword(current, sk, next);
+    try {
+      await VaultApi.changePassword(current, sk, next);
+    } on CoreException catch (error) {
+      pendingAccountOperation = await VaultApi.pendingCloudOperation();
+      if (pendingAccountOperation == 'password') {
+        throw CoreException(error.code, '改密结果尚未确认。旧本机密码仍可解锁，请使用相同的新密码重试；其他设备可能已采用新密码。');
+      }
+      rethrow;
+    }
+    pendingAccountOperation = null;
     await SecureStore.deleteQuickKey(accountId!);
     quickUnlockEnabled = false;
     notifyListeners();
@@ -356,12 +395,31 @@ class AppState extends ChangeNotifier {
     final nextAccount = await VaultApi.account();
     if (!isCurrentSession(epoch)) return;
     account = nextAccount;
-    await refresh(sync: false);
-    if (!isCurrentSession(epoch)) return;
     final nextRemote = await VaultApi.remoteStatus();
+    final kit = await VaultApi.pendingCloudEnrollment();
+    final operation = await VaultApi.pendingCloudOperation();
     if (!isCurrentSession(epoch)) return;
     remote = nextRemote;
-    syncState = remote == null ? SyncState.off : SyncState.idle;
+    pendingAccountOperation = operation;
+    if (kit != null) {
+      pendingEnrollment = kit;
+      phase = AppPhase.onboarding;
+      notifyListeners();
+      return;
+    }
+    if (remote == null) {
+      phase = AppPhase.cloudSetup;
+      items = const [];
+      trash = const [];
+      syncState = SyncState.off;
+      _startIdleTimer();
+      notifyListeners();
+      return;
+    }
+    await refresh(sync: false);
+    if (!isCurrentSession(epoch)) return;
+    syncState = remote!.serverUrl == settings.serverUrl ? SyncState.idle : SyncState.needsReconnect;
+    if (syncState == SyncState.needsReconnect) syncError = '请重新验证 Java 服务连接；原数据与待同步条目已保留';
     _startIdleTimer();
     _startPeriodicSync();
     notifyListeners();
@@ -369,7 +427,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> lock() async {
-    if (phase != AppPhase.unlocked) return;
+    if (phase != AppPhase.unlocked && phase != AppPhase.cloudSetup) return;
     // 在任何 await 之前撤销 UI 会话，移除 Navigator 敏感页面并使旧读取失效。
     VaultApi.invalidateSession();
     phase = AppPhase.locked;
@@ -395,8 +453,9 @@ class AppState extends ChangeNotifier {
 
   /// 新设备：登录已有账户。返回 true 表示已完成；false 表示需要设备验证。
   Future<bool> signIn(String serverUrl, String email, String password, String secretKey, String deviceName) async {
-    await _saveServerUrl(serverUrl);
-    final joined = await VaultApi.loginExisting(serverUrl, email, password, secretKey.trim().toUpperCase(), deviceName);
+    final selected = AppConfig.serverUrl(serverUrl);
+    await _saveServerUrl(selected);
+    final joined = await VaultApi.loginExisting(selected, email, password, secretKey.trim().toUpperCase(), deviceName);
     if (!joined) {
       awaitingDeviceApproval = true;
       _pendingSecretKey = secretKey.trim().toUpperCase();
@@ -410,82 +469,83 @@ class AppState extends ChangeNotifier {
   String? _pendingSecretKey;
 
   Future<void> verifyDevice(String code) async {
+    final epoch = sessionEpoch;
+    final key = _pendingSecretKey;
+    if (!awaitingDeviceApproval || key == null) return;
     await VaultApi.verifyNewDevice(code);
-    await _afterJoin(_pendingSecretKey!);
+    if (epoch != sessionEpoch || !awaitingDeviceApproval) return;
+    await _afterJoin(key);
   }
 
   Future<bool> pollDeviceApproved() async {
+    final epoch = sessionEpoch;
+    final key = _pendingSecretKey;
+    if (!awaitingDeviceApproval || key == null) return false;
     if (!await VaultApi.checkNewDeviceApproved()) return false;
-    await _afterJoin(_pendingSecretKey!);
+    if (epoch != sessionEpoch || !awaitingDeviceApproval) return false;
+    await _afterJoin(key);
     return true;
   }
 
-  void cancelDeviceApproval() {
+  Future<void> cancelDeviceApproval() async {
+    VaultApi.invalidateSession();
     awaitingDeviceApproval = false;
     _pendingSecretKey = null;
-    VaultApi.lock();
+    notifyListeners();
+    await VaultApi.lock();
+    await _refreshStatus();
     notifyListeners();
   }
 
   Future<void> _afterJoin(String secretKey) async {
+    final epoch = sessionEpoch;
     awaitingDeviceApproval = false;
     _pendingSecretKey = null;
     final s = await VaultApi.status();
+    if (epoch != sessionEpoch) return;
     accountId = s.accountId;
     await SecureStore.writeSecretKey(accountId!, secretKey);
+    if (epoch != sessionEpoch) return;
     hasStoredSecretKey = true;
     await _loadSettings();
+    if (epoch != sessionEpoch) return;
     await _enterUnlocked();
   }
 
   /// 所有设备丢失：用 Recovery Kit 从云端恢复。
   Future<Enrollment> recoverFromServer(String serverUrl, String email, String recoveryCode, String secretKey, String newPassword, String deviceName) async {
-    await _saveServerUrl(serverUrl);
-    final e = await VaultApi.recoverFromServer(serverUrl, email, recoveryCode, secretKey.trim().toUpperCase(), newPassword, deviceName);
+    final selected = AppConfig.serverUrl(serverUrl);
+    await _saveServerUrl(selected);
+    final e = await VaultApi.recoverFromServer(selected, email, recoveryCode, secretKey.trim().toUpperCase(), newPassword, deviceName);
     accountId = e.accountId;
     await SecureStore.writeSecretKey(e.accountId, e.secretKey);
+    await SecureStore.deleteQuickKey(e.accountId);
+    quickUnlockEnabled = false;
     hasStoredSecretKey = true;
     pendingEnrollment = e;
+    phase = AppPhase.onboarding;
     notifyListeners();
     return e;
   }
 
   Future<void> _saveServerUrl(String url) async {
-    final fixed = AppConfig.allowCustomServer ? url.trim() : AppConfig.defaultServerUrl;
+    final fixed = AppConfig.serverUrl(url);
     settings = settings.copyWith(serverUrl: fixed);
     await VaultApi.setSetting('server_url', fixed);
   }
 
-  /// 已解锁的本地账户开启云同步（首台设备注册）。
-  Future<void> enableSync(String serverUrl, String deviceName) async {
-    await _saveServerUrl(serverUrl);
-    syncState = SyncState.syncing;
-    notifyListeners();
-    try {
-      await VaultApi.connectRegister(serverUrl, deviceName);
-      remote = await VaultApi.remoteStatus();
-      syncState = SyncState.idle;
-      syncError = null;
-      _startPeriodicSync();
-      await refresh(sync: false);
-    } catch (e) {
-      syncState = remote == null ? SyncState.off : SyncState.error;
-      rethrow;
-    } finally {
-      notifyListeners();
-    }
+  Future<void> signOut() async {
+    await VaultApi.logoutCloud();
+    syncState = SyncState.needsReconnect;
+    await lock();
   }
 
-  Future<void> disableSync() async {
-    await VaultApi.disconnect();
-    remote = null;
-    syncState = SyncState.off;
-    _syncPeriodic?.cancel();
-    notifyListeners();
-  }
-
+  /// 显式重新认证到配置中的 Java 服务；内核校验同一账户后才换绑。
   Future<void> reconnect(String password) async {
-    await VaultApi.reconnect(password, await _secretKey(null));
+    await VaultApi.reconnectCloud(AppConfig.serverUrl(settings.serverUrl), password, await _secretKey(null));
+    remote = await VaultApi.remoteStatus();
+    await SecureStore.deleteQuickKey(accountId!);
+    quickUnlockEnabled = false;
     syncState = SyncState.idle;
     syncError = null;
     notifyListeners();
@@ -507,6 +567,12 @@ class AppState extends ChangeNotifier {
 
   Future<SyncReportDto?> syncNow({bool silent = false}) async {
     if (!privacyAccepted || remote == null || phase != AppPhase.unlocked || syncState == SyncState.syncing) return null;
+    if (remote!.serverUrl != settings.serverUrl) {
+      syncState = SyncState.needsReconnect;
+      syncError = '请重新验证 Java 服务连接；不会自动向旧服务器发送请求';
+      notifyListeners();
+      return null;
+    }
     final epoch = sessionEpoch;
     syncState = SyncState.syncing;
     notifyListeners();
@@ -700,8 +766,16 @@ class AppState extends ChangeNotifier {
     account = null;
     remote = null;
     accountId = null;
+    pendingEnrollment = null;
+    pendingAccountOperation = null;
+    cloudSetupError = null;
+    hasStoredSecretKey = false;
+    quickUnlockEnabled = false;
+    awaitingDeviceApproval = false;
+    _pendingSecretKey = null;
     syncState = SyncState.off;
     phase = AppPhase.onboarding;
+    await _loadSettings();
     await Clipboard.setData(const ClipboardData(text: ''));
     notifyListeners();
   }
@@ -710,6 +784,12 @@ class AppState extends ChangeNotifier {
     await VaultApi.deleteRemoteAccount(password, await _secretKey(null));
     remote = null;
     syncState = SyncState.off;
+    _syncPeriodic?.cancel();
+    _syncDebounce?.cancel();
+    items = const [];
+    trash = const [];
+    phase = AppPhase.cloudSetup;
+    cloudSetupError = '云账户已注销。本机加密数据保留，可先导出备份或明确清除本机数据。';
     notifyListeners();
   }
 

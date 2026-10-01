@@ -80,6 +80,121 @@ fn delete_own_account(v: &mut Vault, master_password: &str, secret_key: &str) {
     }
 }
 
+#[path = "support/cloud_proxy.rs"]
+mod cloud_proxy;
+
+// ───────────────────────── 云账户事务与失联恢复 ─────────────────────────
+
+#[test]
+#[ignore = "需要隔离 Java 后端"]
+fn cloud_account_operations_survive_lost_responses_and_restart() {
+    let base = loopback_test_url();
+    require_ready(&base);
+    let proxy = cloud_proxy::CloudProxy::start(&base);
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().join("cloud.db");
+    let email = unique_email();
+    let old = "cloud account initial password";
+    let next = "cloud account changed password";
+    let restored = "cloud account recovered password";
+    let mut v = Vault::open(&path).unwrap();
+    let kit = v.prepare_cloud_registration(&proxy.url, &email, old, "Cloud A", KdfParams::insecure_for_tests()).unwrap();
+    assert!(v.remote_status().unwrap().is_none());
+    assert_eq!(v.pending_cloud_operation().unwrap().as_deref(), Some("register"));
+    proxy.drop_response("/v1/auth/register");
+    assert!(v.complete_cloud_registration(&proxy.url, old, &kit.secret_key, "Cloud A").is_err());
+    drop(v);
+    let mut v = Vault::open(&path).unwrap();
+    v.unlock(old, &kit.secret_key).unwrap();
+    let recovered_kit = v.complete_cloud_registration(&proxy.url, old, &kit.secret_key, "Cloud A").unwrap().unwrap();
+    assert_eq!(recovered_kit.recovery_code.as_str(), kit.recovery_code.as_str());
+    v.confirm_cloud_enrollment().unwrap();
+    let item = v.create_item(login_item("Offline", "local", "never-upload-plaintext")).unwrap();
+    proxy.set_offline(true);
+    assert!(v.sync_now().is_err());
+    assert!(v.pending_changes().unwrap() > 0);
+    assert_eq!(v.get_item(&item.id).unwrap().data.password.as_deref(), Some("never-upload-plaintext"));
+    proxy.set_offline(false);
+    v.sync_now().unwrap();
+    assert_eq!(v.pending_changes().unwrap(), 0);
+
+    proxy.drop_response("/v1/account/credentials");
+    assert!(v.change_cloud_password(old, &kit.secret_key, next).is_err());
+    v.verify_master_password(old, &kit.secret_key).unwrap();
+    assert!(v.verify_master_password(next, &kit.secret_key).is_err());
+    drop(v);
+    let mut v = Vault::open(&path).unwrap();
+    v.unlock(old, &kit.secret_key).unwrap();
+    proxy.reject_account_once();
+    v.change_cloud_password(old, &kit.secret_key, next).unwrap();
+    v.verify_master_password(next, &kit.secret_key).unwrap();
+    assert!(v.verify_master_password(old, &kit.secret_key).is_err());
+
+    proxy.drop_response("/v1/recovery/complete");
+    assert!(v.recover_cloud_account(&proxy.url, &email, &kit.recovery_code, &kit.secret_key, restored, "Cloud A").is_err());
+    drop(v);
+    let mut v = Vault::open(&path).unwrap();
+    let new_kit = v.recover_cloud_account(&proxy.url, &email, &kit.recovery_code, &kit.secret_key, restored, "Cloud A").unwrap();
+    assert_ne!(new_kit.recovery_code.as_str(), kit.recovery_code.as_str());
+    assert_eq!(v.list_items().unwrap().len(), 1);
+    assert!(v.pending_cloud_operation().unwrap().is_none());
+    let raw = std::fs::read(&path).unwrap();
+    for secret in [old, next, restored, kit.secret_key.as_str(), new_kit.recovery_code.as_str()] {
+        assert!(!raw.windows(secret.len()).any(|part| part == secret.as_bytes()));
+    }
+    v.confirm_cloud_enrollment().unwrap();
+    v.sync_now().unwrap();
+    delete_own_account(&mut v, restored, &kit.secret_key);
+}
+
+#[test]
+#[ignore = "需要隔离 Java 后端"]
+fn legacy_local_enrollment_and_explicit_endpoint_reconnect_preserve_items() {
+    let base = loopback_test_url();
+    let proxy = cloud_proxy::CloudProxy::start(&base);
+    let password = "legacy preserved cloud password";
+    let mut local = Vault::open_in_memory().unwrap();
+    let kit = local.create_account(&unique_email(), password, KdfParams::insecure_for_tests()).unwrap();
+    let item = local.create_item(login_item("Retained", "local", "secret")).unwrap();
+    local.complete_cloud_registration(&proxy.url, password, &kit.secret_key, "Legacy device").unwrap();
+    local.sync_now().unwrap();
+    assert!(local.get_item(&item.id).is_ok());
+    let previous = local.remote_status().unwrap().unwrap().server_url;
+    assert!(local.reconnect_cloud(&base, "wrong-password", &kit.secret_key).is_err());
+    assert_eq!(local.remote_status().unwrap().unwrap().server_url, previous);
+    local.reconnect_cloud(&base, password, &kit.secret_key).unwrap();
+    assert_eq!(local.remote_status().unwrap().unwrap().server_url, base);
+    local.sync_now().unwrap();
+    assert!(local.get_item(&item.id).is_ok());
+    local.logout_cloud().unwrap();
+    assert!(!local.is_unlocked());
+    assert!(local.remote_status().unwrap().is_some());
+    local.unlock(password, &kit.secret_key).unwrap();
+    assert!(local.get_item(&item.id).is_ok());
+    assert!(local.sync_now().is_err());
+    local.reconnect_cloud(&base, password, &kit.secret_key).unwrap();
+    local.sync_now().unwrap();
+    delete_own_account(&mut local, password, &kit.secret_key);
+}
+
+#[test]
+#[ignore = "需要隔离 Java 后端"]
+fn another_cloud_account_with_same_email_does_not_replace_local_identity() {
+    let base = loopback_test_url();
+    let email = unique_email();
+    let password = "different accounts same password";
+    let mut first = Vault::open_in_memory().unwrap();
+    let first_kit = first.prepare_cloud_registration(&base, &email, password, "First", KdfParams::insecure_for_tests()).unwrap();
+    first.complete_cloud_registration(&base, password, &first_kit.secret_key, "First").unwrap();
+    let mut other = Vault::open_in_memory().unwrap();
+    let kit = other.prepare_cloud_registration(&base, &email, password, "Other", KdfParams::insecure_for_tests()).unwrap();
+    assert!(other.complete_cloud_registration(&base, password, &kit.secret_key, "Other").is_err());
+    assert_eq!(other.account_id().unwrap(), kit.account_id);
+    assert!(other.remote_status().unwrap().is_none());
+    other.verify_master_password(password, &kit.secret_key).unwrap();
+    delete_own_account(&mut first, password, &first_kit.secret_key);
+}
+
 // ───────────────────────── 主线 1-3：注册 / 批准 / 同步 ─────────────────────────
 
 /// 覆盖：本地建号 → register（会话可用、首台设备已批准）→ 第二设备真实 SRP 登录（未批准不下发
@@ -164,6 +279,41 @@ fn register_approval_sync_conflict_and_pagination() {
     assert!(a.list_items().unwrap().iter().any(|i| i.id == gh.id));
 
     delete_own_account(&mut a, pw, &kit.secret_key);
+}
+
+// ───────────────────────── 反馈客户端 ─────────────────────────
+
+#[test]
+#[ignore = "需要隔离 Java 后端"]
+fn feedback_create_retry_history_and_local_lock() {
+    use vault_proto::feedback::{FeedbackCategory, FeedbackCreate, FeedbackStatus};
+    let base = loopback_test_url();
+    require_ready(&base);
+    let password = "feedback interop master password";
+    let mut v = Vault::open_in_memory().unwrap();
+    let kit = v.create_account(&unique_email(), password, KdfParams::insecure_for_tests()).unwrap();
+    v.connect_register(&base, "Feedback interop").unwrap();
+    let input = FeedbackCreate {
+        id: vault_core::feedback::new_feedback_id(),
+        category: FeedbackCategory::Suggestion,
+        content: "测试反馈，不包含保险库数据".into(),
+        contact: None,
+        consent: true,
+    };
+    let created = v.submit_feedback(&input).unwrap();
+    assert_eq!(created.summary.id, input.id);
+    assert_eq!(created.summary.status, FeedbackStatus::Open);
+    assert_eq!(v.submit_feedback(&input).unwrap().summary.version, 1);
+    assert_eq!(v.list_feedback(None, 20).unwrap().items.len(), 1);
+    assert_eq!(v.get_feedback(&input.id).unwrap().content, input.content);
+    let mut different = input.clone();
+    different.content = "另一条".into();
+    assert!(matches!(v.submit_feedback(&different), Err(VaultError::Server { status: 409, .. })));
+    assert!(v.list_items().unwrap().is_empty(), "反馈不能写入保险库或同步条目");
+    v.lock();
+    assert!(v.get_feedback(&input.id).is_err());
+    v.unlock(password, &kit.secret_key).unwrap();
+    delete_own_account(&mut v, password, &kit.secret_key);
 }
 
 // ───────────────────────── 主线 4：改主密码 ─────────────────────────

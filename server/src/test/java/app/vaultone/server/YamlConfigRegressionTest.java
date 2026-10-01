@@ -134,7 +134,8 @@ class YamlConfigRegressionTest {
     assertThat(common.getProperty("spring.jpa.open-in-view", String.class)).isEqualTo("false");
 
     var dev = load("dev");
-    assertThat(dev.getProperty("server.address", String.class)).isEqualTo("127.0.0.1");
+    assertThat(dev.getProperty("server.address", String.class)).isEqualTo("0.0.0.0");
+    assertThat(dev.getProperty("vaultone.development.allow-lan", String.class)).isEqualTo("true");
     assertThat(dev.getProperty("vaultone.development.enabled", String.class)).isEqualTo("true");
     assertThat(dev.getProperty("vaultone.development.allow-test-kdf", String.class))
         .isEqualTo("false");

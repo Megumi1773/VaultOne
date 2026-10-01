@@ -15,6 +15,8 @@ public final class AuditEvents {
   public static final String RECOVERY_FAIL = "recovery_fail";
   public static final String LOGOUT = "logout";
   public static final String ACCOUNT_DELETED = "account_deleted";
+  public static final String FEEDBACK_CREATED = "feedback_created";
+  public static final String FEEDBACK_HANDLED = "feedback_handled";
 
   private static final Map<String, AuditSeverity> SEVERITIES =
       Map.ofEntries(
@@ -28,7 +30,9 @@ public final class AuditEvents {
           Map.entry(RECOVERY_USED, AuditSeverity.HIGH),
           Map.entry(RECOVERY_FAIL, AuditSeverity.HIGH),
           Map.entry(LOGOUT, AuditSeverity.LOW),
-          Map.entry(ACCOUNT_DELETED, AuditSeverity.HIGH));
+          Map.entry(ACCOUNT_DELETED, AuditSeverity.HIGH),
+          Map.entry(FEEDBACK_CREATED, AuditSeverity.LOW),
+          Map.entry(FEEDBACK_HANDLED, AuditSeverity.MEDIUM));
 
   private AuditEvents() {}
 

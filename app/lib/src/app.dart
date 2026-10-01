@@ -7,6 +7,7 @@ import 'state/app_state.dart';
 import 'state/desktop_shell.dart';
 import 'state/scope.dart';
 import 'ui/screens/home.dart';
+import 'ui/screens/cloud_setup.dart';
 import 'ui/screens/onboarding.dart';
 import 'ui/screens/unlock.dart';
 import 'ui/theme.dart';
@@ -128,6 +129,7 @@ class _PhaseRouter extends StatelessWidget {
       AppPhase.loading => const _Splash(),
       AppPhase.onboarding => const OnboardingScreen(),
       AppPhase.locked => state.pendingEnrollment != null ? const OnboardingScreen() : const UnlockScreen(),
+      AppPhase.cloudSetup => const CloudSetupScreen(),
       AppPhase.unlocked => const HomeScreen(),
       AppPhase.error => FatalScreen(message: state.fatalError ?? '未知错误'),
     };

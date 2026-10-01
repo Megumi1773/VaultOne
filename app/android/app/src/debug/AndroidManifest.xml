@@ -6,7 +6,7 @@
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
-    <!-- 仅 debug：放行 adb reverse 到本机开发后端的明文 HTTP；release 仍强制 HTTPS -->
+    <!-- 仅 debug：由专属网络配置精确放行回环/模拟器/开发网卡；release/profile 不携带例外。 -->
     <application
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config"

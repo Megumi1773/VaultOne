@@ -18,6 +18,29 @@ import com.tngtech.archunit.lang.ArchRule;
     importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {
   @ArchTest
+  static final ArchRule feedbackControllerDoesNotTouchPersistence =
+      noClasses()
+          .that()
+          .resideInAPackage("..feedback.controller..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage(
+              "..repository..",
+              "..model..",
+              "jakarta.persistence..",
+              "java.sql..",
+              "org.redisson..");
+
+  @ArchTest
+  static final ArchRule feedbackDoesNotCacheItsContentInRedis =
+      noClasses()
+          .that()
+          .resideInAPackage("..feedback..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("org.redisson..");
+
+  @ArchTest
   static final ArchRule webDoesNotTouchPersistence =
       noClasses()
           .that()

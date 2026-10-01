@@ -24,7 +24,7 @@ class ExternalInfrastructureIT {
       assertThat(services.runtime().user()).startsWith("vaultone_it_runtime");
       assertThat(services.migrator().user()).startsWith("vaultone_it_migrator");
       assertThat(services.runtime().host()).isEqualTo("127.0.0.1");
-      assertThat(services.currentSchemaVersion()).isEqualTo("4");
+      assertThat(services.currentSchemaVersion()).isEqualTo("5");
       if (services.backend() instanceof app.vaultone.server.support.ExternalBackend external) {
         external.assertRuntimeRoleRestricted();
         external.assertMigratorRoleRestricted();

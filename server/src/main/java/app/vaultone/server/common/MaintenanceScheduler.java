@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * 周期维护：清理过期握手与验证码。跨实例用 {@link MaintenanceLock} 互斥，先拿锁后开数据库事务（见 {@link
+ * 周期维护：清理过期握手、验证码及到期反馈。跨实例用 {@link MaintenanceLock} 互斥，先拿锁后开数据库事务（见 {@link
  * MaintenanceCleanup}），删改有界（只删已过期行）。不触碰用户数据内容。
  */
 @Component
@@ -35,8 +35,12 @@ public class MaintenanceScheduler {
           Duration.ofSeconds(30),
           () -> {
             int[] removed = cleanup.purgeExpired(now);
-            if (removed[0] + removed[1] > 0) {
-              log.info("purged expired handshakes={} otps={}", removed[0], removed[1]);
+            if (removed[0] + removed[1] + removed[2] > 0) {
+              log.info(
+                  "purged expired handshakes={} otps={} feedback={}",
+                  removed[0],
+                  removed[1],
+                  removed[2]);
             }
           });
     } catch (RuntimeException ex) {

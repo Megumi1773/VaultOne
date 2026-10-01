@@ -1,7 +1,9 @@
 //! VaultOne 线协议（JSON over HTTPS）。
 //!
-//! 所有字段要么是非敏感元数据，要么是客户端用 AES-256-GCM 密封盒加密后的密文（[`Bytes`]，base64）。
-//! 服务端与客户端共用本 crate，保证两端结构一致。
+//! 保险库同步字段是非敏感元数据或客户端 AES-256-GCM 密文；[`feedback`] 是另行同意的客服可读文本。
+//! Rust 客户端共享本 crate 的线协议定义，Java 服务端通过交叉测试对齐。
+
+pub mod feedback;
 
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;

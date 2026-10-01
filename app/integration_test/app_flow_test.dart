@@ -1,7 +1,7 @@
 // 端到端 UI 流程测试（真实 Rust 内核 + 真实 SQLite 文件）：
 // 建号 → 保存 Recovery Kit 确认 → 新建登录条目 → 锁定 → 错误主密码 → 正确主密码解锁 → 条目仍在。
 //
-// 运行：cd app && flutter test integration_test -d windows
+// 由 server/ 的 DesktopCloudSmoke 显式启动隔离 Java/PG/Redis 后驱动，不连接用户业务库。
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import 'package:vaultone/src/core/api.dart';
 import 'package:vaultone/src/core/ffi.dart';
 import 'package:vaultone/src/state/scope.dart';
 import 'package:vaultone/src/ui/screens/conflicts_page.dart';
+import 'package:vaultone/src/ui/screens/feedback_page.dart';
 import 'package:vaultone/src/ui/screens/item_editor.dart';
 import 'package:vaultone/src/ui/screens/item_list.dart';
 import 'package:vaultone/src/rust/frb_generated.dart';
@@ -25,8 +26,7 @@ Future<void> waitFor(WidgetTester tester, Finder finder, {Duration timeout = con
     await tester.pump(const Duration(milliseconds: 200));
     if (finder.evaluate().isNotEmpty) return;
   }
-  final texts = find.byType(Text).evaluate().map((e) => (e.widget as Text).data).whereType<String>().take(40).join(' | ');
-  throw TestFailure('等待超时：$finder；当前可见文本：$texts');
+  throw TestFailure('等待超时：$finder（不输出可能包含密钥的页面文本）');
 }
 
 Future<void> enter(WidgetTester tester, int index, String text, {Finder? within}) async {
@@ -46,6 +46,9 @@ void main() {
 
   late Directory tmp;
   setUpAll(() async {
+    if (!const bool.fromEnvironment('VAULTONE_JAVA_UI_TEST')) {
+      throw StateError('需要由隔离 Java 测试夹具提供 VAULTONE_JAVA_UI_TEST 和 VAULTONE_SERVER');
+    }
     await RustLib.init();
     tmp = await Directory.systemTemp.createTemp('vaultone_it_');
   });
@@ -63,15 +66,15 @@ void main() {
     await tester.tap(find.text('同意并继续'));
 
     // 欢迎页
-    await waitFor(tester, find.text('创建我的保险库'));
-    await tester.tap(find.text('创建我的保险库'));
+    await waitFor(tester, find.text('注册云账户'));
+    await tester.tap(find.text('注册云账户'));
     await waitFor(tester, find.text('设置主密码'));
 
     // 建号表单：邮箱 / 主密码 / 确认
     await enter(tester, 0, 'it@example.com');
     await enter(tester, 1, _password);
     await enter(tester, 2, _password);
-    await tester.tap(find.text('创建保险库'));
+    await tester.tap(find.text('注册账户'));
 
     // Recovery Kit：复制 Secret Key 视为已保存 → 勾选确认 → 进入
     await waitFor(tester, find.text('保存你的 Recovery Kit'));
@@ -126,15 +129,47 @@ void main() {
     await waitFor(tester, find.text('没有待处理的冲突'));
     await tester.tap(find.text('显示历史记录'));
     await waitFor(tester, find.text('暂无冲突记录'));
-    final state = AppScope.read(tester.element(find.byType(ConflictsPage)));
+    final conflictState = AppScope.read(tester.element(find.byType(ConflictsPage)));
+    await conflictState.lock();
+    await waitFor(tester, find.text('欢迎回来'));
+    expect(find.byType(ConflictsPage), findsNothing);
+    await expectLater(VaultApi.listConflicts(false), throwsA(isA<CoreException>()));
+    await enter(tester, 0, _password);
+    await tester.tap(find.text('解锁'));
+    await waitFor(tester, inList);
+    await tester.tap(find.text('设置'));
+
+    // 反馈走同一 Java 云账户；验证真实网络提交与历史查询。
+    await waitFor(tester, find.text('打开反馈'));
+    await tester.ensureVisible(find.text('打开反馈'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('打开反馈'));
+    await waitFor(tester, find.text('客服可以读取反馈'));
+    await tester.tap(find.byKey(const Key('feedback-history-tab')));
+    await waitFor(tester, find.text('暂无反馈记录。你提交的反馈会显示在这里。'));
+    await tester.tap(find.byKey(const Key('feedback-write-tab')));
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('feedback-content')), '真实 Java 客户端反馈流程');
+    await tester.ensureVisible(find.byKey(const Key('feedback-consent')));
+    await tester.tap(find.byKey(const Key('feedback-consent')));
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const Key('feedback-submit')));
+    await tester.tap(find.byKey(const Key('feedback-submit')));
+    await waitFor(tester, find.text('提交成功'));
+    final state = AppScope.read(tester.element(find.byType(FeedbackPage)));
     await state.lock();
     await waitFor(tester, find.text('欢迎回来'));
     expect(find.byType(ConflictsPage), findsNothing);
+    expect(find.byType(FeedbackPage), findsNothing);
+    await expectLater(VaultApi.listFeedback(null), throwsA(isA<CoreException>()));
     await expectLater(VaultApi.listConflicts(false), throwsA(isA<CoreException>()));
 
     // 本地数据库文件中没有明文
     final raw = String.fromCharCodes(await File('${tmp.path}/vault.db').readAsBytes());
     expect(raw.contains('it@example.com'), isFalse);
     expect(raw.contains('GitHub'), isFalse);
+    await state.wipeThisDevice();
+    expect(state.privacyAccepted, isFalse);
+    expect(state.accountId, isNull);
   });
 }

@@ -11,7 +11,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vaultone/src/app.dart';
 import 'package:vaultone/src/core/api.dart';
+import 'package:vaultone/src/core/config.dart';
 import 'package:vaultone/src/core/ffi.dart';
+import 'package:vaultone/src/core/feedback_models.dart';
 import 'package:vaultone/src/core/models.dart';
 import 'package:vaultone/src/ui/screens/home.dart';
 import 'package:vaultone/src/ui/screens/item_editor.dart';
@@ -30,6 +32,25 @@ class _Bridge implements RustLibApi {
   Completer<String>? pendingItems;
   Completer<void>? pendingLock;
   Completer<String>? pendingCsv;
+  Completer<String>? pendingFeedback;
+
+  @override
+  Future<String> crateApiFeedbackListFeedback({int? before, required int limit}) {
+    networkCalls++;
+    return pendingFeedback?.future ?? Future.value('{"items":[],"next_before":null}');
+  }
+
+  @override
+  Future<String> crateApiFeedbackSubmitFeedback({required String requestJson}) {
+    networkCalls++;
+    return pendingFeedback!.future;
+  }
+
+  @override
+  Future<String> crateApiFeedbackGetFeedback({required String id}) {
+    networkCalls++;
+    return pendingFeedback!.future;
+  }
 
   @override
   Future<List<rb.BrowserClientDto>> crateApiBrowserListBrowserClients() async => [];
@@ -60,7 +81,11 @@ class _Bridge implements RustLibApi {
   @override
   Future<rv.AccountInfo> crateApiVaultAccountInfo() async => rv.AccountInfo(accountId: 'existing', email: 'test@example.com', kdfSummary: 'test', pendingChanges: BigInt.zero, itemCount: BigInt.zero);
   @override
-  Future<RemoteStatusDto?> crateApiSyncRemoteStatus() async => RemoteStatusDto(serverUrl: 'https://test.invalid', deviceId: 'device', deviceName: 'test', pending: BigInt.zero);
+  Future<RemoteStatusDto?> crateApiSyncRemoteStatus() async => RemoteStatusDto(serverUrl: AppConfig.defaultServerUrl, deviceId: 'device', deviceName: 'test', pending: BigInt.zero);
+  @override
+  Future<rv.EnrollmentDto?> crateApiCloudAccountPendingEnrollment() async => null;
+  @override
+  Future<String?> crateApiCloudAccountPendingOperation() async => null;
   @override
   Future<SyncReportDto> crateApiSyncSyncNow() async {
     networkCalls++;
@@ -68,6 +93,8 @@ class _Bridge implements RustLibApi {
   }
   @override
   Future<void> crateApiSyncPingServer({required String serverUrl}) async { networkCalls++; }
+  @override
+  Future<void> crateApiSyncConfigureDevelopmentHttp({String? serverUrl}) async {}
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -160,6 +187,23 @@ void main() {
     await state.lock();
   });
 
+  test('反馈真实门面在锁定后拒绝晚到结果，状态层拒绝新请求', () async {
+    bridge.settings['privacy_consent'] = VaultApi.privacyVersion;
+    bridge.pendingFeedback = Completer<String>();
+    final state = AppState()..phase = AppPhase.unlocked;
+    addTearDown(state.dispose);
+    final pending = state.listFeedback(null);
+    final check = expectLater(pending, throwsA(isA<CoreException>()));
+    await Future<void>.delayed(Duration.zero);
+    expect(bridge.networkCalls, 1);
+    VaultApi.invalidateSession();
+    state.phase = AppPhase.locked;
+    bridge.pendingFeedback!.complete('{"items":[],"next_before":null}');
+    await check;
+    await expectLater(state.getFeedback('id'), throwsA(isA<CoreException>()));
+    expect(bridge.networkCalls, 1);
+  });
+
   test('全部远程门面缺失或旧版本同意时拒绝，不能绕过状态层', () async {
     final requests = <Future<Object?> Function()>[
       () => VaultApi.pingServer('https://test.invalid'),
@@ -177,6 +221,9 @@ void main() {
       VaultApi.auditEvents,
       () => VaultApi.recoverFromServer('url', 'email', 'code', 'key', 'password', 'device'),
       () => VaultApi.checkBreaches(['item']),
+      () => VaultApi.listFeedback(null),
+      () => VaultApi.getFeedback('test-id'),
+      () => VaultApi.submitFeedback(const FeedbackSubmission(id: 'test-id', category: FeedbackCategory.bug, content: '测试')),
     ];
     for (final consent in [null, 'old-version']) {
       if (consent != null) bridge.settings['privacy_consent'] = consent;

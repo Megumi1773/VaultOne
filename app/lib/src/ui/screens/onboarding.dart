@@ -91,7 +91,7 @@ class _Welcome extends StatelessWidget {
           style: context.text.bodyLarge?.copyWith(color: c.textMuted),
         ),
         const SizedBox(height: 40),
-        ZoButton(label: '创建我的保险库', icon: Icons.arrow_forward_rounded, expand: true, onPressed: onStart),
+        ZoButton(label: '注册云账户', icon: Icons.arrow_forward_rounded, expand: true, onPressed: onStart),
         const SizedBox(height: 10),
         ZoButton(label: '我已有账户，登录', icon: Icons.login_rounded, variant: ZoButtonVariant.secondary, expand: true, onPressed: onSignIn),
         const SizedBox(height: 4),
@@ -108,7 +108,7 @@ class _Welcome extends StatelessWidget {
             Icon(Icons.lock_outline_rounded, size: 14, color: c.textFaint),
             const SizedBox(width: 6),
             Expanded(
-              child: Text('离线可用：数据默认只保存在本机，可随时开启端到端加密同步。', style: context.text.bodySmall?.copyWith(color: c.textFaint)),
+              child: Text('账户注册与登录需要联网；密码条目在本机加密，可离线使用并自动同步。', style: context.text.bodySmall?.copyWith(color: c.textFaint)),
             ),
           ],
         ),
@@ -153,6 +153,7 @@ class _CreateFormState extends State<_CreateForm> {
   }
 
   Future<void> _submit() async {
+    if (_busy) return;
     final email = _email.text.trim();
     final pw = _pw.text;
     setState(() {
@@ -230,10 +231,10 @@ class _CreateFormState extends State<_CreateForm> {
             onSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: 28),
-          ZoButton(label: _busy ? '正在生成密钥…' : '创建保险库', loading: _busy, expand: true, onPressed: _submit),
+          ZoButton(label: _busy ? '正在注册云账户…' : '注册账户', loading: _busy, expand: true, onPressed: _submit),
           const SizedBox(height: 16),
           Text(
-            '点击创建后，我们会在本机生成 240-bit Secret Key 与 256-bit Vault Key，并用 Argon2id（64 MiB，32 字节随机盐）派生主密钥，约需 1 秒。',
+            '密钥在本机生成，主密码和 Secret Key 不会发送给服务端。只有 Java 服务确认注册后才完成建号；网络失败会保留加密注册草稿供重试。',
             style: context.text.bodySmall?.copyWith(color: c.textFaint),
           ),
         ],
@@ -273,7 +274,7 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
         });
       }
     } catch (_) {
-      if (canContinue()) showZoMessage(context, '保存失败，请检查目录权限与可用空间。', error: true);
+      if (mounted && canContinue()) showZoMessage(context, '保存失败，请检查目录权限与可用空间。', error: true);
     }
   }
 
@@ -413,7 +414,7 @@ class _PrivacyConsent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const AuthHeader(eyebrow: 'Privacy', title: '隐私保护说明', subtitle: '在开始使用前，请阅读并同意《隐私政策》与《用户协议》。'),
-        point(Icons.lock_outline_rounded, '数据只在本机加密', '保险库内容以 AES-256-GCM 加密存储在本机；开启同步后服务器也只收到密文。'),
+        point(Icons.lock_outline_rounded, '数据只在本机加密', '保险库内容在本机加密存储，云同步也只发送密文；账户和在线业务由 Java 服务处理。'),
         point(Icons.alternate_email_rounded, '我们收集的最少信息', '仅在你开启云同步时收集邮箱（用于登录与安全通知）与设备名称。'),
         point(Icons.block_rounded, '不做的事', '不接入任何第三方统计、广告或推送 SDK；不读取通讯录、位置等无关权限。'),
         point(Icons.fingerprint_rounded, '生物识别', '指纹/面容仅由系统验证，VaultOne 无法获取任何生物特征数据；需你单独开启。'),

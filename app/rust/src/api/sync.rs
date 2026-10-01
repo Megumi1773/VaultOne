@@ -60,6 +60,11 @@ pub fn remote_status() -> BridgeResult<Option<RemoteStatusDto>> {
     })
 }
 
+/// 仅调试构建可登记一个私网 HTTP 服务器，None 撤销例外。
+pub fn configure_development_http(server_url: Option<String>) -> BridgeResult<()> {
+    Ok(core_sync::configure_development_http_server(server_url.as_deref())?)
+}
+
 /// 测试服务器连通性。
 pub fn ping_server(server_url: String) -> BridgeResult<()> {
     Ok(core_sync::ping(&server_url)?)

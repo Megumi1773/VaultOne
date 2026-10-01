@@ -380,11 +380,11 @@ class _Sidebar extends StatelessWidget {
                     const SizedBox(width: 10),
                     Tooltip(
                       message: switch (state.syncState) {
-                        SyncState.off => '仅本机（未开启同步）',
+                        SyncState.off => '云账户尚未完成接入',
                         SyncState.syncing => '同步中…',
                         SyncState.error => '同步失败：${state.syncError ?? ''}',
-                        SyncState.needsReconnect => '同步登录已过期',
-                        SyncState.idle => '已同步',
+                        SyncState.needsReconnect => '云账户需要重新验证',
+                        SyncState.idle => '条目自动同步',
                       },
                       child: Container(
                         width: 7,

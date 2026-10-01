@@ -26,7 +26,7 @@ abstract class CargoKitBuildTask extends DefaultTask {
     @Input
     String buildDir
 
-    @Input
+    @OutputDirectory
     String outputDir
 
     @Input
@@ -124,6 +124,14 @@ class CargoKitPlugin implements Plugin<Project> {
         }
 
         def cargoBuildDir = "${project.buildDir}/build"
+        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+            // NDK 链接器不能可靠读取规范化后的中文路径；subst 也会被 Cargo 还原。
+            def cacheKey = Integer.toHexString(project.projectDir.canonicalPath.hashCode())
+            cargoBuildDir = new File(project.gradle.gradleUserHomeDir, "cargokit/${project.name}-${cacheKey}/build").absolutePath
+            if (cargoBuildDir.toCharArray().any { it > 127 }) {
+                throw new GradleException("Android Rust 缓存路径必须为 ASCII，请将 GRADLE_USER_HOME 指向无中文目录。")
+            }
+        }
 
         // Determine if the project is an application or library
         def isApplication = plugin.project.plugins.hasPlugin('com.android.application')
@@ -173,9 +181,12 @@ class CargoKitPlugin implements Plugin<Project> {
                     compileSdkVersion = plugin.project.android.compileSdkVersion.substring(8) as int
                     targetPlatforms = platforms
                     pluginFile = CargoKitPlugin.file
+                    // Rust 依赖增量由 Cargo 负责；不能仅因 JNI 目录存在就跳过源码检查。
+                    outputs.upToDateWhen { false }
                 }
                 def onTask = { newTask ->
-                    if (newTask.name == "merge${buildType.capitalize()}NativeLibs") {
+                    if (newTask.name == "merge${buildType.capitalize()}NativeLibs" ||
+                        newTask.name == "merge${buildType.capitalize()}JniLibFolders") {
                         newTask.dependsOn task
                         // Fix gradle 7.4.2 not picking up JNI library changes
                         newTask.outputs.upToDateWhen { false }

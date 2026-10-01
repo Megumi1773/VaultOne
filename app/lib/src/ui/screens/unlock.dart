@@ -164,6 +164,7 @@ class _RecoverFlow extends StatefulWidget {
 }
 
 class _RecoverFlowState extends State<_RecoverFlow> {
+  final _email = TextEditingController();
   final _sk = TextEditingController();
   final _rc = TextEditingController();
   final _pw = TextEditingController();
@@ -174,7 +175,7 @@ class _RecoverFlowState extends State<_RecoverFlow> {
 
   @override
   void dispose() {
-    for (final c in [_sk, _rc, _pw, _pw2]) {
+    for (final c in [_email, _sk, _rc, _pw, _pw2]) {
       c.dispose();
     }
     super.dispose();
@@ -201,8 +202,9 @@ class _RecoverFlowState extends State<_RecoverFlow> {
       _error = null;
     });
     try {
-      await state.recover(_rc.text, _pw.text, secretKey: state.hasStoredSecretKey ? null : _sk.text);
+      await state.recover(_rc.text, _pw.text, email: _email.text, secretKey: state.hasStoredSecretKey ? null : _sk.text);
     } on CoreException catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.message;
         _shake++;
@@ -231,13 +233,15 @@ class _RecoverFlowState extends State<_RecoverFlow> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ZoButton(label: '返回解锁', icon: Icons.arrow_back_rounded, variant: ZoButtonVariant.ghost, dense: true, onPressed: widget.onCancel),
+            ZoButton(label: '返回解锁', icon: Icons.arrow_back_rounded, variant: ZoButtonVariant.ghost, dense: true, onPressed: _busy ? null : widget.onCancel),
             const SizedBox(height: 24),
             const AuthHeader(
               eyebrow: 'Recovery',
-              title: '使用 Recovery Kit 恢复',
-              subtitle: '输入恢复码并设置新的主密码。恢复后旧恢复码立即作废，你会拿到一份新的 Recovery Kit。',
+              title: '联网恢复云账户',
+              subtitle: '需要连接 Java 服务验证恢复材料。本机条目保留；云端确认后旧会话失效，并生成新的 Recovery Kit。失败时请使用相同材料与新密码重试。',
             ),
+            ZoTextField(controller: _email, label: '账户邮箱', keyboardType: TextInputType.emailAddress),
+            const SizedBox(height: 16),
             if (!state.hasStoredSecretKey) ...[
               ZoTextField(controller: _sk, label: 'Secret Key', hint: 'V1-…', mono: true),
               const SizedBox(height: 16),

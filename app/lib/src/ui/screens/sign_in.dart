@@ -41,6 +41,7 @@ class _SignInFormState extends State<SignInForm> {
   }
 
   Future<void> _submit() async {
+    if (_busy) return;
     if (_email.text.trim().isEmpty || _sk.text.trim().isEmpty || _pw.text.isEmpty) {
       setState(() {
         _error = '请填写邮箱、Secret Key 与主密码';
@@ -120,6 +121,7 @@ class DeviceApprovalView extends StatefulWidget {
 class _DeviceApprovalViewState extends State<DeviceApprovalView> {
   final _code = TextEditingController();
   Timer? _poll;
+  bool _polling = false;
   bool _busy = false;
   String? _error;
 
@@ -127,10 +129,15 @@ class _DeviceApprovalViewState extends State<DeviceApprovalView> {
   void initState() {
     super.initState();
     _poll = Timer.periodic(const Duration(seconds: 5), (_) async {
-      if (_busy) return;
+      if (_busy || _polling || !mounted) return;
+      _polling = true;
       try {
         await AppScope.read(context).pollDeviceApproved();
-      } catch (_) {}
+      } on CoreException catch (e) {
+        if (mounted) setState(() => _error = e.message);
+      } finally {
+        _polling = false;
+      }
     });
   }
 
@@ -142,6 +149,7 @@ class _DeviceApprovalViewState extends State<DeviceApprovalView> {
   }
 
   Future<void> _verify() async {
+    if (_busy || _polling) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -234,6 +242,7 @@ class _CloudRecoverFormState extends State<CloudRecoverForm> {
       });
 
   Future<void> _submit() async {
+    if (_busy) return;
     if (_pw.text.characters.length < 10) return _fail('新主密码至少 10 个字符');
     if (_pw.text != _pw2.text) return _fail('两次输入的新主密码不一致');
     setState(() {

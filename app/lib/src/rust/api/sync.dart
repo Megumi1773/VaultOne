@@ -15,6 +15,12 @@ import 'vault.dart';
 Future<RemoteStatusDto?> remoteStatus() =>
     RustLib.instance.api.crateApiSyncRemoteStatus();
 
+/// 仅调试构建可登记一个私网 HTTP 服务器，None 撤销例外。
+Future<void> configureDevelopmentHttp({String? serverUrl}) => RustLib
+    .instance
+    .api
+    .crateApiSyncConfigureDevelopmentHttp(serverUrl: serverUrl);
+
 /// 测试服务器连通性。
 Future<void> pingServer({required String serverUrl}) =>
     RustLib.instance.api.crateApiSyncPingServer(serverUrl: serverUrl);

@@ -108,6 +108,7 @@ vaultone:
     namespace: vaultone
   development:
     enabled: false
+    allow-lan: false
     allow-test-kdf: false
   session:
     ttl-days: 60
@@ -139,6 +140,11 @@ vaultone:
     log-total-size-cap: 2GB
     log-directory: logs
     request-id-max-length: 64
+  feedback:
+    # 正文保留期从创建日起算；处理回复不延长。额度按账户串行检查。
+    retention-days: 180
+    max-active-per-account: 200
+    max-per-day: 10
   web:
     max-body-bytes: 1048576
     max-push-body-bytes: 67108864

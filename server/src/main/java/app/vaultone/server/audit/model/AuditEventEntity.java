@@ -52,7 +52,20 @@ public class AuditEventEntity {
   @Column(name = "created_at", nullable = false)
   private String createdAt;
 
+  @NotAudited
+  @Column(name = "operator_id")
+  private String operatorId;
+
+  @NotAudited
+  @Column(name = "target_id")
+  private String targetId;
+
   protected AuditEventEntity() {}
+
+  public void feedbackTarget(String operatorId, String targetId) {
+    this.operatorId = operatorId;
+    this.targetId = targetId;
+  }
 
   public static AuditEventEntity of(
       String userId,

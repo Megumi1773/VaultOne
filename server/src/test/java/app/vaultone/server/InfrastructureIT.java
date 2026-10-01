@@ -46,7 +46,7 @@ class InfrastructureIT {
       assertThat(context.getBeansOfType(Flyway.class))
           .as("运行上下文不应有 Flyway bean：迁移是独立的 migrator 步骤")
           .isEmpty();
-      assertThat(services.currentSchemaVersion()).isEqualTo("4");
+      assertThat(services.currentSchemaVersion()).isEqualTo("5");
 
       // 迁移历史确实由 migrator 落在隔离库：4 条 success 记录。
       try (var connection =
@@ -59,7 +59,7 @@ class InfrastructureIT {
               statement.executeQuery(
                   "SELECT COUNT(*) FROM vaultone_java_schema_history WHERE success")) {
         assertThat(rows.next()).isTrue();
-        assertThat(rows.getInt(1)).isEqualTo(4);
+        assertThat(rows.getInt(1)).isEqualTo(5);
       }
 
       // 非 baseline 策略：与 fixture 相同配置的 Flyway 报告当前版本 4 且不自动 baseline。
@@ -73,7 +73,7 @@ class InfrastructureIT {
               .table("vaultone_java_schema_history")
               .load();
       assertThat(configured.getConfiguration().isBaselineOnMigrate()).isFalse();
-      assertThat(configured.info().current().getVersion().toString()).isEqualTo("4");
+      assertThat(configured.info().current().getVersion().toString()).isEqualTo("5");
 
       // 运行角色在真实库上确实受限（非超级/无建库/无 BYPASSRLS），RLS 结论才可信。
       if (services.backend() instanceof app.vaultone.server.support.ExternalBackend external) {

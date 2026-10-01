@@ -1,0 +1,34 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "VaultOne 手机局域网联调（Debug）",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "${workspaceFolder}/app",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define=VAULTONE_SERVER=http://${input:javaLanHost}:9777",
+        "--dart-define=VAULTONE_ALLOW_LAN_HTTP=true"
+      ]
+    },
+    {
+      "name": "VaultOne 本机或 Android USB（需 adb reverse）",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "${workspaceFolder}/app",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": ["--dart-define=VAULTONE_SERVER=http://127.0.0.1:9777"]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "javaLanHost",
+      "type": "promptString",
+      "description": "电脑 WLAN IPv4；IP 改变时同步更新 Android debug network_security_config.xml",
+      "default": "192.168.0.4"
+    }
+  ]
+}

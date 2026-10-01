@@ -1,6 +1,6 @@
 //! 本地保险库存储（SQLite，rusqlite bundled）。
 //!
-//! 本地库是"唯一真相源"（计划书 §1.2）。设计要点：
+//! 本地库是条目的本地读写真相源；账户权限及云会话以服务端为准。设计要点：
 //! - 只保存密文信封与非敏感元数据（条目类型、版本号、时间戳）；邮箱、会话 token 等也以
 //!   AES-256-GCM 密封盒存储。不建明文搜索索引——搜索在解锁后于内存中完成，
 //!   因此数据库文件中检索不到任何 URL / 用户名 / 密码（F-03 验收要点，见 vault 测试）。
@@ -159,12 +159,12 @@ impl Store {
 
     // ───────── meta ─────────
 
-    fn get_meta<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>> {
+    pub(crate) fn get_meta<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>> {
         let raw: Option<String> = self.conn.query_row("SELECT value FROM meta WHERE key = ?1", params![key], |r| r.get(0)).optional()?;
         raw.map(|s| serde_json::from_str(&s).map_err(Into::into)).transpose()
     }
 
-    fn put_meta<T: Serialize>(&self, key: &str, value: &T) -> Result<()> {
+    pub(crate) fn put_meta<T: Serialize>(&self, key: &str, value: &T) -> Result<()> {
         self.conn.execute(
             "INSERT INTO meta(key, value) VALUES(?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             params![key, serde_json::to_string(value)?],
@@ -172,7 +172,7 @@ impl Store {
         Ok(())
     }
 
-    fn delete_meta(&self, key: &str) -> Result<()> {
+    pub(crate) fn delete_meta(&self, key: &str) -> Result<()> {
         self.conn.execute("DELETE FROM meta WHERE key = ?1", params![key])?;
         Ok(())
     }

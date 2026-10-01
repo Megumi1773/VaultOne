@@ -19,6 +19,7 @@ import '../theme.dart';
 import '../widgets/controls.dart';
 import '../widgets/vault_widgets.dart';
 import 'conflicts_page.dart';
+import 'feedback_page.dart';
 import 'item_detail.dart' show confirmDialog;
 
 /// 设置：账户、解锁与安全、云同步与设备、数据导入、桌面托盘与快捷键、浏览器扩展、外观、诊断、关于与法律、危险操作。
@@ -378,19 +379,7 @@ class _SyncSection extends StatefulWidget {
 }
 
 class _SyncSectionState extends State<_SyncSection> {
-  late final _url = TextEditingController(text: AppConfig.defaultServerUrl);
-  late final _device = TextEditingController(text: AppScope.read(context).defaultDeviceName);
   bool _busy = false;
-
-  /// 同步服务器固定为官方地址；仅在允许自部署时才采用用户输入。
-  String get _serverUrl => AppConfig.allowCustomServer ? _url.text : AppConfig.defaultServerUrl;
-
-  @override
-  void dispose() {
-    _url.dispose();
-    _device.dispose();
-    super.dispose();
-  }
 
   Future<void> _run(Future<void> Function() f, {String? ok}) async {
     setState(() => _busy = true);
@@ -409,35 +398,8 @@ class _SyncSectionState extends State<_SyncSection> {
     final state = AppScope.of(context);
     final remote = state.remote;
     if (remote == null) {
-      return _Section(title: '云同步', children: [
-        const _Row(
-          title: '端到端加密同步（未开启）',
-          subtitle: '开启后，条目在本机以 AES-256-GCM 加密后才上传；服务器只保存密文，无法读取任何内容。',
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (AppConfig.allowCustomServer) ...[
-              ZoTextField(controller: _url, label: '同步服务器', hint: AppConfig.defaultServerUrl, prefixIcon: Icons.dns_outlined),
-              const SizedBox(height: 12),
-            ],
-            ZoTextField(controller: _device, label: '本设备名称', prefixIcon: Icons.devices_outlined),
-            const SizedBox(height: 14),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              ZoButton(
-                label: '开启同步',
-                icon: Icons.cloud_upload_outlined,
-                loading: _busy,
-                onPressed: () => _run(() => state.enableSync(_serverUrl, _device.text), ok: '同步已开启'),
-              ),
-              ZoButton(
-                label: '测试连接',
-                variant: ZoButtonVariant.ghost,
-                onPressed: _busy ? null : () => _run(() => VaultApi.pingServer(_serverUrl), ok: '服务器连接正常'),
-              ),
-            ]),
-          ]),
-        ),
+      return const _Section(title: '云账户', children: [
+        _Row(title: '云账户尚未完成接入', subtitle: '重新解锁后完成 Java 云注册。现有条目保留，不提供独立的纯本地账户模式。'),
       ]);
     }
 
@@ -445,7 +407,7 @@ class _SyncSectionState extends State<_SyncSection> {
       SyncState.syncing => ('同步中…', context.zo.accent),
       SyncState.error => ('同步失败：${state.syncError ?? ''}', context.zo.danger),
       SyncState.needsReconnect => ('登录已过期，请重新验证', context.zo.warning),
-      _ => ('已同步', context.zo.success),
+      _ => ('条目自动同步', context.zo.success),
     };
     return _Section(title: '云同步', children: [
       _Row(
@@ -469,7 +431,7 @@ class _SyncSectionState extends State<_SyncSection> {
             ZoButton(
               label: '立即同步',
               icon: Icons.sync_rounded,
-              loading: state.syncState == SyncState.syncing,
+              loading: _busy || state.syncState == SyncState.syncing,
               onPressed: () => _run(() async {
                 final r = await state.syncNow();
                 if (r != null && r.merged > 0 && mounted) showZoMessage(this.context, '已合并 ${r.merged} 个在多台设备上同时修改的条目');
@@ -482,18 +444,18 @@ class _SyncSectionState extends State<_SyncSection> {
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DevicesPage())),
           ),
           ZoButton(
+            label: '退出云登录并锁定',
+            variant: ZoButtonVariant.ghost,
+            onPressed: _busy ? null : () async {
+              final ok = await confirmDialog(context, title: '退出云登录？', body: '联网撤销当前会话并锁定本机；本机条目、待同步修改和服务器绑定保留。', confirm: '退出并锁定');
+              if (ok == true) await _run(state.signOut);
+            },
+          ),
+          ZoButton(
             label: '安全日志',
             icon: Icons.history_rounded,
             variant: ZoButtonVariant.secondary,
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuditLogPage())),
-          ),
-          ZoButton(
-            label: '关闭同步',
-            variant: ZoButtonVariant.ghost,
-            onPressed: () async {
-              final ok = await confirmDialog(context, title: '关闭云同步？', body: '本机数据保留；本设备将从同步服务登出。', confirm: '关闭同步');
-              if (ok == true) await _run(state.disableSync, ok: '已关闭同步');
-            },
           ),
         ]),
       ),
@@ -1100,6 +1062,30 @@ class _AboutSection extends StatelessWidget {
         ),
       ),
       _Row(
+        title: '意见反馈',
+        subtitle: '提交问题或建议，查看处理状态与客服回复。需要连接支持此功能的 Java 服务。',
+        trailing: ZoButton(
+          label: '打开反馈',
+          dense: true,
+          variant: ZoButtonVariant.secondary,
+          onPressed: () {
+            final state = AppScope.of(context);
+            final epoch = state.sessionEpoch;
+            if (!state.isCurrentSession(epoch)) return;
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => FeedbackPage(
+                newId: state.newFeedbackId,
+                submit: state.submitFeedback,
+                list: state.listFeedback,
+                get: state.getFeedback,
+                canContinue: () => state.isCurrentSession(epoch),
+                accountId: state.accountId,
+              ),
+            ));
+          },
+        ),
+      ),
+      _Row(
         title: '联系支持',
         subtitle: AppConfig.supportEmail,
         trailing: ZoIconButton(
@@ -1121,13 +1107,13 @@ class _DangerSection extends StatelessWidget {
     return _Section(title: '危险操作', children: [
       _Row(
         title: '清除本机数据',
-        subtitle: '删除本机保险库与钥匙串中的 Secret Key。已开启同步的数据仍保存在云端。',
+        subtitle: '删除本机保险库与保存的 Secret Key，不注销云账户；未同步的本机修改会丢失。',
         trailing: ZoButton(
           label: '清除',
           dense: true,
           variant: ZoButtonVariant.danger,
           onPressed: () async {
-            final msg = state.remote == null ? '本机数据未开启同步，清除后将永久丢失且无法恢复！' : '可随时用主密码 + Secret Key 重新登录恢复。';
+            final msg = '未同步的本机条目和修改将永久丢失。只有已成功同步的数据才能在重新登录后恢复。请先确认备份及 Secret Key 已妥善保存。';
             final ok = await confirmDialog(context, title: '清除本机数据？', body: msg, confirm: '清除', danger: true);
             if (ok == true) await state.wipeThisDevice();
           },

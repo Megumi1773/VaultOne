@@ -57,6 +57,12 @@ Java 21 / Spring Boot 4 的零知识同步后端，兼容当前 Flutter + Rust �
 
 默认端口 **9777**；测试使用随机端口。生产要求 Jetty TLS、PG `sslmode=verify-full`、Redis `rediss://`、真实 SMTP 和必要凭据；不信任未经配置审查的转发头。测试低成本 KDF 仅在显式开发测试配置下开放。
 
+### 手机局域网联调
+
+`application-dev.yaml` 已显式启用 `vaultone.development.allow-lan: true` 并监听 `0.0.0.0:9777`，供手机访问；API 只接受回环/RFC1918 私网 TCP 对端，PG/Redis 仍在回环，非回环 API 禁止低成本测试 KDF，prod 不允许 LAN 开关。需要仅本机时同时设置 `server.address: 127.0.0.1` 和 `allow-lan: false`。
+
+当前电脑 WLAN 地址是 `192.168.0.4`，手机用 `http://192.168.0.4:9777`，而不是手机自身的 `127.0.0.1` 或 Meta 虚拟地址。客户端还需 Debug 构建及 `VAULTONE_ALLOW_LAN_HTTP=true`，Android/iOS 配置与防火墙排查见 [docs/14](../docs/14-移动端局域网调试.md)。只使用测试账户与可信局域网；HTTP 会暴露传输中的 Token/邮箱/反馈，不作为生产方案。
+
 ### IDEA 本机开发
 
 1. Project SDK 选择已有 Java 21，例如 `C:/Users/qq479/.jdks/temurin-21.0.12.1`。不必切换系统 Java，避免影响其他项目。
@@ -106,6 +112,18 @@ fixture 严格限制回环连接；每次建立随机数据库、非超级用户
 
 > **2026-10-01 修复记录**：此前 external/容器 `verify` 会在应用启动阶段被 `DeploymentGuard` 拒绝（报 `Flyway runtime_role 必须与运行数据库用户一致`），根因是 `LocalTestServices` 用 `builder.properties(...)`（最低优先级）注入随机 `runtime_role`，被 `application-dev.yaml` 内联的同名占位符覆盖。已改为命令行参数注入 `runtime_role`/`migrator_role` 并同步 `spring.flyway.user`；修复后 external `verify` BUILD SUCCESS（105 单测 + 31 IT，含 Rust 客户端互通）。容器路径由 CI 覆盖。
 
+### Windows 真实客户端与 Java 联调
+
+`DesktopCloudSmoke` 是显式选择的桌面验收，不在无 Windows/Flutter 的普通 CI 中自动运行，也不在缺环境时返回成功。它复用随机 PG/Redis/Jetty fixture，自动把临时 Java 地址传给 Flutter 的 `app_flow_test.dart`；后者要求 `VAULTONE_JAVA_UI_TEST=true`，不误向用户开发库注册测试账户。
+
+在 `server/` 运行（其余 external 连接变量同上）：
+
+```bash
+JAVA_HOME="C:/Users/qq479/.jdks/temurin-21.0.12.1" VAULTONE_IT_MODE=external VAULTONE_IT_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/postgres VAULTONE_IT_DB_USER=root VAULTONE_IT_REDIS_ADDRESS=redis://127.0.0.1:6379 ./mvnw verify '-Dit.test=*IT,DesktopCloudSmoke'
+```
+
+该命令包括默认 Java IT、9 项 Rust 生产客户端互通（含注册/改密/恢复响应丢失及重启重试、离线补传、旧库接入、显式换绑和退出）及真实 Windows 注册/条目/锁定/反馈流程。没有自动切流或接管旧数据库。
+
 ### CI 默认模式
 
 不设置 `VAULTONE_IT_MODE=external` 时使用 Testcontainers，执行同一套测试；Docker 不可用就失败，不静默跳过。容器版本锁定在 `support/ContainerBackend.java`：
@@ -117,7 +135,35 @@ fixture 严格限制回环连接；每次建立随机数据库、非超级用户
 
 其余测试覆盖：协议黄金向量、真实 Jetty/虚拟线程、RLS/连接复用/临时表遮蔽、迁移角色权限、Redis 会话/索引/限流、OTP 失败计数与并发、同步事务内身份重验、注册失败回滚与恢复竞争。报告位于 `target/surefire-reports`、`target/failsafe-reports`。
 
-## 6. 发布前仍需完成
+## 6. E11 文本反馈与受控处理
+
+开发基准后端为 Java；客户端已改为云账户模式：注册、登录、恢复、改密、退出和在线业务直接调用本服务，条目继续本地优先。开发默认地址已对齐 `http://127.0.0.1:9777`，不再是错误的 HTTPS 回环配置；发布启动必须用 `--dart-define=VAULTONE_SERVER=https://实际服务地址` 显式配置 HTTPS。已有账户仍绑定原服务器时不会静默发送到新地址，需重新认证同一账户后换绑。详见 [docs/13](../docs/13-云账户与本地优先保险库.md)。
+
+完整字段/隐私/幂等/保留语义见 [docs/12](../docs/12-文本反馈契约与运维.md)。用户接口为 `POST /v1/feedback`、`GET /v1/feedback`、`GET /v1/feedback/{id}`，均要求已批准设备。默认每账户 24 小时 10 次新建、最多 200 条有效记录、保留 180 天；配置为 `vaultone.feedback.*`。语义参数错误 400，JSON 字段结构不符 422；旧 `/v1` 返回体不改变。
+
+客服处理使用显式 `feedback-ops` 命令，不开放管理员 HTTP。它启动独立非 Web 上下文，不创建 Redis 客户端、不发邮件、不执行定时任务、不自动执行 Flyway。必须先由授权迁移步骤应用 V5；使用已有受限 runtime 身份，实际角色为 owner、superuser、BYPASSRLS、建库/建角色身份时拒绝操作。服务器配置及 OS 执行权限是此入口的授权边界；普通客户端和 Bearer Token 不能调用它。
+
+在受控本机文件中准备 **一条 UTF-8 JSON 命令**（最大 32 KiB）。`account_id`/反馈 `id` 可由客户端详情中的账户编号与反馈编号取得；`operator_id` 是受控内部标识，不填邮箱。文本不要作为命令行参数或写入 shell 历史。示例中的 UUID 必须换成目标账户与反馈的真实编号：
+
+```json
+{"action":"show","account_id":"123e4567-e89b-42d3-a456-426614174000","operator_id":"support-01","id":"123e4567-e89b-42d3-a456-426614174001"}
+```
+
+- `list`：同一账户分页，`before` 可空，`limit` 默认 20、最大 50。
+- `show`：指定账户与反馈 ID，输出纯文本详情（含用户主动提交的内容）。
+- `respond`：指定 ID 与 `update`，例如 `{"expected_version":1,"status":"resolved","reply":"已核实并处理"}`。先读取版本再处理；冲突时重读，不强制覆盖。支持 `open/in_progress/resolved`；已处理必须有回复。
+
+在 `server/` 用构建后的可执行 JAR 运行（示例是本机 dev，不授权生产运行）：
+
+```bash
+java -jar target/vaultone-server-0.0.1-SNAPSHOT.jar feedback-ops --spring.profiles.active=dev < feedback-command.json
+```
+
+命令成功退出码 0，失败 2；最后一行是 JSON 结果，启动日志不是业务输出。输入文件、终端输出和重定向结果均可能含反馈/联系方式，应限制文件与终端访问，处理后依运维政策删除；不要提交仓库或传入日志系统。处理结果和最小操作者/目标/请求关联审计同事务写入；CAS 失败在回滚后记录失败审计。单个 `reply` 是最近处理说明，不是多轮聊天历史。
+
+反馈正文不进入 Redis/Envers/操作审计或日志；定时维护每轮最多清理 500 条已过期反馈，过期记录在清理前也不可读取/处理。注销级联清除反馈。PG 备份中的离线保留与生产运维角色审批仍需部署方单独验收。
+
+## 7. 发布前仍需完成
 
 - Rust 旧 PG/SQLite 服务库接管、旧 sessions 一次性迁移或受控作废、字节/序列高水位核对，以及回切后不丢新写入的演练。
 - 真实生产 TLS/SMTP、代理信任链、Redis/PG 故障切换、饱和压测、虚拟线程 pinning、审计保留/归档与持久通知投递。
@@ -126,7 +172,7 @@ fixture 严格限制回环连接；每次建立随机数据库、非超级用户
 
 已有 Rust 服务端、客户端 Rust 内核和 Flutter 构建入口继续保留；本工程不会自动发布或切流。
 
-## 7. 版本与协议来源
+## 8. 版本与协议来源
 
 - [Spring Initializr](https://start.spring.io/metadata/client)
 - [Spring Boot 4.1.1 BOM](https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-dependencies/4.1.1/spring-boot-dependencies-4.1.1.pom)

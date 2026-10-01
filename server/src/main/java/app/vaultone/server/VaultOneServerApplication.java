@@ -12,6 +12,14 @@ import org.springframework.boot.webmvc.autoconfigure.error.ErrorMvcAutoConfigura
 public class VaultOneServerApplication {
 
   public static void main(String[] args) {
+    if (args.length > 0 && "feedback-ops".equals(args[0])) {
+      System.exit(
+          app.vaultone.server.feedback.ops.FeedbackConsole.run(
+              java.util.Arrays.copyOfRange(args, 1, args.length),
+              System.in,
+              new java.io.PrintStream(System.out, true, java.nio.charset.StandardCharsets.UTF_8)));
+      return;
+    }
     SpringApplication.run(VaultOneServerApplication.class, args);
   }
 }

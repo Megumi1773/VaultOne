@@ -42,6 +42,12 @@ class BuildGradle {
 
     for (final target in targets) {
       final libs = artifacts[target]!;
+      if (!libs.any((lib) =>
+          lib.type == AritifactType.dylib &&
+          lib.finalFileName.endsWith('.so'))) {
+        throw BuildException(
+            'Android ${target.rust} 未生成 .so，不能生成缺少原生桥的 APK。已发现：${libs.map((lib) => lib.path).join(', ')}');
+      }
       final outputDir = path.join(Environment.outputDir, target.android!);
       Directory(outputDir).createSync(recursive: true);
 

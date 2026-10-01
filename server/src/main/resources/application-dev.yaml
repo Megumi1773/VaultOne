@@ -1,7 +1,9 @@
-# 仅显式激活 dev profile 时加载：本机回环开发环境的全部具体值都在这里，公共 YAML 不承载任何可用连接或密钥。
+# 仅 dev 使用：允许手机访问开发 HTTP API；PG/Redis 仍必须留在本机回环。
+# API 通过 development.allow-lan 显式放行 RFC1918 私网客户端；禁止公网端口映射。
+# 联调仅使用测试账户，不在不可信 Wi-Fi 上发送会话令牌。生产不允许该例外。
 # 数据服务是本机独立开发库 vaultone_java_dev（owner 为迁移角色），与 Rust 服务端在用的 vaultone 库分离。
 server:
-  address: 127.0.0.1
+  address: 0.0.0.0
 spring:
   datasource:
     url: jdbc:postgresql://127.0.0.1:5432/vaultone_java_dev
@@ -26,3 +28,5 @@ vaultone:
     namespace: vaultone:dev
   development:
     enabled: true
+    allow-lan: true
+    allow-test-kdf: false

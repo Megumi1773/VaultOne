@@ -111,12 +111,20 @@ public final class DeploymentGuard
     boolean development = env.getProperty("vaultone.development.enabled", Boolean.class, false);
     boolean allowTestKdf =
         env.getProperty("vaultone.development.allow-test-kdf", Boolean.class, false);
+    boolean allowLan = env.getProperty("vaultone.development.allow-lan", Boolean.class, false);
     String mailMode = env.getProperty("vaultone.mail.mode", "log");
     String smtpHost = env.getProperty("vaultone.mail.smtp-host", "");
     String smtpFrom = env.getProperty("vaultone.mail.from", "");
     if (dev) {
       require(development, "dev 需显式启用 vaultone.development.enabled");
-      require(LOOPBACK.contains(env.getProperty("server.address", "")), "本地开发必须绑定回环地址");
+      String bind = env.getProperty("server.address", "");
+      boolean loopback = DevelopmentNetworkPolicy.isLoopback(bind);
+      require(
+          loopback
+              || (allowLan
+                  && ("0.0.0.0".equals(bind) || DevelopmentNetworkPolicy.isPrivateIpv4(bind))),
+          "非回环开发监听需显式启用 development.allow-lan，且只允许私网地址或 0.0.0.0");
+      require(loopback || !allowTestKdf, "局域网联调禁止低成本测试 KDF；自动化测试必须绑定回环");
       require(
           LOOPBACK.contains(pg.getHost()) && LOOPBACK.contains(redis.getHost()), "本地开发仅允许回环数据服务");
       if (!"log".equals(mailMode)) {
@@ -125,6 +133,7 @@ public final class DeploymentGuard
       return;
     }
     require(!development, "生产环境禁止启用 development");
+    require(!allowLan, "生产环境禁止开启局域网开发例外");
     require(!allowTestKdf, "生产环境禁止启用低成本测试 KDF");
     require("smtp".equals(mailMode), "生产环境必须使用 SMTP 邮件模式");
     require(!smtpHost.isBlank(), "生产环境必须配置 SMTP 主机");

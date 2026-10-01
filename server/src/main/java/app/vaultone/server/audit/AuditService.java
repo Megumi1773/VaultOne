@@ -73,6 +73,29 @@ public class AuditService {
             Instant.now()));
   }
 
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void recordFeedback(
+      String userId,
+      String deviceId,
+      String operatorId,
+      String targetId,
+      String event,
+      String outcome,
+      String requestId) {
+    var entry =
+        AuditEventEntity.of(
+            userId,
+            deviceId,
+            event,
+            AuditEvents.severityOf(event),
+            outcome,
+            requestId,
+            null,
+            Instant.now());
+    entry.feedbackTarget(operatorId, targetId);
+    repository.saveAndFlush(entry);
+  }
+
   @Transactional(readOnly = true)
   public List<AuditEventOut> list(Approved approved) {
     var principal = guard.readOnly(approved.authed().ref());

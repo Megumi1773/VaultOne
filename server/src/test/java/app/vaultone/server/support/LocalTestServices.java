@@ -90,13 +90,20 @@ public final class LocalTestServices implements AutoCloseable {
    * fixture 用 migrator 执行，故应用侧关闭自跑迁移并注入一致的 {@code runtime_role}。
    */
   public ConfigurableApplicationContext startServerApplication() {
+    return startServerApplication(false);
+  }
+
+  /** 真机网卡路径验收不启用低成本 KDF，普通 IT 始终绑定回环。 */
+  public ConfigurableApplicationContext startServerApplication(boolean lan) {
     String environment = safeEnvironment(redisNamespace);
     String namespace = redisNamespace; // 形如 vaultone:it:<uuid>:，匹配 DeploymentGuard 的命名空间白名单
     var builder = new SpringApplicationBuilder(app.vaultone.server.VaultOneServerApplication.class);
     return builder.run(
         "--spring.profiles.active=dev",
+        "--server.address=" + (lan ? "0.0.0.0" : "127.0.0.1"),
+        "--vaultone.development.allow-lan=" + lan,
         "--vaultone.development.enabled=true",
-        "--vaultone.development.allow-test-kdf=true",
+        "--vaultone.development.allow-test-kdf=" + !lan,
         "--vaultone.environment=" + environment,
         "--vaultone.server-secret=" + serverSecret,
         "--spring.datasource.url=" + runtime.jdbcUrl(),

@@ -3,12 +3,16 @@ import 'dart:typed_data';
 
 import '../rust/api/browser.dart' as rbrowser;
 import '../rust/api/clipboard.dart' as rclip;
+import '../rust/api/cloud_account.dart' as rcloud;
 import '../rust/api/conflicts.dart' as rconflicts;
+import '../rust/api/feedback.dart' as rfeedback;
 import '../rust/api/logging.dart' as rlog;
 import '../rust/api/sync.dart' as rsync;
 import '../rust/api/tools.dart' as rtools;
 import '../rust/api/vault.dart' as rvault;
 import 'conflict_models.dart';
+import 'config.dart';
+import 'feedback_models.dart';
 import 'ffi.dart';
 import 'models.dart';
 
@@ -35,10 +39,21 @@ abstract final class VaultApi {
 
   /// 所有远程入口共用持久化同意门禁，包括页面直调和独立自动填充引擎。
   /// 默认拒绝；读取失败也不会发起网络请求。
-  static Future<T> _network<T>(Future<T> Function() call) => _session(() async {
+  static Future<T> _network<T>(Future<T> Function() call, {bool boundAccount = true}) => _session(() async {
         final epoch = sessionEpoch;
         if (await getSetting('privacy_consent') != privacyVersion) {
           throw CoreException('privacy_required', '请先阅读并同意隐私政策与用户协议');
+        }
+        if (epoch != sessionEpoch) {
+          throw CoreException('session_expired', '保险库已锁定，请重新解锁后操作');
+        }
+        final selected = AppConfig.serverUrl(await getSetting('server_url') ?? AppConfig.defaultServerUrl);
+        await rsync.configureDevelopmentHttp(serverUrl: AppConfig.developmentHttpServer(selected));
+        if (boundAccount) {
+          final remote = await rsync.remoteStatus();
+          if (remote != null && remote.serverUrl.replaceFirst(RegExp(r'/+$'), '') != selected) {
+            throw CoreException('server_mismatch', '本机账户绑定的服务器与 Java 配置不同，请先重新验证并确认连接');
+          }
         }
         if (epoch != sessionEpoch) {
           throw CoreException('session_expired', '保险库已锁定，请重新解锁后操作');
@@ -65,8 +80,26 @@ abstract final class VaultApi {
 
   static Future<rvault.VaultStatus> status() => guard(rvault.status);
 
-  static Future<Enrollment> createAccount(String email, String password) =>
-      guard(() async => _enrollment(await rvault.createAccount(email: email, password: password)));
+  static Future<Enrollment> prepareCloudRegistration(String server, String email, String password, String device) =>
+      _network(() async => _enrollment(await rcloud.prepareRegistration(serverUrl: server, email: email, password: password, deviceName: device)), boundAccount: false);
+
+  static Future<Enrollment?> completeCloudRegistration(String server, String password, String secretKey, String device) =>
+      _network(() async {
+        final value = await rcloud.completeRegistration(serverUrl: server, password: password, secretKey: secretKey, deviceName: device);
+        return value == null ? null : _enrollment(value);
+      }, boundAccount: false);
+
+  static Future<Enrollment?> pendingCloudEnrollment() => _session(() async {
+    final value = await rcloud.pendingEnrollment();
+    return value == null ? null : _enrollment(value);
+  });
+  static Future<String?> pendingCloudOperation() => _session(rcloud.pendingOperation);
+  static Future<void> confirmCloudEnrollment() => _session(rcloud.confirmEnrollment);
+
+  static Future<void> logoutCloud() => _network(rcloud.logout);
+
+  static Future<void> reconnectCloud(String server, String password, String secretKey) =>
+      _network(() => rcloud.reconnect(serverUrl: server, password: password, secretKey: secretKey), boundAccount: false);
 
   static Future<void> unlock(String password, String secretKey) =>
       guard(() => rvault.unlock(password: password, secretKey: secretKey));
@@ -94,10 +127,7 @@ abstract final class VaultApi {
       });
 
   static Future<void> changePassword(String current, String secretKey, String newPassword) =>
-      _session(() => rvault.changePassword(current: current, secretKey: secretKey, newPassword: newPassword));
-
-  static Future<Enrollment> recover(String recoveryCode, String secretKey, String newPassword) => guard(() async =>
-      _enrollment(await rvault.recoverLocal(recoveryCode: recoveryCode, secretKey: secretKey, newPassword: newPassword)));
+      _network(() => rcloud.changePassword(current: current, secretKey: secretKey, newPassword: newPassword));
 
   static Future<void> wipeLocal() => guard(rvault.wipeLocal);
 
@@ -167,6 +197,19 @@ abstract final class VaultApi {
   static Future<void> resolveConflict(String id, ConflictResolution resolution) => _session(() =>
       rconflicts.resolveConflict(id: id, resolutionJson: jsonEncode(resolution.toJson())));
 
+  // ---------- 主动反馈 ----------
+
+  static Future<String> newFeedbackId() => _session(rfeedback.newFeedbackId);
+
+  static Future<FeedbackDetail> submitFeedback(FeedbackSubmission request) => _network(() async =>
+      FeedbackDetail.fromJson((jsonDecode(await rfeedback.submitFeedback(requestJson: jsonEncode(request.toJson()))) as Map).cast<String, dynamic>()));
+
+  static Future<FeedbackPageResult> listFeedback(int? before) => _network(() async =>
+      FeedbackPageResult.fromJson((jsonDecode(await rfeedback.listFeedback(before: before, limit: 20)) as Map).cast<String, dynamic>()));
+
+  static Future<FeedbackDetail> getFeedback(String id) => _network(() async =>
+      FeedbackDetail.fromJson((jsonDecode(await rfeedback.getFeedback(id: id)) as Map).cast<String, dynamic>()));
+
   // ---------- 浏览器扩展（仅桌面端）----------
 
   /// 启动本地通道；返回的流推送待用户批准的配对请求。
@@ -192,13 +235,13 @@ abstract final class VaultApi {
 
   static Future<rsync.RemoteStatusDto?> remoteStatus() => _session(rsync.remoteStatus);
 
-  static Future<void> pingServer(String url) => _network(() => rsync.pingServer(serverUrl: url));
+  static Future<void> pingServer(String url) => _network(() => rsync.pingServer(serverUrl: AppConfig.serverUrl(url)), boundAccount: false);
 
   static Future<rsync.SyncReportDto> connectRegister(String url, String deviceName) =>
       _network(() => rsync.connectRegister(serverUrl: url, deviceName: deviceName));
 
   static Future<bool> loginExisting(String url, String email, String password, String secretKey, String deviceName) =>
-      _network(() => rsync.loginExisting(serverUrl: url, email: email, password: password, secretKey: secretKey, deviceName: deviceName));
+      _network(() => rsync.loginExisting(serverUrl: AppConfig.serverUrl(url), email: email, password: password, secretKey: secretKey, deviceName: deviceName), boundAccount: false);
 
   static Future<void> verifyNewDevice(String code) => _network(() => rsync.verifyNewDevice(code: code));
 
@@ -224,14 +267,14 @@ abstract final class VaultApi {
 
   static Future<Enrollment> recoverFromServer(
           String url, String email, String recoveryCode, String secretKey, String newPassword, String deviceName) =>
-      _network(() async => _enrollment(await rsync.recoverFromServer(
-            serverUrl: url,
+      _network(() async => _enrollment(await rcloud.recover(
+            serverUrl: AppConfig.serverUrl(url),
             email: email,
             recoveryCode: recoveryCode,
             secretKey: secretKey,
             newPassword: newPassword,
             deviceName: deviceName,
-          )));
+          )), boundAccount: false);
 
   // ---------- 同步调用（微秒级） ----------
 

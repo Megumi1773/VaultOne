@@ -57,13 +57,17 @@ public record VaultOneProperties(
   }
 
   /** 本地开发开关；生产环境必须为 false。{@code allowTestKdf} 只允许显式 dev 且不得等同 enabled。 */
-  public record Development(boolean enabled, boolean allowTestKdf) {
+  public record Development(boolean enabled, boolean allowTestKdf, boolean allowLan) {
     @ConstructorBinding
     public Development {}
 
-    /** 兼容旧构造（仅 enabled）：默认不放开低成本 KDF。 */
+    public Development(boolean enabled, boolean allowTestKdf) {
+      this(enabled, allowTestKdf, false);
+    }
+
+    /** 兼容旧构造（仅 enabled）：默认不放开低成本 KDF 或局域网。 */
     public Development(boolean enabled) {
-      this(enabled, false);
+      this(enabled, false, false);
     }
   }
 

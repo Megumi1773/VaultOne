@@ -15,10 +15,12 @@
 //! | [`security`] | 弱密码 / 重复 / 泄露检测 | `zxcvbn` / HIBP k-匿名 |
 
 pub mod browser;
+pub mod cloud_account;
 pub mod conflict;
 pub mod envelope;
 pub mod error;
 pub mod export;
+pub mod feedback;
 pub mod generator;
 pub mod import;
 pub mod item;
