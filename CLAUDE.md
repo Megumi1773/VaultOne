@@ -19,15 +19,17 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 ## 参考文档
 
 - `docs/01-模块拆分与依赖选型.md` — **唯一与当前实现同步的架构文档**：模块划分、每个依赖的选型理由、自研代码的不可替代性。改依赖或模块边界时同步更新。
-- `docs/09-passmgr功能对照与新版开发计划.md` — 功能对照与开发排期；`docs/11-计划执行与验收记录.md` 是实际执行与验收口径；`docs/10-服务端迁移契约基线.md` 是 Rust → Java 迁移的字节级契约。
-- `docs/archive/` — 历史参考，**勿照搬方案**：
+- `docs/09-功能实现状态对照.md` — **功能进度的唯一口径**：按基线章节逐条给出已实现 / 部分 / 缺失，只描述实际代码。`docs/11-计划执行与验收记录.md` 是执行与验收证据。
+- `docs/archive/` — 历史参考，**勿据以判断当前实现**：
   - `App功能总览-重构基线.md` — 旧 passmgr 功能清单，只对照「要做哪些功能」；其 SECP256K1 / AES-CBC 等实现与本仓库无关。
+  - `09-开发计划与排期-已归档.md` — 原 09 的开发包编号（E1–E12 / G1–G5）与 Java 目标方案，已被实现取代。
+  - `10-S0服务端迁移契约基线-已归档.md` — 旧基线时刻的协议快照；字节级细节仍可参考，结论已过时。
   - `VaultOne-MVP开发计划书.md` — 立项计划书；Tauri / Go / 原生移动端选型与现状不符，不依照。
 - 文档与代码冲突时**以代码为准**。
 
 ## 命令
 
-- 全量测试：`cargo test --workspace`（156 项通过 / 3 ignored；e2e 自启 SQLite 临时库，无需外部服务；ignored 为需真实 PG/Redis 的迁移与并发用例）。若 `target/debug` 下的服务端 exe 正被占用，加 `--target-dir target/xxx` 换输出目录。
+- 全量测试：`cargo test --locked --workspace`（2026-10-01 实测 160 项通过 / 0 失败 / 12 ignored；e2e 自启 SQLite 临时库，无需外部服务；ignored 为需真实 PG/Redis 或真实 Java 服务端的用例）。若 `target/debug` 下的服务端 exe 正被占用，加 `--target-dir target/xxx` 换输出目录。
 - 单 crate / 单测试：`cargo test -p vault-core` / `cargo test -p vault-core <name>`
 - 根 `cargo build`/`cargo test` 只构建 `default-members`（5 个 crate），**不含 `app/rust`**；要带桥用 `--workspace` 或 `-p vaultone_bridge`。桥的套接字端到端测试会调用 `target/debug/vaultone-nmhost(.exe)`，未构建时跳过这一段。
 - 覆盖率：`cargo llvm-cov -p vault-crypto --fail-under-lines 90`（CI 门禁）。
@@ -59,7 +61,7 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 ### 协作、范围与可维护性
 
 - 主代理负责需求澄清、架构决策、任务边界、代码审查和最终验收；开发实现优先委派 OpenCode，OpenCode 不可用时主代理直接接手，不能因工具故障停止推进。网页检索由 OpenCode 执行。委派不转移质量责任，必须核验实际 diff 和测试，不能直接转述“已完成”。
-- 持续目标按 `docs/09` 推进：当前开发包完成后继续主线功能，逐包更新 `docs/11` 的真实进度；外部环境和生产授权阻塞单独记录，不把待验收项目记为完成。
+- 持续目标按 [docs/09 功能实现状态对照](docs/09-功能实现状态对照.md) 推进：优先补「未实现」中 P0/P1 项，逐项更新该文档与 `docs/11` 的真实进度；外部环境和生产授权阻塞单独记录，不把待验收项目记为完成。
 - 优先官方脚手架、成熟组件和已选技术栈；不以“大厂规范”为由增加无业务收益的微服务、接口层、通用框架或中间件。每个组件必须有明确用途、负责人可理解的边界和故障策略。
 - Java 采用按业务域组织的模块化单体，域内区分 controller / dto / service / model / repository；公共能力集中于 config / security / crypto / common。Controller 不写 SQL、密码运算或事务；Repository 不决定 HTTP 响应；Entity 不出现在 API 返回体。
 - 使用构造器注入、明确类型和简短方法；禁止万能 Service、巨大工具类、裸 Map 贯穿业务、魔法数字、吞异常和无意义接口。敏感 record/Entity 禁止自动输出字段的 toString；集合和数组须控制可变性。
@@ -120,37 +122,39 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 - 同一进程可能有多个 Flutter 引擎（Android 自动填充界面），`open_vault` 对同一路径幂等、共用一个保险库实例。
 - 浏览器扩展的开发期 ID 由 `extension/manifest.json` 的 `key` 固定为 `pginfajjjgcjmijmddppkbhejjjcealc`；商店 ID 要追加到 `vault_proto::browser_ipc::EXTENSION_IDS`。
 
-## 当前状态（2026-09-30 核对）
+## 当前状态（2026-10-01 逐域核对）
 
-- **Flutter UI 已接通并可构建**：`app/lib/src/{core,state,ui,autofill}` 约 8900 行（不含生成代码）。12 个页面：home / item_list / item_detail / item_editor / generator / security / settings / sign_in / unlock / onboarding / qr_scan / conflicts；另有 Android 自动填充界面。
-- **验证命令（本机 2026-09-30 实测）**：`cargo test --workspace` 156 项通过、3 ignored；`cargo clippy --workspace --all-targets -D warnings` 无警告；`cargo fmt --all --check` 通过。`dart analyze`、`flutter test`、集成测试与 `node --test extension/test/protocol.test.mjs` 的最近结果见 [docs/11](docs/11-计划执行与验收记录.md)；`server/` 的 `mvnw verify` 默认使用 Testcontainers，本机可显式选择 external 模式连接已有 PG/Redis；最新结果与未通过项统一记录在 docs/11。
-- `app/rust/src/api/**` 暴露约 62 个 FRB 函数（vault / sync / tools / clipboard / logging / browser / conflicts），与 UI 侧 `core/api.dart` 已对齐。
-- 服务端（Rust axum）覆盖 auth、devices、recovery、account、audit、sync 及健康接口。`server/` 的 Java 21 + Spring Boot 4 版本已实现并提交（`ec83b6a`）对应的 19 个 `/v1` 端点、Redis 会话、多环境 YAML 与安全门禁，单元/格式/架构测试 105 项通过；2026-10-01 复核修复了 external/容器 IT 启动被 `DeploymentGuard` 拒绝的测试夹具缺陷后，external `verify` 105 单测 + 31 真实 PG/Redis/Jetty IT（含 Rust 客户端互通）全绿，容器路径由 CI 覆盖。未替换生产 Rust 服务端。详见 docs/11 §7。
-- 已实现：E1 导出闭环（`.wljbak` 加密备份 + CSV + 导入，UI / 桥 / 内核全通）；E4 本机加密冲突记录与裁决（候选快照、完整行 CAS、推送屏障 + 比较/裁决页面 + FRB）；P1 导入（Chrome / Edge / Firefox / Bitwarden / LastPass / 1Password CSV + 1PIF，幂等去重）；桌面托盘 + 全局快捷键 Ctrl+Shift+Space；F-05 浏览器扩展（配对 + HMAC 认证 + 按页面严格匹配释放凭据 + 保存/更新提示 + TOTP）；F-05 Android AutofillService（填充 + 保存）。
-- 有 CI（`ci.yml`：fmt + clippy + 测试 + 覆盖率门禁 + fuzz 冒烟 + 扩展测试与打包 + PG 冒烟 + cargo-deny + SBOM + Trivy + Flutter + 多平台构建，tag 时 cosign 签名镜像；`fuzz.yml`：每晚每目标 5 h，语料库跨次累积）；有 `docs/01`、`03`、`04`、`05`、`07`、`09`、`10`、`11`（`08` 已移除；历史文档在 `docs/archive/`）；有 `deploy/`；有 `store/screenshots`；有根 `LICENSE`（AGPL-3.0 全文）。
-- **E11 首批文本反馈（2026-10-01）**：Java 提交/分页历史/详情、受控非 Web CLI 回复、Rust 客户端/FRB/Flutter 设置入口已接通；113 Java 单元/架构 + 41 真实 PG/Redis/Jetty IT 通过，Flutter 41 项与 Windows 入口集成通过。正文独立同意、客服可读，不进入保险库同步/Redis/日志。线程/图片与生产客服流程未验收，详见 docs/11 §8、docs/12。
-- **未完成**：iOS AutoFill Credential Provider 扩展（需在 Xcode 新增 App Extension target、App Group 共享保险库文件与钥匙串，无法在 Windows 上构建验证）；浏览器扩展与 Android 自动填充只做了构建 / 协议级验证，尚未在真实浏览器与真机上跑通；macOS 沙盒版无法写入浏览器的宿主清单目录（需 Developer ID 分发或额外 entitlement）；Java 服务端本机真实 PG/Redis/Jetty 与 Rust 客户端互通已通过，但容器路径、旧库接管、稳定性演练与生产切流/回滚尚未验收。
+- **Flutter UI 已接通并可构建**：`app/lib/src/{core,state,ui,autofill}` 约 10300 行（不含生成代码）。14 个页面文件：cloud_setup / conflicts / feedback / generator / home / item_detail / item_editor / item_list / onboarding / qr_scan / security / settings / sign_in / unlock；另有 Android 自动填充独立界面。
+- **本机实测（2026-10-01）**：`cargo test --locked --workspace` **160 通过 / 0 失败 / 12 ignored**；`cargo clippy --workspace --all-targets -D warnings` 与 `cargo fmt --all --check` 通过；`app/` 下 `dart analyze` 无问题、`flutter test --no-pub` **48 通过**；`node --test extension/test/protocol.test.mjs` 2 通过。`server/` external 模式 `clean verify` **117 单测 + 42 真实 PG/Redis/Jetty IT 全绿**（含 `BackendContractIT` 真实 Rust 客户端互通）。详见 [docs/11](docs/11-计划执行与验收记录.md)。
+- `app/rust/src/api/**` 暴露约 77 个 FRB 函数（vault / sync / tools / clipboard / logging / browser / conflicts / cloud_account / feedback），与 UI 侧 `core/api.dart` 已对齐。
+- 服务端：Rust axum 保留（不再新增功能）；Java 21 + Spring Boot 4 已实现 19 个 `/v1` 端点 + `/healthz`、`/readyz`，Redis 会话主存、PG RLS + Envers 白名单、多环境 YAML 与安全门禁齐备。**未替换生产 Rust 服务端、未切流、未接管旧库。**
+- 已实现：云账户模式（注册/SRP 登录/设备批准/恢复/改密/注销直连 Java）；导出闭环（`.wljbak` + CSV + 导入）；本机加密冲突记录与裁决（候选快照、完整行 CAS、推送屏障、比较/裁决页）；导入（Chrome / Edge / Firefox / Bitwarden / LastPass / 1Password CSV + 1PIF）；桌面托盘 + 全局快捷键；浏览器扩展（配对 + HMAC + 按页面严格匹配 + 保存/更新 + TOTP）；Android AutofillService（填充 + 保存）；E11 首批文本反馈（Java 提交/历史/详情 + CLI 回复 + Rust/FRB/Flutter 接线）。
+- 有 CI（`ci.yml`：fmt + clippy + 测试 + 覆盖率门禁 + fuzz 冒烟 + 扩展测试与打包 + PG 冒烟 + cargo-deny + SBOM + Trivy + Flutter + 多平台构建，以及 Java `mvnw verify`；`fuzz.yml`：每晚每目标 5 h）；有 `deploy/`、`store/screenshots`、根 `LICENSE`（AGPL-3.0）。
+- **未完成 / 未验收**：iOS AutoFill Credential Provider 扩展（需 Xcode App Extension target，Windows 无法构建）；浏览器扩展与 Android 自动填充只有协议级/编译级验证，未真机跑通；macOS 沙盒写不了浏览器宿主清单目录；Java 容器路径、旧库接管、稳定性演练与生产切流/回滚未验收。
 
-## 功能进度（对照 `docs/archive/App功能总览-重构基线.md`）
+## 功能进度
 
-**进度标签：MVP 核心完成；SaaS 外围（通知 / 组织协作 / 积分社区）未开工。** 核对日期 2026-09-30。
+> **详细逐条状态见 [docs/09-功能实现状态对照](docs/09-功能实现状态对照.md)**，本处只列概要。核对日期 2026-10-01，判定以代码为准。
 
-已实现（按基线功能域）：
+**已完成（主要调用链完整）**：身份主线（注册/SRP 登录/设备批准/恢复/改密/注销/生物识别解锁/审计日志）；条目 CRUD 与详情编辑（四类条目、自定义字段、TOTP、多 URL 匹配）；冲突处理与离线优先；导入导出（CSV/1PIF/`.wljbak`）；安全评分与 HIBP 泄露检测；浏览器扩展与 Android 自动填充（未真机验收）；Java 身份/同步/反馈服务端。
 
-- §1 启动/登录/身份：注册、SRP 登录、设备验证（轮询批准）、账户解锁、私钥导入 / 本机与服务端恢复、引导、隐私同意、解锁页。
-- §2–3 保险库核心：条目 CRUD、详情、编辑、生成器、收藏、回收站、搜索、TOTP（扫码 + 解析）、导入、本地安全审计、同步状态。主框架为侧栏分区（全部 / 收藏 / 登录 / 支付卡 / 笔记 / 身份 / 回收站 / 设置），**非基线的 4 Tab**。
-- §4 密钥与备份：Secret Key 查看 / 显示、改主密码、恢复套件、导出（`.wljbak` / CSV）。备份卡图、二次确认未落地。
-- §5 安全中心：安全评分、泄露检测（HIBP k-匿名）、弱密码 / 强度、生物识别、自动锁定、设备管理、自动填充引导、审计日志、改密、注销。
-- §11 平台集成：浏览器扩展（MV3 + Native Messaging 宿主 + 配对）、Android AutofillService、托盘 + 全局快捷键、生物识别、扫码、安全剪贴板、隐私遮罩。
+**未实现**：
 
-未实现（基线有、代码无）：
+- **国际化**（简中/繁中/英文）：locale 硬编码 `zh_CN`，无 `.arb` 资源与切换 UI；`supportedLocales` 的 `en` 只影响 Material 组件，会造成中英混排。
+- **账户级锁定与封禁**（§1.6/§1.7）、**密钥升级**（§1.8）：客户端、内核、Java 三层零命中。
+- **安全体检系统**（§5.2 整体）：无 0–100 健康报告、六维评分、Finding 模型、忽略项、环境探测、下钻详情。
+- **组织检索**（§3.3 模板、§3.6 分组/分类/标签及子列表、§3.11 排序）。
+- **密钥与备份**：备份卡图、字节级二次确认、备份状态与云端备份历史、私钥更换。
+- **回收站彻底删除 / 清空**；**导入预览 / 字段映射 / 覆盖策略 / 导入导出历史**；**动态 date/image 字段**。
+- **账户资料**（§8.1/§8.2 昵称/头像/手机/邀请码）、**邮箱手机绑定**（§5.7）、**剪贴板与截图保护开关**（§8.3）。
+- **SaaS 外围**：§6 通知与弹窗、§8.7 应用内更新、§9 积分/签到/邀请/商城（Java 侧零实现）；§8.5 反馈的图片附件与多轮线程。
+- **平台**：iOS Credential Provider；相册保存与系统分享。
 
-- §6 通知系统、§7 组织 / 协作 / 工作区、§9 积分 / 签到 / 邀请 / 商城、§8.7 应用内更新仍无完整业务闭环；§8.5 意见反馈已完成首批文本/状态/最近回复，线程与图片后续。组织协作 E9 按 docs/09 排除。
-- §3.3 条目模板、§3.6 分组 / 分类 / 标签及子列表。
-- §12 的 66 路由未逐页实现：当前为 phase 路由（loading / onboarding / locked / unlocked / error）+ 12 个 Screen。
+**已排除**：§7 组织 / 协作 / 工作区 / 密钥信封（E9），不计欠账。**替代**：四 Tab → 桌面侧栏分区；66 路由不逐页对照。
 
-建议优先级：
+**建议优先级**：
 
-- **P0 收口**：iOS AutoFill 扩展；浏览器扩展与 Android 填充的真实环境验证；E1 / E4 的真实跨端与 PG 综合验收。
-- **P1 核心体验**：条目模板、分组 / 分类 / 标签、备份卡图 + PDF 与二次确认。
-- **P2 SaaS 外围**：通知、积分社区、意见反馈、应用内更新（先补 Java 服务端闭环）；组织协作 E9 已按 docs/09 明确排除，不进入开发欠账。
+- **P0 收口**：iOS AutoFill 扩展；浏览器扩展与 Android 填充的真机验证；E1 / E4 真实跨端与 PG 综合验收。
+- **P1 核心体验**：国际化、分组/分类/标签、条目模板、备份卡图与二次确认、回收站彻底删除。
+- **P2 账户与资料**：账户总览与资料编辑（§8.1/§8.2）、联系方式绑定（§5.7）、安全体检系统（§5.2）。
+- **P3 SaaS 外围**：通知（§6）、应用内更新（§8.7）、反馈附件与线程、积分社区（§9）。

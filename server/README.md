@@ -32,7 +32,7 @@ Java 21 / Spring Boot 4 的零知识同步后端，兼容当前 Flutter + Rust �
 - 保留 `/v1` 注册、两阶段 SRP、退出、设备、账户、凭据更新、恢复、审计及同步接口，以及 `/healthz`、`/readyz`。成功 DTO/数组不新增全局 `data` 外壳。
 - JSON 保留 snake_case、严格 STANDARD Base64、显式 null、lowercase 枚举和 Unix 秒整数；错误集中返回 `{code,message}`，关联编号在 `x-request-id`。
 - 参数、认证、权限、冲突、限流、依赖故障与内部错误分开处理。系统异常不向客户端返回 SQL、堆栈、地址或原始异常文本；服务端使用白名单诊断字段。
-- SRP 必须与 Rust 的 3072-bit / SHA-256、最短无符号整数及 M1/M2 证明格式互通；不是直接采用第三方库的默认 SRP 证明。黄金向量见 [docs/10](../docs/10-服务端迁移契约基线.md)。
+- SRP 必须与 Rust 的 3072-bit / SHA-256、最短无符号整数及 M1/M2 证明格式互通；不是直接采用第三方库的默认 SRP 证明。黄金向量见 [docs/archive/10](../docs/archive/10-S0服务端迁移契约基线-已归档.md)。
 - 服务端只处理不透明条目、密钥封装和恢复包，不获得主密码、Secret Key、Vault Key、AuthKey 或条目明文。邮箱仍为 HMAC 索引和服务端密封盒。
 - 同步按账户锁串行提交，保留协议 revision、墓碑、精确重放及 `change_log.seq` 游标；不能用 Redis 锁、Envers revision 或 ORM 版本替代同步语义。
 
@@ -179,6 +179,6 @@ java -jar target/vaultone-server-0.0.1-SNAPSHOT.jar feedback-ops --spring.profil
 - [Redisson 发布元数据](https://repo.maven.apache.org/maven2/org/redisson/redisson/maven-metadata.xml)
 - [Bouncy Castle 制品](https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.86/)
 - [FlyEnv PostgreSQL 默认配置](https://flyenv.com/features/postgresql)
-- [本仓库字节级契约](../docs/10-服务端迁移契约基线.md)
+- [本仓库字节级契约](../docs/archive/10-S0服务端迁移契约基线-已归档.md)
 
 在线版本与镜像信息是选型证据，不替代对应运行环境中的验收。旧阶段记录见 [docs/11](../docs/11-计划执行与验收记录.md)，不再把已过时的“仅S1/无业务”说明混入当前启动指南。
