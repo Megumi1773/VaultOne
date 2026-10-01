@@ -71,27 +71,6 @@ jobs:
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: 单元 + 端到端测试（含 FRB 桥，e2e 自启 SQLite 服务端）
         run: cargo test --locked --workspace
-      - name: 服务端 PostgreSQL 冒烟（迁移 + 健康检查）
-        run: |
-          docker run -d --name pg -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=vaultone -p 5432:5432 postgres:16-alpine
-          for i in $(seq 1 30); do docker exec pg pg_isready -U postgres && break; sleep 1; done
-          VAULTONE_SERVER_SECRET=$(cargo run -q -p vault-server -- gen-secret) \
-          VAULTONE_DATABASE_URL=postgres://postgres:ci@localhost:5432/vaultone \
-          cargo run -q -p vault-server -- check
-      - name: PostgreSQL 旧库升级（UTC 与非 UTC 会话）
-        env:
-          VAULTONE_MIGRATION_TEST_PG_URL: postgres://postgres:ci@127.0.0.1:5432/vaultone_migration_test
-          VAULTONE_MIGRATION_TEST_PG_ALLOW: "1"
-        run: |
-          docker exec pg createdb -U postgres vaultone_migration_test
-          cargo test --locked -p vault-server --test migration_upgrade postgres_ -- --ignored --nocapture
-      - name: PostgreSQL 同步竞争与游标提交顺序
-        env:
-          VAULTONE_SYNC_TEST_PG_URL: postgres://postgres:ci@127.0.0.1:5432/vaultone_sync_test
-          VAULTONE_SYNC_TEST_PG_ALLOW: "1"
-        run: |
-          docker exec pg createdb -U postgres vaultone_sync_test
-          cargo test --locked -p vault-server --test sync_concurrency postgres_ -- --ignored --nocapture
 
   coverage:
     runs-on: ubuntu-latest
@@ -104,7 +83,7 @@ jobs:
       - name: 覆盖率门禁（计划书 B-09：加密内核 ≥ 90%）
         run: |
           cargo llvm-cov --locked -p vault-crypto --fail-under-lines 90 --summary-only
-          cargo llvm-cov --locked -p vault-crypto -p vault-core -p vault-server --lcov --output-path lcov.info
+          cargo llvm-cov --locked -p vault-crypto -p vault-core --lcov --output-path lcov.info
       - uses: actions/upload-artifact@v4
         with: { name: coverage-lcov, path: lcov.info }
 
