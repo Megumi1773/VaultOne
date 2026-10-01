@@ -40,7 +40,11 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 - Flutter 静态检查用 **`dart analyze`**（`flutter analyze` 在含非 ASCII 的路径下会因 LSP JSON 编码崩溃，属工具缺陷，非代码问题）。
 - 集成测试（真实 Rust 内核，需桌面设备）：`flutter test integration_test -d windows`；应用商店截图生成见 `integration_test/screenshots_test.dart` 顶部注释。
 - Android 构建：Gradle 拒绝含非 ASCII 字符的路径，本仓库路径含中文 → 先 `subst V: <仓库路径>`，再在 `V:/app` 下 `flutter build apk`。cargokit 会为全部 ABI 编译 Rust，需 `rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android`。
+- **Windows 桌面构建（含 cargokit）同样必须走 `subst`**：`subst V: <仓库路径>` 后在 `V:/app` 下 `flutter run -d windows` / `flutter build windows`。原因：`app/rust_builder/cargokit/run_build_tool.cmd` 用批处理 `echo` 把 `build_tool` 的绝对路径写进临时 `pubspec.yaml`，控制台代码页会把中文路径写成乱码（`CC密码箱` → `CC������`），`dart pub get` 随即失败、`vaultone_bridge.dll` 不产出，CMake 的 INSTALL 步骤报 `file INSTALL cannot find .../vaultone_bridge.dll`。**该临时目录会跨 `flutter clean` 存活**，一旦生成了坏路径会持续污染后续构建，须删掉 `app/build/windows/x64/plugins/vaultone_bridge/` 后重建。`V:` 映射重启后失效。
+- 若 `flutter clean` 后出现 `cpp_client_wrapper/*.cc: No such file or directory`，删除 `app/windows/flutter/ephemeral/` 让工具链重新生成（`flutter pub get` 不会补回这些源码，只有 CMake configure 阶段会）。
+- `printing` 插件在 CMake 阶段要从 GitHub 下载预编译 pdfium（`github.com/bblanchon/pdfium-binaries`）。网络不通时构建会卡在 `Build step for pdfium failed`；若 `app/build/windows/x64/pdfium-src/` 已完整（含 `bin/pdfium.dll`、`lib/pdfium.dll.lib`、`include/fpdfview.h`），刷新 `pdfium-download-prefix/src/pdfium-download-stamp/Debug/` 下的 stamp 文件即可跳过复验，不必重新下载。
 - Windows 构建会经 CMake 调 `cargo build --release -p vault-nmhost` 并把宿主放到 exe 旁；桌面端启动时自动在 HKCU 登记 Native Messaging 宿主（指向当前构建目录）。
+- 桌面端启动后可能**隐藏到托盘**（`desktop_shell.dart` 关闭时 `windowManager.hide()`），窗口可见但 `MainWindowHandle` 为 0 属正常，托盘图标可唤出。
 
 ## 代码生成（易踩）
 
