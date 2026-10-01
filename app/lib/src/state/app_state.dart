@@ -193,10 +193,18 @@ class AppState extends ChangeNotifier {
   // ---------- 生命周期 ----------
 
   Future<void> init(String dbPath, String logDir) async {
+    // 日志必须最先初始化：否则 open/_loadSettings 一旦抛错，日志从未建立，
+    // 现场只剩 0 字节文件，故障无法事后诊断。
+    // 日志初始化自身失败不能中断启动（否则连保险库都打不开），故单独兜住；
+    // 此时内存订阅者仍在，错误至少能进 logcat。
+    try {
+      await VaultApi.initLogging(logDir, verbose: false);
+    } catch (e) {
+      VaultApi.log('initLogging failed: ${e is CoreException ? e.code : e.runtimeType}', level: 'error');
+    }
     try {
       await VaultApi.open(dbPath);
       await _loadSettings();
-      await VaultApi.initLogging(logDir, verbose: settings.verboseLogs);
       biometricsAvailable = await _canUseBiometrics();
       await _refreshStatus();
     } catch (e) {

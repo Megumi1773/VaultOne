@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'core/api.dart';
 import 'state/app_state.dart';
 import 'state/desktop_shell.dart';
 import 'state/scope.dart';
@@ -42,7 +45,11 @@ class _VaultOneAppState extends State<VaultOneApp> {
   @override
   void initState() {
     super.initState();
-    _state.init(widget.dbPath, widget.logDir);
+    // init 自身已兜住各阶段异常并落到 error 状态；这里再兜一层未预期异常，
+    // 避免 fire-and-forget 的 future 把错误变成无人处理的异步异常。
+    unawaited(_state.init(widget.dbPath, widget.logDir).catchError((Object e) {
+      VaultApi.log('init unhandled: ${e.runtimeType}', level: 'error');
+    }));
     if (widget.desktopShell) _shell = DesktopShell(_state)..start();
     _lifecycle = AppLifecycleListener(
       onHide: _state.onAppHidden,

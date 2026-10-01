@@ -30,17 +30,20 @@ pub fn init_logging(log_dir: String, verbose: bool) -> Result<(), super::BridgeE
     let filter = EnvFilter::new(format!(
         "warn,vault_core={level},vaultone_bridge={level},vault={level},sync={level},bridge={level},ui={level},browser={level}"
     ));
-    let result =
-        tracing_subscriber::registry().with(filter).with(fmt::layer().with_writer(writer).with_ansi(false).with_target(true)).try_init();
-    if result.is_ok() {
-        let _ = GUARD.set(guard);
-        std::panic::set_hook(Box::new(|info| {
-            // panic 信息只记录位置，不记录 payload（可能含数据）
-            let loc = info.location().map(|l| format!("{}:{}", l.file(), l.line())).unwrap_or_default();
-            tracing::error!(target: "bridge", location = %loc, "panic");
-        }));
-        tracing::info!(target: "bridge", version = env!("CARGO_PKG_VERSION"), os = std::env::consts::OS, "logging initialized");
-    }
+    // 进程内可能已存在全局订阅者（如 flutter_rust_bridge 的默认工具）。
+    // 此处必须失败即报：否则日志静默失效，文件恒为 0 字节，真机故障无法事后诊断。
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(fmt::layer().with_writer(writer).with_ansi(false).with_target(true))
+        .try_init()
+        .map_err(|e| super::BridgeError { code: "logging".into(), message: e.to_string() })?;
+    let _ = GUARD.set(guard);
+    std::panic::set_hook(Box::new(|info| {
+        // panic 信息只记录位置，不记录 payload（可能含数据）
+        let loc = info.location().map(|l| format!("{}:{}", l.file(), l.line())).unwrap_or_default();
+        tracing::error!(target: "bridge", location = %loc, "panic");
+    }));
+    tracing::info!(target: "bridge", version = env!("CARGO_PKG_VERSION"), os = std::env::consts::OS, "logging initialized");
     Ok(())
 }
 
@@ -50,5 +53,45 @@ pub fn log_event(level: String, message: String) {
         "error" => tracing::error!(target: "ui", "{message}"),
         "warn" => tracing::warn!(target: "ui", "{message}"),
         _ => tracing::info!(target: "ui", "{message}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    /// 日志必须真的落盘：真机曾出现日志文件恒为 0 字节、故障无法事后诊断的情况。
+    #[test]
+    fn init_logging_writes_events_to_disk() {
+        let dir = std::env::temp_dir().join(format!("vaultone-logprobe-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("create temp log dir");
+
+        init_logging(dir.to_string_lossy().to_string(), false).expect("init_logging");
+        log_event("error".into(), "probe-marker-12345".into());
+
+        // non_blocking writer 在后台线程落盘，轮询等待而不是假设立即可见。
+        let mut hit = false;
+        for _ in 0..100 {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            if let Ok(rd) = fs::read_dir(&dir) {
+                hit = rd
+                    .filter_map(|e| e.ok())
+                    .any(|e| fs::read_to_string(e.path()).map(|s| s.contains("probe-marker-12345")).unwrap_or(false));
+            }
+            if hit {
+                break;
+            }
+        }
+        let listing: Vec<String> = fs::read_dir(&dir)
+            .map(|rd| rd.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).collect())
+            .unwrap_or_default();
+        let _ = fs::remove_dir_all(&dir);
+        assert!(hit, "日志未写入磁盘；目录内容 = {listing:?}");
+
+        // 重复调用必须幂等且仍返回 Ok：init() 会在每次启动时调用一次，
+        // 而同一进程内 GUARD 已存在时不能再装第二遍订阅者。
+        init_logging("被忽略的目录".into(), false).expect("重复初始化应当成功且无副作用");
     }
 }

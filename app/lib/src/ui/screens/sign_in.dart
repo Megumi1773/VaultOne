@@ -58,6 +58,8 @@ class _SignInFormState extends State<SignInForm> {
       await AppScope.read(context).signIn(server, _email.text, _pw.text, _sk.text, _device.text);
     } on CoreException catch (e) {
       _pw.clear();
+      // 只记录稳定错误码，不记录可能含用户数据的消息体或凭据。
+      VaultApi.log('signIn failed: ${e.code}', level: 'error');
       if (mounted) {
         setState(() {
           _error = e.message;
@@ -87,7 +89,13 @@ class _SignInFormState extends State<SignInForm> {
           const SizedBox(height: 16),
           ZoTextField(controller: _sk, label: 'Secret Key', hint: 'V1-XXXXXX-XXXXXX-…', mono: true, prefixIcon: Icons.vpn_key_outlined),
           const SizedBox(height: 16),
-          ZoTextField(controller: _pw, label: '主密码', obscure: true, prefixIcon: Icons.key_rounded, error: _error, onSubmitted: (_) => _submit()),
+          ZoTextField(controller: _pw, label: '主密码', obscure: true, prefixIcon: Icons.key_rounded, onSubmitted: (_) => _submit()),
+          // 错误是表单级的（可能是服务器地址、网络或凭据问题），不能挂在密码字段下，
+          // 否则任何失败都像「主密码错」。
+          if (_error case final message?) ...[
+            const SizedBox(height: 12),
+            Text(message, style: context.text.bodySmall?.copyWith(color: context.zo.danger)),
+          ],
           const SizedBox(height: 10),
           TextButton.icon(
             onPressed: () => setState(() => _advanced = !_advanced),
