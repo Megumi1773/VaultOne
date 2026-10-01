@@ -6,7 +6,7 @@
 abstract final class AppConfig {
   /// 官方同步服务地址。默认即为官方服务端；`--dart-define` 仅用于内部测试与将来的
   /// 自部署模式，普通用户不可更改。
-  static const defaultServerUrl = String.fromEnvironment('VAULTONE_SERVER', defaultValue: 'https://sync.vaultone.app');
+  static const defaultServerUrl = String.fromEnvironment('VAULTONE_SERVER', defaultValue: 'https://127.0.0.1:9777');
 
   /// 是否允许用户自定义同步服务器（自部署模式）。默认关闭：客户端固定连接官方服务端。
   /// 计划在付费 / 高级企划中通过 `--dart-define=VAULTONE_ALLOW_CUSTOM_SERVER=true` 开放。
