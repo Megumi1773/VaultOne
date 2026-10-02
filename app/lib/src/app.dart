@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/api.dart';
+import 'l10n/strings.dart';
 import 'state/app_state.dart';
 import 'state/desktop_shell.dart';
 import 'state/scope.dart';
@@ -87,37 +88,43 @@ class _VaultOneAppState extends State<VaultOneApp> {
       state: _state,
       child: ListenableBuilder(
         listenable: _state,
-        builder: (context, _) => MaterialApp(
-          // 安全边界改变时销毁整个 Navigator（含已 push 的页面、弹窗和编辑器）。
-          // 不对锁定做出场动画，避免上一会话的明文短暂留在屏幕上。
-          key: ValueKey((_state.phase, _state.privacyAccepted, _state.sessionEpoch)),
-          title: 'VaultOne',
-          debugShowCheckedModeBanner: false,
-          theme: buildTheme(Brightness.light),
-          darkTheme: buildTheme(Brightness.dark),
-          themeMode: _themeMode(_state.settings.themeMode),
-          locale: const Locale('zh', 'CN'),
-          supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          builder: (context, child) => Listener(
-            behavior: HitTestBehavior.translucent,
-            onPointerDown: (_) => _state.registerActivity(),
-            onPointerSignal: (_) => _state.registerActivity(),
-            child: Stack(
-              children: [
-                child ?? const SizedBox.shrink(),
-                const Positioned(right: 20, bottom: 20, child: ClipboardToast()),
-                if (_state.pendingPairing != null) Positioned.fill(child: _PairingPrompt(state: _state)),
-                if (_obscured) const Positioned.fill(child: _PrivacyCover()),
+        builder: (context, _) {
+          final language = _state.settings.language;
+          return LocaleScope(
+            language: language,
+            child: MaterialApp(
+              // 安全边界改变时销毁整个 Navigator（含已 push 的页面、弹窗和编辑器）。
+              // 不对锁定做出场动画，避免上一会话的明文短暂留在屏幕上。
+              key: ValueKey((_state.phase, _state.privacyAccepted, _state.sessionEpoch)),
+              title: AppStrings.appName,
+              debugShowCheckedModeBanner: false,
+              theme: buildTheme(Brightness.light),
+              darkTheme: buildTheme(Brightness.dark),
+              themeMode: _themeMode(_state.settings.themeMode),
+              locale: language.locale,
+              supportedLocales: [for (final l in AppStrings.supported) l.locale],
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
               ],
+              builder: (context, child) => Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (_) => _state.registerActivity(),
+                onPointerSignal: (_) => _state.registerActivity(),
+                child: Stack(
+                  children: [
+                    child ?? const SizedBox.shrink(),
+                    const Positioned(right: 20, bottom: 20, child: ClipboardToast()),
+                    if (_state.pendingPairing != null) Positioned.fill(child: _PairingPrompt(state: _state)),
+                    if (_obscured) const Positioned.fill(child: _PrivacyCover()),
+                  ],
+                ),
+              ),
+              home: _PhaseRouter(state: _state),
             ),
-          ),
-          home: _PhaseRouter(state: _state),
-        ),
+          );
+        },
       ),
     );
   }
@@ -138,7 +145,7 @@ class _PhaseRouter extends StatelessWidget {
       AppPhase.locked => state.pendingEnrollment != null ? const OnboardingScreen() : const UnlockScreen(),
       AppPhase.cloudSetup => const CloudSetupScreen(),
       AppPhase.unlocked => const HomeScreen(),
-      AppPhase.error => FatalScreen(message: state.fatalError ?? '未知错误'),
+      AppPhase.error => FatalScreen(message: state.fatalError ?? AppStrings.unknownError),
     };
     return Scaffold(
       body: AnimatedSwitcher(

@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api.dart';
+import '../../l10n/strings.dart';
 import '../../core/config.dart';
 import '../../core/ffi.dart';
 import '../../core/models.dart';
@@ -66,7 +67,7 @@ class _Title extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text('设置', style: context.text.headlineMedium),
+        child: Text(context.tr(AppStrings.settings), style: context.text.headlineMedium),
       );
 }
 
@@ -98,33 +99,52 @@ class _Section extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.title, this.subtitle, this.trailing});
+  const _Row({required this.title, this.subtitle, this.trailing, this.stackOnNarrow = false});
 
   final String title;
   final String? subtitle;
   final Widget? trailing;
 
+  /// 窄屏时把操作控件换到标题下方。用于 SegmentedButton 这类自身较宽、无法再压缩的控件，
+  /// 否则在手机宽度下会把整行挤到横向溢出。
+  final bool stackOnNarrow;
+
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: context.text.titleMedium),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 3),
-                    Text(subtitle!, style: context.text.bodySmall),
-                  ],
-                ],
-              ),
+  Widget build(BuildContext context) {
+    final label = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: context.text.titleMedium),
+        if (subtitle != null) ...[
+          const SizedBox(height: 3),
+          Text(subtitle!, style: context.text.bodySmall),
+        ],
+      ],
+    );
+    if (trailing == null) {
+      return Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Row(children: [Expanded(child: label)]));
+    }
+    final stacked = stackOnNarrow && MediaQuery.sizeOf(context).width < 720;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: stacked
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                label,
+                const SizedBox(height: 10),
+                Align(alignment: Alignment.centerLeft, child: trailing!),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: label),
+                const SizedBox(width: 16),
+                trailing!,
+              ],
             ),
-            if (trailing != null) ...[const SizedBox(width: 16), trailing!],
-          ],
-        ),
-      );
+    );
+  }
 }
 
 String _fmtTime(int? unix) {
@@ -226,7 +246,7 @@ class _AccountSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final a = state.account;
-    return _Section(title: '账户', children: [
+    return _Section(title: context.tr(AppStrings.sectionAccount), children: [
       _Row(title: a?.email ?? '—', subtitle: '账户 ID  ${a?.accountId ?? '—'}'),
       _Row(title: '密钥派生', subtitle: a?.kdfSummary ?? '—', trailing: ZoTag('${a?.itemCount ?? 0} 个条目')),
       _Row(
@@ -262,7 +282,7 @@ class _KeyBackupSection extends StatelessWidget {
     final summary = at == 0
         ? '本机尚未记录任何备份导出。请先导出恢复套件，并把它打印或存进离线介质。'
         : '最近一次：${_fmtTime(at)}（${_kindLabel[kind] ?? kind ?? '未记录'}）。本机只记录时间与方式，不保存文件路径与内容。';
-    return _Section(title: '密钥与备份', children: [
+    return _Section(title: context.tr(AppStrings.sectionKeyBackup), children: [
       _Row(
         title: '备份状态',
         subtitle: '$summary\n云端备份历史需要服务端端点，尚未实现；这里不把本机记录当作云端已备份。',
@@ -361,7 +381,7 @@ class _SecuritySection extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final s = state.settings;
-    return _Section(title: '解锁与安全', children: [
+    return _Section(title: context.tr(AppStrings.sectionSecurity), children: [
       if (state.biometricsAvailable)
         _Row(
           title: '生物识别解锁',
@@ -445,7 +465,7 @@ class _SyncSectionState extends State<_SyncSection> {
     final state = AppScope.of(context);
     final remote = state.remote;
     if (remote == null) {
-      return const _Section(title: '云账户', children: [
+      return _Section(title: context.tr(AppStrings.sectionCloudAccount), children: [
         _Row(title: '云账户尚未完成接入', subtitle: '重新解锁后完成 Java 云注册。现有条目保留，不提供独立的纯本地账户模式。'),
       ]);
     }
@@ -456,7 +476,7 @@ class _SyncSectionState extends State<_SyncSection> {
       SyncState.needsReconnect => ('登录已过期，请重新验证', context.zo.warning),
       _ => ('条目自动同步', context.zo.success),
     };
-    return _Section(title: '云同步', children: [
+    return _Section(title: context.tr(AppStrings.sectionSync), children: [
       _Row(
         title: remote.serverUrl,
         subtitle: '本设备：${remote.deviceName} · 上次同步 ${_fmtTime(remote.lastSyncAt)} · 待上传 ${remote.pending}',
@@ -657,9 +677,10 @@ class _AppearanceSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final s = state.settings;
-    return _Section(title: '外观', children: [
+    return _Section(title: context.tr(AppStrings.sectionAppearance), children: [
       _Row(
         title: '主题',
+        stackOnNarrow: true,
         trailing: SegmentedButton<ThemeModeSetting>(
           showSelectedIcon: false,
           segments: const [
@@ -669,6 +690,19 @@ class _AppearanceSection extends StatelessWidget {
           ],
           selected: {s.themeMode},
           onSelectionChanged: (v) => state.updateSettings(s.copyWith(themeMode: v.first)),
+        ),
+      ),
+      _Row(
+        title: context.tr(AppStrings.language),
+        subtitle: context.tr(AppStrings.languageSubtitle),
+        stackOnNarrow: true,
+        trailing: SegmentedButton<AppLanguage>(
+          showSelectedIcon: false,
+          segments: [
+            for (final l in AppStrings.supported) ButtonSegment(value: l, label: Text(l.label)),
+          ],
+          selected: {s.language},
+          onSelectionChanged: (v) => state.updateSettings(s.copyWith(language: v.first)),
         ),
       ),
     ]);
@@ -691,7 +725,7 @@ class _ConflictSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    return _Section(title: '同步冲突', children: [
+    return _Section(title: context.tr(AppStrings.sectionConflict), children: [
       _Row(
         title: '比较并裁决冲突',
         subtitle: '冲突双方版本在本机加密保存。裁决后等待同步确认；有未完成冲突时不能导出，以免漏掉另一方内容。',
@@ -854,7 +888,7 @@ class _DataSectionState extends State<_DataSection> {
   }
 
   @override
-  Widget build(BuildContext context) => _Section(title: '数据', children: [
+  Widget build(BuildContext context) => _Section(title: context.tr(AppStrings.sectionData), children: [
         _Row(
           title: '从其他密码管理器导入',
           subtitle: '支持 Chrome / Edge / Firefox / Bitwarden / LastPass / 1Password 导出的 CSV 与 1PIF。文件只在本机解析，随即加密入库；重复条目自动跳过。',
@@ -887,7 +921,7 @@ class _DesktopSection extends StatelessWidget {
     if (!DesktopShell.supported) return const SizedBox.shrink();
     final state = AppScope.of(context);
     final s = state.settings;
-    return _Section(title: '桌面', children: [
+    return _Section(title: context.tr(AppStrings.sectionDesktop), children: [
       _Row(
         title: '关闭窗口时保留在系统托盘',
         subtitle: '关闭后仍可通过托盘图标或快捷键唤起；从托盘菜单选择「退出」才会结束程序。',
@@ -932,7 +966,7 @@ class _BrowserSectionState extends State<_BrowserSection> {
     if (!DesktopShell.supported) return const SizedBox.shrink();
     final state = AppScope.of(context);
     final s = state.settings;
-    return _Section(title: '浏览器扩展', children: [
+    return _Section(title: context.tr(AppStrings.sectionBrowser), children: [
       _Row(
         title: '允许浏览器扩展连接',
         subtitle: '扩展通过本机 Native Messaging 向 VaultOne 请求凭据，只会拿到与当前网站严格匹配的那一条；解密全部在本应用内完成。',
@@ -1037,7 +1071,7 @@ class _AndroidAutofillSectionState extends State<_AndroidAutofillSection> with W
   @override
   Widget build(BuildContext context) {
     if (!_supported) return const SizedBox.shrink();
-    return _Section(title: '自动填充', children: [
+    return _Section(title: context.tr(AppStrings.sectionAutofill), children: [
       _Row(
         title: _enabled ? 'VaultOne 已是系统自动填充服务' : '将 VaultOne 设为自动填充服务',
         subtitle: '在应用和浏览器的登录框中选择「用 VaultOne 填充」。网页只推荐与当前域名严格匹配的条目；登录后可一键保存新密码。',
@@ -1056,7 +1090,7 @@ class _DiagnosticsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final s = state.settings;
-    return _Section(title: '诊断', children: [
+    return _Section(title: context.tr(AppStrings.sectionDiagnostics), children: [
       _Row(
         title: '详细日志（诊断模式）',
         subtitle: '日志只含事件类型、错误码与耗时，绝不包含密码、条目内容或邮箱。重启应用后生效。',
@@ -1105,7 +1139,7 @@ class _AboutSection extends StatelessWidget {
           title: title,
           trailing: ZoIconButton(icon: Icons.open_in_new_rounded, tooltip: url, onPressed: () => launchUrl(Uri.parse(url))),
         );
-    return _Section(title: '关于', children: [
+    return _Section(title: context.tr(AppStrings.sectionAbout), children: [
       FutureBuilder<PackageInfo>(
         future: PackageInfo.fromPlatform(),
         builder: (context, snap) => _Row(
@@ -1167,7 +1201,7 @@ class _DangerSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    return _Section(title: '危险操作', children: [
+    return _Section(title: context.tr(AppStrings.sectionDanger), children: [
       _Row(
         title: '清除本机数据',
         subtitle: '删除本机保险库与保存的 Secret Key，不注销云账户；未同步的本机修改会丢失。',

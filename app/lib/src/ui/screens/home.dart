@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/ffi.dart';
+import '../../l10n/strings.dart';
 import '../../core/models.dart';
 import '../../state/app_state.dart';
 import '../../state/scope.dart';
@@ -45,6 +46,31 @@ enum Section {
         Section.identity => ItemKind.identity,
         _ => null,
       };
+
+  /// 界面语言下的分区名。枚举上的 `label` / `short` 是简体中文原文，也是翻译回退值。
+  String title(BuildContext context) => context.tr(_labelKeys[this]!);
+
+  /// 界面语言下的窄屏短标签。
+  String shortTitle(BuildContext context) => context.tr(_shortKeys[this] ?? _labelKeys[this]!);
+
+  static const _labelKeys = <Section, String>{
+    Section.all: AppStrings.sectionAll,
+    Section.favorites: AppStrings.sectionFavorites,
+    Section.login: AppStrings.sectionLogin,
+    Section.card: AppStrings.sectionCard,
+    Section.note: AppStrings.sectionNote,
+    Section.identity: AppStrings.sectionIdentity,
+    Section.generator: AppStrings.sectionGenerator,
+    Section.security: AppStrings.sectionSecurityCenter,
+    Section.trash: AppStrings.sectionTrash,
+    Section.settings: AppStrings.settings,
+  };
+
+  static const _shortKeys = <Section, String>{
+    Section.all: AppStrings.sectionAllShort,
+    Section.note: AppStrings.sectionNoteShort,
+    Section.identity: AppStrings.sectionIdentityShort,
+  };
 }
 
 /// 手机端底部导航。桌面端的侧栏分区不照搬到窄屏：只保留四个一级入口，
@@ -60,6 +86,16 @@ enum _MobileTab {
   final String label;
   final IconData icon;
   final IconData activeIcon;
+
+  /// 界面语言下的底部导航标签。
+  String title(BuildContext context) => context.tr(_labelKeys[this]!);
+
+  static const _labelKeys = <_MobileTab, String>{
+    _MobileTab.vault: AppStrings.tabVault,
+    _MobileTab.generator: AppStrings.tabGenerator,
+    _MobileTab.security: AppStrings.tabSecurity,
+    _MobileTab.settings: AppStrings.settings,
+  };
 }
 
 /// 编辑目标：新建某类条目，或编辑已有条目。
@@ -229,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final Widget body = switch (tab) {
       _MobileTab.vault => ItemListPane(
           compact: true,
-          title: _section.label,
+          title: _section.title(context),
           filterBar: _VaultFilters(section: _section, counts: counts, onSelect: _go),
           items: visible,
           selectedId: null,
@@ -352,7 +388,7 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(
             width: 340,
             child: ItemListPane(
-              title: _section.label,
+              title: _section.title(context),
               items: visible,
               selectedId: _selectedId,
               query: _query,
@@ -484,7 +520,7 @@ class _VaultFilters extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    s.short,
+                    s.shortTitle(context),
                     style: context.text.labelLarge?.copyWith(fontSize: 12.5, color: active ? c.accent : c.textMuted),
                   ),
                   if (n > 0) ...[
@@ -524,7 +560,7 @@ class _MobileNavBar extends StatelessWidget {
                   child: Semantics(
                     button: true,
                     selected: t == tab,
-                    label: t.label,
+                    label: t.title(context),
                     child: Hover(
                       onTap: () {
                         HapticFeedback.selectionClick();
@@ -549,7 +585,7 @@ class _MobileNavBar extends StatelessWidget {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              t.label,
+                              t.title(context),
                               style: context.text.labelMedium?.copyWith(
                                 fontSize: 10.5,
                                 color: color,
@@ -714,7 +750,7 @@ class _NavItem extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                section.label,
+                section.title(context),
                 style: context.text.bodyMedium?.copyWith(
                   color: active ? c.text : c.textMuted,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w400,

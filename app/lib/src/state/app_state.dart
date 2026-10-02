@@ -11,6 +11,7 @@ import '../core/config.dart';
 import '../core/ffi.dart';
 import '../core/feedback_models.dart';
 import '../core/models.dart';
+import '../l10n/strings.dart';
 import 'clipboard.dart';
 
 enum AppPhase { loading, onboarding, locked, cloudSetup, unlocked, error }
@@ -24,6 +25,7 @@ class Settings {
     this.clipboardSeconds = 30,
     this.lockOnMinimize = false,
     this.themeMode = ThemeModeSetting.system,
+    this.language = AppStrings.defaultLanguage,
     this.serverUrl = AppConfig.defaultServerUrl,
     this.verboseLogs = false,
     this.closeToTray = true,
@@ -35,6 +37,10 @@ class Settings {
   final int clipboardSeconds;
   final bool lockOnMinimize;
   final ThemeModeSetting themeMode;
+
+  /// 界面语言。只影响应用自身文案；条目内容与备注不翻译、不上传。
+  final AppLanguage language;
+
   final String serverUrl;
   final bool verboseLogs;
 
@@ -52,6 +58,7 @@ class Settings {
     int? clipboardSeconds,
     bool? lockOnMinimize,
     ThemeModeSetting? themeMode,
+    AppLanguage? language,
     String? serverUrl,
     bool? verboseLogs,
     bool? closeToTray,
@@ -63,6 +70,7 @@ class Settings {
         clipboardSeconds: clipboardSeconds ?? this.clipboardSeconds,
         lockOnMinimize: lockOnMinimize ?? this.lockOnMinimize,
         themeMode: themeMode ?? this.themeMode,
+        language: language ?? this.language,
         serverUrl: serverUrl ?? this.serverUrl,
         verboseLogs: verboseLogs ?? this.verboseLogs,
         closeToTray: closeToTray ?? this.closeToTray,
@@ -252,6 +260,7 @@ class AppState extends ChangeNotifier {
       clipboardSeconds: intOr(await VaultApi.getSetting('clipboard_seconds'), 30),
       lockOnMinimize: (await VaultApi.getSetting('lock_on_minimize') ?? (mobile ? '1' : '0')) == '1',
       themeMode: ThemeModeSetting.values.firstWhere((m) => m.name == theme, orElse: () => ThemeModeSetting.system),
+      language: AppLanguage.parse(await VaultApi.getSetting('language')),
       serverUrl: AppConfig.serverUrl(await VaultApi.getSetting('server_url') ?? AppConfig.defaultServerUrl),
       verboseLogs: (await VaultApi.getSetting('verbose_logs')) == '1',
       closeToTray: (await VaultApi.getSetting('close_to_tray')) != '0',
@@ -763,6 +772,7 @@ class AppState extends ChangeNotifier {
     await VaultApi.setSetting('clipboard_seconds', '${s.clipboardSeconds}');
     await VaultApi.setSetting('lock_on_minimize', s.lockOnMinimize ? '1' : '0');
     await VaultApi.setSetting('theme', s.themeMode.name);
+    await VaultApi.setSetting('language', s.language.storageKey);
     await VaultApi.setSetting('verbose_logs', s.verboseLogs ? '1' : '0');
     await VaultApi.setSetting('close_to_tray', s.closeToTray ? '1' : '0');
     await VaultApi.setSetting('global_hotkey', s.globalHotkey ? '1' : '0');
