@@ -23,12 +23,12 @@ void main() {
   test('每类条目都有模板，且模板字段属于对应类型', () {
     for (final kind in ItemKind.values) {
       final templates = itemTemplatesFor(kind);
-      expect(templates, isNotEmpty, reason: '${kind.label}缺少模板');
+      expect(templates, isNotEmpty, reason: '${kind.wire}缺少模板');
       expect(templates.every((t) => t.kind == kind), isTrue);
       expect(
         templates.any((t) => t.fields.isNotEmpty),
         isTrue,
-        reason: '${kind.label}缺少带预置字段的模板',
+        reason: '${kind.wire}缺少带预置字段的模板',
       );
     }
   });

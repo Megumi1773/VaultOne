@@ -1,0 +1,27 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/generator_page.dart",
+    "replace": [
+      ["import '../theme.dart';", "import '../../l10n/strings.dart';\nimport '../theme.dart';"],
+      ["                  ZoIconButton(icon: Icons.refresh_rounded, tooltip: '重新生成', onPressed: _regen),",
+       "                  ZoIconButton(\n                    icon: Icons.refresh_rounded,\n                    tooltip: context.tr(AppStrings.regenerate),\n                    onPressed: _regen,\n                  ),"],
+      ["                    tooltip: '复制',\n                    onPressed: v == null ? null : () => ClipboardService.copy(v.value, label: '密码', clearAfterSeconds: seconds),",
+       "                    tooltip: context.tr(AppStrings.copy),\n                    onPressed: v == null\n                        ? null\n                        : () => ClipboardService.copy(\n                            v.value,\n                            label: context.tr(AppStrings.fieldPassword),\n                            clearAfterSeconds: seconds,\n                          ),"],
+      ["          _SliderRow(label: '长度', value: _length,", "          _SliderRow(label: context.tr(AppStrings.lengthLabel), value: _length,"],
+      ["            _Chip('排除易混字符', _noAmbiguous, () => _toggle(() => _noAmbiguous = !_noAmbiguous)),",
+       "            _Chip(context.tr(AppStrings.excludeAmbiguous), _noAmbiguous, () => _toggle(() => _noAmbiguous = !_noAmbiguous)),"],
+      ["          _SliderRow(label: '词数', value: _words,", "          _SliderRow(label: context.tr(AppStrings.wordCountLabel), value: _words,"],
+      ["              _Chip(s == ' ' ? '空格' : s, _sep == s, () {", "              _Chip(s == ' ' ? context.tr(AppStrings.separatorSpace) : s, _sep == s, () {"],
+      ["            _Chip('首字母大写', _cap, () {", "            _Chip(context.tr(AppStrings.capitalizeFirst), _cap, () {"],
+      ["            _Chip('含数字', _num, () {", "            _Chip(context.tr(AppStrings.includeDigits), _num, () {"],
+      ["          ZoButton(label: '使用此密码', icon: Icons.check_rounded, expand: true, onPressed: v == null ? null : () => widget.onUse!(v.value)),",
+       "          ZoButton(\n            label: context.tr(AppStrings.useThisPassword),\n            icon: Icons.check_rounded,\n            expand: true,\n            onPressed: v == null ? null : () => widget.onUse!(v.value),\n          ),"],
+      ["      child: Row(children: [seg(_Mode.random, '随机密码'), seg(_Mode.passphrase, '口令短语')]),",
+       "      child: Row(\n        children: [\n          seg(_Mode.random, context.tr(AppStrings.randomPasswordTab)),\n          seg(_Mode.passphrase, context.tr(AppStrings.passphraseTab)),\n        ],\n      ),"],
+      ["                Text('密码生成器', style: context.text.headlineMedium),\n                const SizedBox(height: 6),\n                Text('使用系统级 CSPRNG 生成，结果只存在于本机内存。', style: context.text.bodyMedium?.copyWith(color: context.zo.textMuted)),",
+       "                Text(context.tr(AppStrings.sectionGenerator), style: context.text.headlineMedium),\n                const SizedBox(height: 6),\n                Text(\n                  context.tr(AppStrings.generatorSubtitle),\n                  style: context.text.bodyMedium?.copyWith(color: context.zo.textMuted),\n                ),"],
+      ["                Text('生成密码', style: context.text.headlineSmall),\n                const Spacer(),\n                ZoIconButton(icon: Icons.close_rounded, tooltip: '关闭', onPressed: () => Navigator.pop(context)),",
+       "                Text(context.tr(AppStrings.generatePassword), style: context.text.headlineSmall),\n                const Spacer(),\n                ZoIconButton(\n                  icon: Icons.close_rounded,\n                  tooltip: context.tr(AppStrings.close),\n                  onPressed: () => Navigator.pop(context),\n                ),"]
+    ]
+  }
+]

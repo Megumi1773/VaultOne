@@ -1,0 +1,14 @@
+[
+  {
+    "file": "app/lib/src/l10n/strings.dart",
+    "replace": [
+      ["  static const addAction = '添加';\n  static const removeAction = '移除';\n  static const groupCardInfo = '卡片信息';",
+       "  static const addAction = '添加';\n  static const groupCardInfo = '卡片信息';"],
+      ["    addAction: '新增',\n    removeAction: '移除',\n    groupCardInfo: '卡片資訊',",
+       "    addAction: '新增',\n    groupCardInfo: '卡片資訊',"],
+      ["    addAction: 'Add',\n    removeAction: 'Remove',\n    groupCardInfo: 'Card details',",
+       "    addAction: 'Add',\n    groupCardInfo: 'Card details',"],
+      ["    groupIdentityInfo: '身分資訊',", "    groupIdentityInfo: '身分詳細資料',"]
+    ]
+  }
+]

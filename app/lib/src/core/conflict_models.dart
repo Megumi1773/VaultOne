@@ -1,3 +1,6 @@
+import 'package:flutter/widgets.dart';
+
+import '../l10n/strings.dart';
 import 'models.dart';
 
 enum ConflictState { pending, resolutionPending, resolved, superseded }
@@ -19,20 +22,23 @@ enum ConflictField {
   deleted,
   resolution;
 
-  String get label => switch (this) {
-    type => '条目类型',
-    title => '标题',
-    urls => '网址',
-    username => '用户名',
-    password => '密码',
-    totp => '两步验证',
-    notes => '备注',
-    card => '支付卡',
-    identity => '身份信息',
-    customFields => '自定义字段',
-    favorite => '收藏',
-    deleted => '删除状态',
-    resolution => '解决方案',
+  /// 字段名的**唯一来源**是文案表；枚举只持引用，避免同一文案在两处定义而分叉。
+  String labelOf(BuildContext context) => context.tr(_labelKeys[this]!);
+
+  static const _labelKeys = <ConflictField, String>{
+    ConflictField.type: AppStrings.conflictFieldKind,
+    ConflictField.title: AppStrings.titleLabel,
+    ConflictField.urls: AppStrings.fieldWebsite,
+    ConflictField.username: AppStrings.fieldUsername,
+    ConflictField.password: AppStrings.fieldPassword,
+    ConflictField.totp: AppStrings.twoFactorCoverage,
+    ConflictField.notes: AppStrings.fieldNotes,
+    ConflictField.card: AppStrings.sectionCard,
+    ConflictField.identity: AppStrings.sectionIdentity,
+    ConflictField.customFields: AppStrings.customFields,
+    ConflictField.favorite: AppStrings.sectionFavorites,
+    ConflictField.deleted: AppStrings.conflictFieldDeleted,
+    ConflictField.resolution: AppStrings.conflictFieldResolution,
   };
 
   bool get sensitive => switch (this) {
@@ -99,11 +105,12 @@ class ConflictDetail {
       fields.contains(ConflictField.type) ||
       fields.contains(ConflictField.resolution);
 
-  String get statusLabel => switch (state) {
-    ConflictState.pending => stale ? '候选已过期' : '待处理',
-    ConflictState.resolutionPending => '等待同步',
-    ConflictState.resolved => '已解决',
-    ConflictState.superseded => '已被替代',
+  /// 状态名同样只来自文案表。
+  String statusLabel(BuildContext context) => switch (state) {
+    ConflictState.pending => context.tr(stale ? AppStrings.conflictCandidateStale : AppStrings.conflictStatusPending),
+    ConflictState.resolutionPending => context.tr(AppStrings.conflictStatusAwaitingSync),
+    ConflictState.resolved => context.tr(AppStrings.conflictStatusResolved),
+    ConflictState.superseded => context.tr(AppStrings.conflictStatusSuperseded),
   };
 
   factory ConflictDetail.fromJson(Map<String, dynamic> json) => ConflictDetail(

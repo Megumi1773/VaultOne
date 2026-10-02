@@ -1,0 +1,11 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/feedback_page.dart",
+    "replace": [
+      ["            decoration: const InputDecoration(labelText: '反馈类型'),\n            items: [\n              for (final category in FeedbackCategory.values)\n                DropdownMenuItem(value: category, child: Text(category.label)),",
+       "            decoration: InputDecoration(labelText: context.tr(AppStrings.feedbackCategory)),\n            items: [\n              for (final category in FeedbackCategory.values)\n                DropdownMenuItem(value: category, child: Text(category.label(context))),"],
+      ["          title: Text('${item.category.label} · ${item.status.label}'),", "          title: Text(\n            '${item.category.label(context)} · ${item.status.label(context)}',\n          ),"],
+      ["        '${detail.summary.category.label} · ${detail.summary.status.label}',", "        '${detail.summary.category.label(context)} · ${detail.summary.status.label(context)}',"]
+    ]
+  }
+]

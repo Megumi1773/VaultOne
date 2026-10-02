@@ -4,6 +4,7 @@ import '../../core/api.dart';
 import '../../core/models.dart';
 import '../../state/clipboard.dart';
 import '../../state/scope.dart';
+import '../../l10n/strings.dart';
 import '../theme.dart';
 import '../widgets/controls.dart';
 import '../widgets/vault_widgets.dart';
@@ -111,11 +112,21 @@ class _GeneratorPanelState extends State<GeneratorPanel> {
                   const SizedBox(width: 14),
                   Text('${bits.toStringAsFixed(0)} bit', style: monoStyle(context, size: 12, color: c.textMuted)),
                   const SizedBox(width: 10),
-                  ZoIconButton(icon: Icons.refresh_rounded, tooltip: '重新生成', onPressed: _regen),
+                  ZoIconButton(
+                    icon: Icons.refresh_rounded,
+                    tooltip: context.tr(AppStrings.regenerate),
+                    onPressed: _regen,
+                  ),
                   ZoIconButton(
                     icon: Icons.copy_rounded,
-                    tooltip: '复制',
-                    onPressed: v == null ? null : () => ClipboardService.copy(v.value, label: '密码', clearAfterSeconds: seconds),
+                    tooltip: context.tr(AppStrings.copy),
+                    onPressed: v == null
+                        ? null
+                        : () => ClipboardService.copy(
+                            v.value,
+                            label: context.tr(AppStrings.fieldPassword),
+                            clearAfterSeconds: seconds,
+                          ),
                   ),
                 ],
               ),
@@ -132,7 +143,7 @@ class _GeneratorPanelState extends State<GeneratorPanel> {
         ),
         const SizedBox(height: 18),
         if (_mode == _Mode.random) ...[
-          _SliderRow(label: '长度', value: _length, min: 8, max: 64, onChanged: (x) {
+          _SliderRow(label: context.tr(AppStrings.lengthLabel), value: _length, min: 8, max: 64, onChanged: (x) {
             _length = x;
             _regen();
           }),
@@ -142,25 +153,25 @@ class _GeneratorPanelState extends State<GeneratorPanel> {
             _Chip('A-Z', _upper, () => _toggle(() => _upper = !_upper)),
             _Chip('0-9', _digits, () => _toggle(() => _digits = !_digits)),
             _Chip('!@#', _symbols, () => _toggle(() => _symbols = !_symbols)),
-            _Chip('排除易混字符', _noAmbiguous, () => _toggle(() => _noAmbiguous = !_noAmbiguous)),
+            _Chip(context.tr(AppStrings.excludeAmbiguous), _noAmbiguous, () => _toggle(() => _noAmbiguous = !_noAmbiguous)),
           ]),
         ] else ...[
-          _SliderRow(label: '词数', value: _words, min: 3, max: 8, onChanged: (x) {
+          _SliderRow(label: context.tr(AppStrings.wordCountLabel), value: _words, min: 3, max: 8, onChanged: (x) {
             _words = x;
             _regen();
           }),
           const SizedBox(height: 8),
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final s in ['-', '.', '_', ' '])
-              _Chip(s == ' ' ? '空格' : s, _sep == s, () {
+              _Chip(s == ' ' ? context.tr(AppStrings.separatorSpace) : s, _sep == s, () {
                 _sep = s;
                 _regen();
               }),
-            _Chip('首字母大写', _cap, () {
+            _Chip(context.tr(AppStrings.capitalizeFirst), _cap, () {
               _cap = !_cap;
               _regen();
             }),
-            _Chip('含数字', _num, () {
+            _Chip(context.tr(AppStrings.includeDigits), _num, () {
               _num = !_num;
               _regen();
             }),
@@ -168,7 +179,12 @@ class _GeneratorPanelState extends State<GeneratorPanel> {
         ],
         if (widget.onUse != null) ...[
           const SizedBox(height: 24),
-          ZoButton(label: '使用此密码', icon: Icons.check_rounded, expand: true, onPressed: v == null ? null : () => widget.onUse!(v.value)),
+          ZoButton(
+            label: context.tr(AppStrings.useThisPassword),
+            icon: Icons.check_rounded,
+            expand: true,
+            onPressed: v == null ? null : () => widget.onUse!(v.value),
+          ),
         ],
       ],
     );
@@ -203,7 +219,12 @@ class _Segmented extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: c.border)),
-      child: Row(children: [seg(_Mode.random, '随机密码'), seg(_Mode.passphrase, '口令短语')]),
+      child: Row(
+        children: [
+          seg(_Mode.random, context.tr(AppStrings.randomPasswordTab)),
+          seg(_Mode.passphrase, context.tr(AppStrings.passphraseTab)),
+        ],
+      ),
     );
   }
 }
@@ -272,9 +293,12 @@ class GeneratorPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('密码生成器', style: context.text.headlineMedium),
+                Text(context.tr(AppStrings.sectionGenerator), style: context.text.headlineMedium),
                 const SizedBox(height: 6),
-                Text('使用系统级 CSPRNG 生成，结果只存在于本机内存。', style: context.text.bodyMedium?.copyWith(color: context.zo.textMuted)),
+                Text(
+                  context.tr(AppStrings.generatorSubtitle),
+                  style: context.text.bodyMedium?.copyWith(color: context.zo.textMuted),
+                ),
                 const SizedBox(height: 28),
                 const GeneratorPanel(),
               ],
@@ -302,9 +326,13 @@ class GeneratorDialog extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(children: [
-                Text('生成密码', style: context.text.headlineSmall),
+                Text(context.tr(AppStrings.generatePassword), style: context.text.headlineSmall),
                 const Spacer(),
-                ZoIconButton(icon: Icons.close_rounded, tooltip: '关闭', onPressed: () => Navigator.pop(context)),
+                ZoIconButton(
+                  icon: Icons.close_rounded,
+                  tooltip: context.tr(AppStrings.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
               ]),
               const SizedBox(height: 18),
               GeneratorPanel(onUse: (v) => Navigator.pop(context, v)),

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/api.dart';
 import '../../core/models.dart';
 import '../../state/clipboard.dart';
+import '../../l10n/strings.dart';
 import '../theme.dart';
 
 /// 四段式强度条。
@@ -257,13 +258,16 @@ class _ToastBody extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('已复制${notice.label}', style: context.text.titleMedium?.copyWith(fontSize: 13.5)),
+                      Text(
+                        context.trf(AppStrings.clipboardCopiedToast, {'label': notice.label}),
+                        style: context.text.titleMedium?.copyWith(fontSize: 13.5),
+                      ),
                       if (timed)
                         TweenAnimationBuilder<double>(
                           tween: Tween(begin: notice.seconds.toDouble(), end: 0),
                           duration: Duration(seconds: notice.seconds),
                           builder: (context, v, _) => Text(
-                            '${v.ceil()} 秒后从剪贴板清除 · 不进入剪贴板历史',
+                            context.trf(AppStrings.clipboardClearCountdown, {'seconds': v.ceil()}),
                             style: context.text.bodySmall,
                           ),
                         ),
@@ -274,7 +278,7 @@ class _ToastBody extends StatelessWidget {
                   TextButton(
                     onPressed: ClipboardService.clearNow,
                     style: TextButton.styleFrom(foregroundColor: c.textMuted, textStyle: const TextStyle(fontSize: 12.5)),
-                    child: const Text('立即清除'),
+                    child: Text(context.tr(AppStrings.clearNow)),
                   ),
               ],
             ),

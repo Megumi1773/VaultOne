@@ -91,7 +91,7 @@ class ItemDetail extends StatelessWidget {
       sections.add(_Group(children: [
         for (final u in d.urls)
           FieldRow(
-            label: context.trf(AppStrings.urlMatchSuffix, {'label': u.match.label}),
+            label: context.trf(AppStrings.urlFieldLabel, {'label': u.match.title(context)}),
             value: u.url,
             onCopy: () => copy(u.url, context.tr(AppStrings.fieldWebsite), sensitive: false),
             extra: ZoIconButton(
@@ -190,7 +190,7 @@ class ItemDetail extends StatelessWidget {
                     Text(d.title, style: context.text.headlineMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 6),
                     Row(children: [
-                      ZoTag(d.kind.label, icon: d.kind.icon),
+                      ZoTag(d.kind.title(context), icon: d.kind.icon),
                       if (inTrash) ...[const SizedBox(width: 6), ZoTag(context.tr(AppStrings.sectionTrash), color: c.danger)],
                     ]),
                   ],

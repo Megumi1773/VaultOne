@@ -1,0 +1,16 @@
+[
+  {
+    "file": "app/lib/src/l10n/strings.dart",
+    "replace": [
+      ["  static const groupIdentityInfo = '身份信息';\n", ""],
+      ["    groupIdentityInfo: '身分詳細資料',\n", ""],
+      ["    groupIdentityInfo: 'Identity details',\n", ""]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/item_editor.dart",
+    "replace": [
+      ["          title: context.tr(AppStrings.groupIdentityInfo),", "          title: context.tr(AppStrings.sectionIdentity),"]
+    ]
+  }
+]

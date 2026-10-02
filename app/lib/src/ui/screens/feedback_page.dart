@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/feedback_models.dart';
 import '../../core/ffi.dart';
+import '../../l10n/strings.dart';
 import '../theme.dart';
 
 /// 反馈只在本页内存保存；调用方须在锁定或云会话变化时撤销 canContinue。
@@ -107,26 +108,27 @@ class _FeedbackPageState extends State<FeedbackPage> {
   String _message(Object error) {
     // 不展示异常 message：依赖错误可能含地址、服务端文本或诊断内容。
     final code = error is CoreException ? error.code : null;
-    return switch (code) {
-      'network' || 'timeout' => '网络连接异常，请检查连接后重试。',
-      'unauthorized' => '云会话已失效，请重新登录后再试。',
-      'locked' || 'session_expired' => '保险库已锁定，请解锁后重新进入。',
-      'not_connected' => '请先在设置中连接云服务，再使用反馈。',
-      'privacy_required' => '请先阅读并同意隐私政策与用户协议。',
-      'feedback_unavailable' => '此服务器暂不支持反馈功能，请联系支持。',
+    final source = switch (code) {
+      'network' || 'timeout' => AppStrings.feedbackNetworkError,
+      'unauthorized' => AppStrings.feedbackSessionExpired,
+      'locked' || 'session_expired' => AppStrings.feedbackLocked,
+      'not_connected' => AppStrings.feedbackNotConnected,
+      'privacy_required' => AppStrings.feedbackPrivacyRequired,
+      'feedback_unavailable' => AppStrings.feedbackUnsupported,
       'forbidden' ||
       'device_not_approved' ||
       'device_pending' ||
-      'device_revoked' => '当前设备无权访问反馈，请检查设备授权。',
+      'device_revoked' => AppStrings.feedbackForbidden,
       'invalid_input' ||
       'bad_request' ||
-      'unprocessable_entity' => '反馈格式不符合要求，请检查类型和长度。',
-      'conflict' => '此提交编号已被使用，请先查看历史确认结果。',
-      'not_found' => '反馈不存在或已到期，请刷新历史记录。',
-      'rate_limited' => '提交过于频繁或已达数量上限，请稍后再试。',
-      'unavailable' || 'service_unavailable' => '反馈服务暂时不可用，请稍后重试。',
-      _ => '暂时无法完成操作，请稍后重试。',
+      'unprocessable_entity' => AppStrings.feedbackInvalid,
+      'conflict' => AppStrings.feedbackDuplicate,
+      'not_found' => AppStrings.feedbackNotFound,
+      'rate_limited' => AppStrings.feedbackRateLimited,
+      'unavailable' || 'service_unavailable' => AppStrings.feedbackUnavailable,
+      _ => AppStrings.feedbackGenericError,
     };
+    return context.tr(source);
   }
 
   Future<void> _send() async {
@@ -303,16 +305,16 @@ class _FeedbackPageState extends State<FeedbackPage> {
           automaticallyImplyLeading: false,
           leading: IconButton(
             key: const Key('feedback-close'),
-            tooltip: '关闭反馈',
+            tooltip: context.tr(AppStrings.feedbackClose),
             onPressed: _close,
             icon: const Icon(Icons.close),
           ),
-          title: Text('意见反馈', style: context.text.headlineSmall),
+          title: Text(context.tr(AppStrings.feedback), style: context.text.headlineSmall),
           actions: [
             if (active && _view != _View.write)
               IconButton(
                 key: const Key('feedback-refresh'),
-                tooltip: '刷新',
+                tooltip: context.tr(AppStrings.refreshAction),
                 onPressed: () {
                   if (_view == _View.detail && _detailId != null) {
                     _openDetail(_detailId!);
@@ -325,7 +327,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
           ],
         ),
         body: !active
-            ? const Center(child: Text('反馈页面已失效，请解锁并重新进入。'))
+            ? Center(child: Text(context.tr(AppStrings.feedbackExpired)))
             : SafeArea(
                 child: SingleChildScrollView(
                   key: const Key('feedback-scroll'),
@@ -345,13 +347,13 @@ class _FeedbackPageState extends State<FeedbackPage> {
                             children: [
                               ChoiceChip(
                                 key: const Key('feedback-write-tab'),
-                                label: const Text('写反馈'),
+                                label: Text(context.tr(AppStrings.feedbackWriteTab)),
                                 selected: _view == _View.write,
                                 onSelected: (_) => _write(),
                               ),
                               ChoiceChip(
                                 key: const Key('feedback-history-tab'),
-                                label: const Text('历史记录'),
+                                label: Text(context.tr(AppStrings.feedbackHistoryTab)),
                                 selected: _view != _View.write,
                                 onSelected: (_) => _history(),
                               ),
@@ -365,7 +367,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                           },
                           const SizedBox(height: 24),
                           Text(
-                            '关闭或锁定将清除本页内容，但不会撤回已发送的反馈。',
+                            context.tr(AppStrings.feedbackDraftNotice),
                             style: context.text.bodySmall,
                           ),
                         ],
@@ -387,12 +389,12 @@ class _FeedbackPageState extends State<FeedbackPage> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('客服可以读取反馈', style: context.text.titleMedium),
+        Text(context.tr(AppStrings.feedbackConsentTitle), style: context.text.titleMedium),
         const SizedBox(height: 8),
-        const Text(
-          '正文和可选联系方式会发送给客服，不属于零知识保险库内容。'
-          '请勿填写密码、Secret Key、恢复码或保险库内容。'
-          '不会自动附带邮箱、日志、设备诊断或剪贴板。',
+        Text(
+          '${context.tr(AppStrings.feedbackConsentBody)}'
+          '${context.tr(AppStrings.feedbackNoSecrets)}'
+          '${context.tr(AppStrings.feedbackNoAutoAttach)}',
         ),
       ],
     ),
@@ -403,11 +405,14 @@ class _FeedbackPageState extends State<FeedbackPage> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('提交成功', style: context.text.titleLarge),
+          Text(context.tr(AppStrings.feedbackSubmitted), style: context.text.titleLarge),
           const SizedBox(height: 16),
           _detailContent(detail),
           const SizedBox(height: 16),
-          FilledButton(onPressed: _resetDraft, child: const Text('再写一条')),
+          FilledButton(
+            onPressed: _resetDraft,
+            child: Text(context.tr(AppStrings.feedbackWriteAnother)),
+          ),
         ],
       );
     }
@@ -421,10 +426,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
             key: ValueKey('feedback-category-${_category.name}'),
             initialValue: _category,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: '反馈类型'),
+            decoration: InputDecoration(labelText: context.tr(AppStrings.feedbackCategory)),
             items: [
               for (final category in FeedbackCategory.values)
-                DropdownMenuItem(value: category, child: Text(category.label)),
+                DropdownMenuItem(value: category, child: Text(category.label(context))),
             ],
             onChanged: frozen
                 ? null
@@ -442,15 +447,15 @@ class _FeedbackPageState extends State<FeedbackPage> {
             minLines: 5,
             maxLines: 10,
             decoration: InputDecoration(
-              labelText: '反馈正文',
+              labelText: context.tr(AppStrings.feedbackBody),
               alignLabelWithHint: true,
-              hintText: '描述遇到的问题或建议，不要填写敏感信息',
+              hintText: context.tr(AppStrings.feedbackBodyHint),
               counterText: '${_content.text.trim().length} / 4000 UTF-16',
             ),
             validator: (value) {
               final text = (value ?? '').trim();
-              if (text.isEmpty) return '请填写反馈正文';
-              if (text.length > 4000) return '正文最多 4000 个 UTF-16 代码单元';
+              if (text.isEmpty) return context.tr(AppStrings.feedbackBodyRequired);
+              if (text.length > 4000) return context.tr(AppStrings.feedbackBodyTooLong);
               return null;
             },
             onChanged: (_) {
@@ -463,11 +468,11 @@ class _FeedbackPageState extends State<FeedbackPage> {
             controller: _contact,
             readOnly: frozen,
             decoration: InputDecoration(
-              labelText: '联系方式（可选）',
+              labelText: context.tr(AppStrings.feedbackContact),
               counterText: '${_contact.text.trim().length} / 200 UTF-16',
             ),
             validator: (value) => (value ?? '').trim().length > 200
-                ? '联系方式最多 200 个 UTF-16 代码单元'
+                ? context.tr(AppStrings.feedbackContactTooLong)
                 : null,
             onChanged: (_) {
               if (_active()) setState(() {});
@@ -478,7 +483,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
             key: const Key('feedback-consent'),
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
-            title: const Text('我理解正文和联系方式可被客服读取，并同意发送。'),
+            title: Text(context.tr(AppStrings.feedbackConsentAck)),
             value: _consent,
             onChanged: frozen
                 ? null
@@ -486,14 +491,12 @@ class _FeedbackPageState extends State<FeedbackPage> {
                     if (_active()) setState(() => _consent = value ?? false);
                   },
           ),
-          if (!_consent) Text('勾选同意后才能提交。', style: context.text.bodySmall),
+          if (!_consent)
+            Text(context.tr(AppStrings.feedbackConsentRequired), style: context.text.bodySmall),
           if (_submitError != null) _error(_submitError!),
           if (_pending != null && !_sending) ...[
             const SizedBox(height: 12),
-            const Text(
-              '尚未确认提交结果，反馈可能已保存。原请求和编号已保留，'
-              '不可编辑；请原样重试，或先查看历史确认。',
-            ),
+            Text(context.tr(AppStrings.feedbackUnconfirmed)),
           ],
           const SizedBox(height: 16),
           Wrap(
@@ -505,13 +508,13 @@ class _FeedbackPageState extends State<FeedbackPage> {
                 onPressed: _sending || (!_consent && _pending == null)
                     ? null
                     : _send,
-                child: Text(
+                child: Text(context.tr(
                   _sending
-                      ? '正在提交…'
+                      ? AppStrings.feedbackSubmitting
                       : _pending != null
-                      ? '原样重试'
-                      : '提交反馈',
-                ),
+                          ? AppStrings.feedbackRetryAsIs
+                          : AppStrings.feedbackSubmit,
+                )),
               ),
               if (_pending != null)
                 TextButton(
@@ -523,36 +526,36 @@ class _FeedbackPageState extends State<FeedbackPage> {
                             setState(() => _confirmDiscard = true);
                           }
                         },
-                  child: const Text('放弃本次提交'),
+                  child: Text(context.tr(AppStrings.feedbackDiscard)),
                 )
               else
                 TextButton(
                   onPressed: _sending ? null : _resetDraft,
-                  child: const Text('清空草稿'),
+                  child: Text(context.tr(AppStrings.feedbackClearDraft)),
                 ),
             ],
           ),
           if (_confirmDiscard) ...[
             const SizedBox(height: 12),
-            const Text(
-              '本次反馈可能已经提交。放弃只清除本页请求，不会删除服务器记录；'
-              '建议先看历史，避免重复提交。',
-            ),
+            Text(context.tr(AppStrings.feedbackDiscardWarning)),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                TextButton(onPressed: _history, child: const Text('先看历史')),
+                TextButton(
+                  onPressed: _history,
+                  child: Text(context.tr(AppStrings.feedbackCheckHistoryFirst)),
+                ),
                 OutlinedButton(
                   key: const Key('feedback-confirm-abandon'),
                   onPressed: _resetDraft,
-                  child: const Text('确认放弃本次提交'),
+                  child: Text(context.tr(AppStrings.feedbackConfirmDiscard)),
                 ),
                 TextButton(
                   onPressed: () {
                     if (_active()) setState(() => _confirmDiscard = false);
                   },
-                  child: const Text('取消放弃'),
+                  child: Text(context.tr(AppStrings.feedbackCancelDiscard)),
                 ),
               ],
             ),
@@ -565,26 +568,28 @@ class _FeedbackPageState extends State<FeedbackPage> {
   Widget _historyPane() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Text('历史记录', style: context.text.titleLarge),
+      Text(context.tr(AppStrings.feedbackHistoryTab), style: context.text.titleLarge),
       const SizedBox(height: 12),
       if (_listing) const LinearProgressIndicator(),
       if (_listError != null) ...[
         _error(_listError!),
         TextButton(
           onPressed: _listing ? null : () => _loadHistory(before: _listBefore),
-          child: const Text('重试读取历史'),
+          child: Text(context.tr(AppStrings.feedbackRetryHistory)),
         ),
       ],
       if (_historyLoaded && _items.isEmpty && !_listing)
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
-          child: Text('暂无反馈记录。你提交的反馈会显示在这里。'),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Text(context.tr(AppStrings.feedbackHistoryEmpty)),
         ),
       for (final item in _items)
         ListTile(
           key: ValueKey('feedback-item-${item.id}'),
           contentPadding: EdgeInsets.zero,
-          title: Text('${item.category.label} · ${item.status.label}'),
+          title: Text(
+            '${item.category.label(context)} · ${item.status.label(context)}',
+          ),
           subtitle: Text(_time(item.createdAt)),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => _openDetail(item.id),
@@ -593,7 +598,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
         OutlinedButton(
           key: const Key('feedback-more'),
           onPressed: _listing ? null : () => _loadHistory(before: _nextBefore),
-          child: const Text('加载更早记录'),
+          child: Text(context.tr(AppStrings.feedbackLoadEarlier)),
         ),
     ],
   );
@@ -607,7 +612,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
           key: const Key('feedback-back-history'),
           onPressed: _history,
           icon: const Icon(Icons.arrow_back),
-          label: const Text('返回历史'),
+          label: Text(context.tr(AppStrings.feedbackBackToHistory)),
         ),
       ),
       if (_getting) const LinearProgressIndicator(),
@@ -615,7 +620,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
         _error(_detailError!),
         TextButton(
           onPressed: () => _openDetail(_detailId!),
-          child: const Text('重试读取详情'),
+          child: Text(context.tr(AppStrings.feedbackRetryDetail)),
         ),
       ],
       if (_detail case final detail?) _detailContent(detail),
@@ -626,41 +631,41 @@ class _FeedbackPageState extends State<FeedbackPage> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       Text(
-        '${detail.summary.category.label} · ${detail.summary.status.label}',
+        '${detail.summary.category.label(context)} · ${detail.summary.status.label(context)}',
         style: context.text.titleMedium,
       ),
       const SizedBox(height: 8),
       Text(
-        '提交于 ${_time(detail.summary.createdAt)}',
+        context.trf(AppStrings.feedbackSubmittedAt, {'time': _time(detail.summary.createdAt)}),
         style: context.text.bodySmall,
       ),
       const SizedBox(height: 8),
       SelectableText(
-        '反馈编号：${detail.summary.id}',
+        context.trf(AppStrings.feedbackIdLabel, {'id': detail.summary.id}),
         style: context.text.bodySmall,
       ),
       if (widget.accountId != null)
         SelectableText(
-          '账户编号：${widget.accountId}',
+          context.trf(AppStrings.feedbackAccountLabel, {'id': widget.accountId}),
           style: context.text.bodySmall,
         ),
       const SizedBox(height: 16),
-      Text('提交正文', style: context.text.titleMedium),
+      Text(context.tr(AppStrings.feedbackSubmittedBody), style: context.text.titleMedium),
       const SizedBox(height: 8),
       // Text 不解析 HTML、Markdown 或链接，客服回复同样保持纯文本。
       Text(detail.content),
       if (detail.contact case final contact?) ...[
         const SizedBox(height: 16),
-        Text('联系方式', style: context.text.titleMedium),
+        Text(context.tr(AppStrings.feedbackContactLabel), style: context.text.titleMedium),
         const SizedBox(height: 8),
         Text(contact),
       ],
       const SizedBox(height: 24),
       const Divider(),
       const SizedBox(height: 16),
-      Text('客服最近回复', style: context.text.titleMedium),
+      Text(context.tr(AppStrings.feedbackLatestReply), style: context.text.titleMedium),
       const SizedBox(height: 8),
-      Text(detail.reply?.isNotEmpty == true ? detail.reply! : '暂时没有回复。'),
+      Text(detail.reply?.isNotEmpty == true ? detail.reply! : context.tr(AppStrings.feedbackNoReply)),
     ],
   );
 

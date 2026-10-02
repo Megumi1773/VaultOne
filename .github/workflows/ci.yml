@@ -147,6 +147,8 @@ jobs:
           flutter pub get
           flutter analyze --no-fatal-infos
           flutter test
+      - name: 文案表完整性门禁（漏译文 / 引用未定义常量）
+        run: python tools/check_l10n.py
       - name: 集成测试（真实 Rust 内核）
         working-directory: app
         run: flutter test integration_test -d windows

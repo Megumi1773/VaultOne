@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/strings.dart';
 import '../theme.dart';
 import 'brand.dart';
 
@@ -56,23 +57,38 @@ class _BrandStory extends StatelessWidget {
         children: [
           const ZoWordmark(size: 20),
           const Spacer(),
-          Text('能打开你保险库的，\n只有一个人——', style: context.text.displayMedium?.copyWith(height: 1.25)),
+          Text(context.tr(AppStrings.sidebarTagline), style: context.text.displayMedium?.copyWith(height: 1.25)),
           const SizedBox(height: 6),
-          Text('你自己。', style: context.text.displayMedium?.copyWith(color: c.accent, height: 1.25)),
+          Text(
+            context.tr(AppStrings.sidebarTaglineHighlight),
+            style: context.text.displayMedium?.copyWith(color: c.accent, height: 1.25),
+          ),
           const SizedBox(height: 28),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Text(
-              '所有数据在这台设备上加密后才会离开。服务器只保存密文——即使被整库拖走，也解不开任何一个密码。',
+              context.tr(AppStrings.authAsideBody),
               style: context.text.bodyLarge?.copyWith(color: c.textMuted),
             ),
           ),
           const SizedBox(height: 40),
-          const _Principle(index: '00', title: '零知识', body: '主密码从不上传，服务器无法重置，也无法窥视。'),
-          const _Principle(index: '01', title: '双因子派生', body: 'Argon2id(主密码) × 240-bit Secret Key，离线爆破无从下手。'),
-          const _Principle(index: '02', title: '条目级加密', body: 'AES-256-GCM，每个条目、每个版本独立密钥与随机 IV。'),
+          _Principle(
+            index: '00',
+            title: context.tr(AppStrings.featureZeroKnowledge),
+            body: context.tr(AppStrings.featureZeroKnowledgeBody),
+          ),
+          _Principle(
+            index: '01',
+            title: context.tr(AppStrings.featureTwoFactorDerivation),
+            body: context.tr(AppStrings.featureTwoFactorDerivationBody),
+          ),
+          _Principle(
+            index: '02',
+            title: context.tr(AppStrings.featureItemEncryption),
+            body: context.tr(AppStrings.featureItemEncryptionBody),
+          ),
           const Spacer(),
-          Text('VaultOne · 本地优先的数字资产保险库', style: context.text.labelMedium?.copyWith(color: c.textFaint)),
+          Text(context.tr(AppStrings.authAsideFooter), style: context.text.labelMedium?.copyWith(color: c.textFaint)),
         ],
       ),
     );

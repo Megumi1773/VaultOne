@@ -19,3 +19,4 @@ app/android/key.properties
 # 一次性扫描产物与 Python 缓存（tools/ 下的脚本与规则文件仍入库）
 __pycache__/
 tools/_scan_*.txt
+tools/_patch_*.json

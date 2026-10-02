@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/strings.dart';
 import '../theme.dart';
 
 /// 悬停状态构建器。
@@ -326,7 +327,7 @@ class _ZoTextFieldState extends State<ZoTextField> {
                   padding: const EdgeInsets.only(right: 4),
                   child: ZoIconButton(
                     icon: _revealed ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    tooltip: _revealed ? '隐藏' : '显示',
+                    tooltip: context.tr(_revealed ? AppStrings.labelHide : AppStrings.labelReveal),
                     size: 28,
                     onPressed: () => setState(() => _revealed = !_revealed),
                   ),

@@ -1,0 +1,42 @@
+[
+  {
+    "file": "app/lib/src/ui/widgets/controls.dart",
+    "replace": [
+      ["                    tooltip: _revealed ? '隐藏' : '显示',", "                    tooltip: context.tr(_revealed ? AppStrings.labelHide : AppStrings.labelReveal),"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/widgets/vault_widgets.dart",
+    "replace": [
+      ["import '../theme.dart';", "import '../../l10n/strings.dart';\nimport '../theme.dart';"],
+      ["                      Text('已复制${notice.label}', style: context.text.titleMedium?.copyWith(fontSize: 13.5)),",
+       "                      Text(\n                        context.trf(AppStrings.clipboardCopiedToast, {'label': notice.label}),\n                        style: context.text.titleMedium?.copyWith(fontSize: 13.5),\n                      ),"],
+      ["                            '${v.ceil()} 秒后从剪贴板清除 · 不进入剪贴板历史',",
+       "                            context.trf(AppStrings.clipboardClearCountdown, {'seconds': v.ceil()}),"],
+      ["                    child: const Text('立即清除'),", "                    child: Text(context.tr(AppStrings.clearNow)),"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/widgets/auth_layout.dart",
+    "replace": [
+      ["import '../theme.dart';", "import '../../l10n/strings.dart';\nimport '../theme.dart';"],
+      ["          Text('能打开你保险库的，\\n只有一个人——', style: context.text.displayMedium?.copyWith(height: 1.25)),\n          const SizedBox(height: 6),\n          Text('你自己。', style: context.text.displayMedium?.copyWith(color: c.accent, height: 1.25)),",
+       "          Text(context.tr(AppStrings.sidebarTagline), style: context.text.displayMedium?.copyWith(height: 1.25)),\n          const SizedBox(height: 6),\n          Text(\n            context.tr(AppStrings.sidebarTaglineHighlight),\n            style: context.text.displayMedium?.copyWith(color: c.accent, height: 1.25),\n          ),"],
+      ["              '所有数据在这台设备上加密后才会离开。服务器只保存密文——即使被整库拖走，也解不开任何一个密码。',",
+       "              context.tr(AppStrings.authAsideBody),"],
+      ["          const _Principle(index: '00', title: '零知识', body: '主密码从不上传，服务器无法重置，也无法窥视。'),\n          const _Principle(index: '01', title: '双因子派生', body: 'Argon2id(主密码) × 240-bit Secret Key，离线爆破无从下手。'),\n          const _Principle(index: '02', title: '条目级加密', body: 'AES-256-GCM，每个条目、每个版本独立密钥与随机 IV。'),",
+       "          _Principle(\n            index: '00',\n            title: context.tr(AppStrings.featureZeroKnowledge),\n            body: context.tr(AppStrings.featureZeroKnowledgeBody),\n          ),\n          _Principle(\n            index: '01',\n            title: context.tr(AppStrings.featureTwoFactorDerivation),\n            body: context.tr(AppStrings.featureTwoFactorDerivationBody),\n          ),\n          _Principle(\n            index: '02',\n            title: context.tr(AppStrings.featureItemEncryption),\n            body: context.tr(AppStrings.featureItemEncryptionBody),\n          ),"],
+      ["          Text('VaultOne · 本地优先的数字资产保险库', style: context.text.labelMedium?.copyWith(color: c.textFaint)),",
+       "          Text(context.tr(AppStrings.authAsideFooter), style: context.text.labelMedium?.copyWith(color: c.textFaint)),"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/qr_scan.dart",
+    "replace": [
+      ["import 'package:mobile_scanner/mobile_scanner.dart';", "import 'package:mobile_scanner/mobile_scanner.dart';\n\nimport '../../l10n/strings.dart';"],
+      ["        appBar: AppBar(title: const Text('扫描两步验证二维码'),", "        appBar: AppBar(title: Text(context.tr(AppStrings.qrScanTitle)),"],
+      ["            const Positioned(\n              left: 24,\n              right: 24,\n              bottom: 48,\n              child: Text('将网站提供的二维码置于框内', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70)),\n            ),",
+       "            Positioned(\n              left: 24,\n              right: 24,\n              bottom: 48,\n              child: Text(\n                context.tr(AppStrings.qrScanHint),\n                textAlign: TextAlign.center,\n                style: const TextStyle(color: Colors.white70),\n              ),\n            ),"]
+    ]
+  }
+]

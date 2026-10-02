@@ -1,25 +1,36 @@
-enum FeedbackCategory {
-  bug('问题反馈'),
-  suggestion('功能建议'),
-  other('其他');
+import 'package:flutter/widgets.dart';
 
-  const FeedbackCategory(this.label);
-  final String label;
+import '../l10n/strings.dart';
+
+enum FeedbackCategory {
+  bug(AppStrings.feedbackBug),
+  suggestion(AppStrings.feedbackSuggestion),
+  other(AppStrings.feedbackOther);
+
+  const FeedbackCategory(this.labelKey);
+
+  /// 分类名的**唯一来源**是文案表；枚举只持键，按当前语言取词。
+  final String labelKey;
+
+  String label(BuildContext context) => context.tr(labelKey);
 }
 
 enum FeedbackStatus {
-  open('待处理'),
-  inProgress('处理中'),
-  resolved('已处理');
+  open(AppStrings.conflictStatusPending),
+  inProgress(AppStrings.feedbackStatusInProgress),
+  resolved(AppStrings.feedbackStatusResolved);
 
-  const FeedbackStatus(this.label);
-  final String label;
+  const FeedbackStatus(this.labelKey);
+
+  final String labelKey;
+
+  String label(BuildContext context) => context.tr(labelKey);
 
   static FeedbackStatus parse(String value) => switch (value) {
     'open' => open,
     'in_progress' => inProgress,
     'resolved' => resolved,
-    _ => throw const FormatException('无法识别反馈状态'),
+    _ => throw const FormatException(AppStrings.feedbackStatusUnknown),
   };
 }
 

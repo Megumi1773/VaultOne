@@ -1,0 +1,27 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/item_editor.dart",
+    "replace": [
+      ["                  context.trf(isNew ? AppStrings.createItemTitle : AppStrings.editItemTitle, {'kind': kind.label}),",
+       "                  context.trf(\n                    isNew ? AppStrings.createItemTitle : AppStrings.editItemTitle,\n                    {'kind': kind.title(context)},\n                  ),"],
+      ["            child: Text(context.trf(AppStrings.urlMatchSuffix, {'label': m.label}), style: context.text.bodyMedium),",
+       "            child: Text(context.trf(AppStrings.urlMatchSuffix, {'label': m.title(context)}), style: context.text.bodyMedium),"],
+      ["              value.label,", "              value.title(context),"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/item_detail.dart",
+    "replace": [
+      ["            label: context.trf(AppStrings.urlFieldLabel, {'label': u.match.label}),",
+       "            label: context.trf(AppStrings.urlFieldLabel, {'label': u.match.title(context)}),"],
+      ["                      ZoTag(d.kind.label, icon: d.kind.icon),", "                      ZoTag(d.kind.title(context), icon: d.kind.icon),"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/item_list.dart",
+    "replace": [
+      ["                            child: Row(children: [Icon(k.icon, size: 16, color: c.textMuted), const SizedBox(width: 10), Text(k.label)]),",
+       "                            child: Row(children: [\n                              Icon(k.icon, size: 16, color: c.textMuted),\n                              const SizedBox(width: 10),\n                              Text(k.title(context)),\n                            ]),"]
+    ]
+  }
+]

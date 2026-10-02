@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../core/conflict_models.dart';
+import '../../l10n/strings.dart';
 import '../../core/ffi.dart';
 import '../theme.dart';
 import '../widgets/controls.dart';
@@ -53,7 +54,8 @@ class _ConflictsPageState extends State<ConflictsPage> {
     _load();
   }
 
-  String _message(Object e) => e is CoreException ? e.message : '暂时无法读取冲突，请重试';
+  String _message(Object e) =>
+      e is CoreException ? e.message : context.tr(AppStrings.conflictLoadFailed);
 
   Future<void> _load() async {
     final request = ++_listRequest;
@@ -148,7 +150,7 @@ class _ConflictsPageState extends State<ConflictsPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('同步冲突')),
+    appBar: AppBar(title: Text(context.tr(AppStrings.sectionConflict))),
     body: LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 850;
@@ -163,7 +165,7 @@ class _ConflictsPageState extends State<ConflictsPage> {
             Expanded(
               child: detail
                   ? _detailPane()
-                  : const Center(child: Text('选择一个冲突查看双方版本')),
+                  : Center(child: Text(context.tr(AppStrings.pickConflictHint))),
             ),
           ],
         );
@@ -174,7 +176,7 @@ class _ConflictsPageState extends State<ConflictsPage> {
   Widget _listPane() => Column(
     children: [
       SwitchListTile(
-        title: const Text('显示历史记录'),
+        title: Text(context.tr(AppStrings.showHistoryToggle)),
         value: _history,
         onChanged: _resolving
             ? null
@@ -189,7 +191,11 @@ class _ConflictsPageState extends State<ConflictsPage> {
             : _error != null
             ? _retry(_error!, _load)
             : _items.isEmpty
-            ? Center(child: Text(_history ? '暂无冲突记录' : '没有待处理的冲突'))
+            ? Center(
+                child: Text(
+                  context.tr(_history ? AppStrings.noConflictRecords : AppStrings.noPendingConflicts),
+                ),
+              )
             : ListView(
                 children: [
                   for (final item in _items)
@@ -198,10 +204,10 @@ class _ConflictsPageState extends State<ConflictsPage> {
                       selected: _selected?.id == item.id,
                       title: Text(
                         item.local.data.title.isEmpty
-                            ? '未命名条目'
+                            ? context.tr(AppStrings.untitledItem)
                             : item.local.data.title,
                       ),
-                      subtitle: Text(item.statusLabel),
+                      subtitle: Text(item.statusLabel(context)),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: _resolving ? null : () => _select(item.id),
                     ),
@@ -211,7 +217,7 @@ class _ConflictsPageState extends State<ConflictsPage> {
       Padding(
         padding: const EdgeInsets.all(12),
         child: ZoButton(
-          label: '刷新列表',
+          label: context.tr(AppStrings.refreshList),
           variant: ZoButtonVariant.secondary,
           onPressed: _resolving || _loading ? null : _load,
         ),
@@ -227,7 +233,7 @@ class _ConflictsPageState extends State<ConflictsPage> {
         children: [
           Text(message),
           const SizedBox(height: 16),
-          ZoButton(label: '重试', onPressed: onRetry),
+          ZoButton(label: context.tr(AppStrings.retry), onPressed: onRetry),
         ],
       ),
     ),
@@ -255,13 +261,13 @@ class _ConflictsPageState extends State<ConflictsPage> {
                         _choices.clear();
                       }),
                 icon: const Icon(Icons.arrow_back),
-                label: const Text('返回冲突列表'),
+                label: Text(context.tr(AppStrings.backToConflictList)),
               ),
             ),
           if (_detailLoading)
             const Center(child: CircularProgressIndicator())
           else if (detail == null)
-            _retry(_detailError ?? '请选择一个冲突', () {
+            _retry(_detailError ?? context.tr(AppStrings.pickAConflict), () {
               if (_selectedId != null) {
                 _select(_selectedId!, refresh: _refreshOnRetry);
               }
@@ -269,7 +275,7 @@ class _ConflictsPageState extends State<ConflictsPage> {
           else ...[
             Text(detail.local.data.title, style: context.text.headlineSmall),
             const SizedBox(height: 8),
-            Text(detail.statusLabel, style: context.text.titleMedium),
+            Text(detail.statusLabel(context), style: context.text.titleMedium),
             if (_notice != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -284,22 +290,22 @@ class _ConflictsPageState extends State<ConflictsPage> {
                 ),
               ),
             if (detail.stale)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('候选已过期，不能提交旧选择。请先刷新候选。'),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(context.tr(AppStrings.candidateExpired)),
               ),
             if (detail.state == ConflictState.resolutionPending)
-              const Text('解决方案已在本地排队，等待同步。这里不表示已经同步成功。'),
+              Text(context.tr(AppStrings.resolutionQueued)),
             if (detail.state == ConflictState.resolved ||
                 detail.state == ConflictState.superseded)
-              const Text('历史记录，仅供查看，不能再次提交。'),
+              Text(context.tr(AppStrings.historyReadOnly)),
             const SizedBox(height: 12),
             Wrap(
               spacing: 12,
               runSpacing: 8,
               children: [
                 ZoButton(
-                  label: '刷新候选',
+                  label: context.tr(AppStrings.refreshCandidate),
                   variant: ZoButtonVariant.secondary,
                   onPressed:
                       _resolving ||
@@ -311,19 +317,21 @@ class _ConflictsPageState extends State<ConflictsPage> {
                 TextButton.icon(
                   onPressed: () => setState(() => _reveal = !_reveal),
                   icon: Icon(_reveal ? Icons.visibility_off : Icons.visibility),
-                  label: Text(_reveal ? '隐藏敏感内容' : '显示敏感内容'),
+                  label: Text(
+                    context.tr(_reveal ? AppStrings.hideSensitive : AppStrings.showSensitive),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            if (detail.wholeOnly) const Text('条目类型或解决方案存在冲突，只能整条保留一方。'),
+            if (detail.wholeOnly) Text(context.tr(AppStrings.conflictWholeItemOnly)),
             if (detail.canResolve) ...[
               Wrap(
                 spacing: 12,
                 runSpacing: 8,
                 children: [
                   ZoButton(
-                    label: '保留整条本地',
+                    label: context.tr(AppStrings.keepWholeLocal),
                     onPressed: _resolving
                         ? null
                         : () => _resolve(
@@ -331,7 +339,7 @@ class _ConflictsPageState extends State<ConflictsPage> {
                           ),
                   ),
                   ZoButton(
-                    label: '保留整条远端',
+                    label: context.tr(AppStrings.keepWholeRemote),
                     variant: ZoButtonVariant.secondary,
                     onPressed: _resolving
                         ? null
@@ -342,7 +350,7 @@ class _ConflictsPageState extends State<ConflictsPage> {
                 ],
               ),
               const SizedBox(height: 12),
-              const Text('整条保留会采用该方的全部内容；下方可比较所有字段。'),
+              Text(context.tr(AppStrings.wholeItemAdvice)),
             ],
             const SizedBox(height: 20),
             for (final field in ConflictField.values.where(
@@ -354,7 +362,10 @@ class _ConflictsPageState extends State<ConflictsPage> {
                 detail.fields.isNotEmpty)
               ZoButton(
                 key: const ValueKey('resolve-fields'),
-                label: '提交逐字段选择（${_choices.length}/${detail.fields.length}）',
+                label: context.trf(AppStrings.submitFieldChoices, {
+                  'chosen': _choices.length,
+                  'total': detail.fields.length,
+                }),
                 loading: _resolving,
                 onPressed:
                     _resolving ||
@@ -369,17 +380,17 @@ class _ConflictsPageState extends State<ConflictsPage> {
   }
 
   String _value(ConflictVersion version, ConflictField field) {
-    if (field.sensitive && !_reveal) return '敏感内容已隐藏';
+    if (field.sensitive && !_reveal) return context.tr(AppStrings.sensitiveHidden);
     final value = version.value(field);
     if (field == ConflictField.deleted) {
       return switch (value) {
-        true => '已删除',
-        false => '未删除',
-        _ => '未知（旧基线未记录）',
+        true => context.tr(AppStrings.deletedYes),
+        false => context.tr(AppStrings.deletedNo),
+        _ => context.tr(AppStrings.deletedUnknown),
       };
     }
-    if (value == null) return '（空）';
-    if (value is String) return value.isEmpty ? '（空）' : value;
+    if (value == null) return context.tr(AppStrings.emptyValue);
+    if (value is String) return value.isEmpty ? context.tr(AppStrings.emptyValue) : value;
     return const JsonEncoder.withIndent('  ').convert(value);
   }
 
@@ -394,18 +405,25 @@ class _ConflictsPageState extends State<ConflictsPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '${field.label}${conflict ? ' · 冲突' : ''}',
+              conflict
+                  ? context.trf(AppStrings.fieldConflictSuffix, {'field': field.labelOf(context)})
+                  : field.labelOf(context),
               style: context.text.titleMedium,
             ),
             if (detail.base != null) ...[
               const SizedBox(height: 8),
-              Text('共同基础 · v${detail.base!.revision}'),
+              Text(context.trf(AppStrings.commonBase, {'revision': detail.base!.revision})),
               Text(_value(detail.base!, field)),
             ],
             const SizedBox(height: 12),
             for (final side in ConflictSide.values) ...[
               Text(
-                '${side == ConflictSide.local ? '本地' : '远端'} · v${(side == ConflictSide.local ? detail.local : detail.remote).revision}',
+                context.trf(AppStrings.sideWithRevision, {
+                  'side': context.tr(
+                    side == ConflictSide.local ? AppStrings.deviceThis : AppStrings.sideRemote,
+                  ),
+                  'revision': (side == ConflictSide.local ? detail.local : detail.remote).revision,
+                }),
                 style: context.text.labelLarge,
               ),
               const SizedBox(height: 4),
@@ -429,7 +447,12 @@ class _ConflictsPageState extends State<ConflictsPage> {
                           : Icons.radio_button_off,
                     ),
                     label: Text(
-                      '采用${side == ConflictSide.local ? '本地' : '远端'}${field.label}',
+                      context.trf(AppStrings.adoptFieldSide, {
+                        'side': context.tr(
+                          side == ConflictSide.local ? AppStrings.deviceThis : AppStrings.sideRemote,
+                        ),
+                        'field': field.labelOf(context),
+                      }),
                     ),
                   ),
                 ),

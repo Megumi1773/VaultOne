@@ -80,7 +80,8 @@ abstract final class AppStrings {
   // ───────── 设置页明细 ─────────
 
   static const never = '从未';
-  static const accountIdLabel = '账户 ID  {id}';  static const keyDerivation = '密钥派生';
+  static const accountIdLabel = '账户 ID  {id}';
+  static const keyDerivation = '密钥派生';
   static const itemCountTag = '{count} 个条目';
   static const secretKeyRowSubtitle = '保存在本机系统钥匙串中。查看或重新导出恢复材料前，需要重新输入 Secret Key 与恢复码做逐字节核对。';
   static const verifyAndView = '核对并查看';
@@ -312,6 +313,310 @@ abstract final class AppStrings {
   static const itemMissing = '条目不存在';
   static const cloudNeedsRevalidate = '云账户需要重新验证';
 
+  // ───────── 条目编辑器 ─────────
+
+  static const titleLabel = '标题';
+  static const titleRequired = '请输入标题';
+  static const createdItem = '已创建「{title}」';
+  static const hintLoginTitle = '例如：GitHub';
+  static const hintCardTitle = '例如：招商银行信用卡';
+  static const hintNoteTitle = '例如：服务器备忘';
+  static const hintIdentityTitle = '例如：本人';
+  static const groupLoginCredentials = '登录凭据';
+  static const fieldUsernameOrEmail = '用户名 / 邮箱';
+  static const generateStrongPassword = '生成强密码';
+  static const fieldTotpFull = '两步验证（TOTP）';
+  static const scanQrCode = '扫描二维码';
+  static const preview = '预览';
+  static const totpParams = '{alg} · {digits} 位 · {period}s';
+  static const addAction = '添加';
+  static const groupWebsite = '网站';
+  static const groupCardInfo = '卡片信息';
+  static const fieldName = '名称';
+  static const fieldValue = '值';
+  static const sensitiveField = '敏感字段（默认隐藏）';
+  static const plainField = '普通字段';
+  static const groupContent = '内容';
+  static const notesPlaceholder = '仅你可见，端到端加密';
+  static const customFieldsExample = '例如：安全问题、U 盾编号、API Key';
+  static const createItemTitle = '新建{kind}';
+  static const editItemTitle = '编辑{kind}';
+  static const editorShortcuts = 'Ctrl+S 保存 · Esc 取消';
+  static const templateSection = '从模板开始';
+  static const templateAllFields = '完整字段';
+  static const templateNote = '模板会预置字段并调整新建表单，已填写内容不会被覆盖。';
+  static const urlMatchPickerLabel = '匹配方式（自动填充时使用）';
+  static const urlMatchDomain = '域名';
+  static const urlMatchHost = '主机';
+  static const urlMatchExact = '精确';
+  static const urlMatchNever = '从不';
+
+  // ───────── 登录与设备批准 ─────────
+
+  static const signInEyebrow = 'Sign in';
+  static const signInTitle = '登录已有账户';
+  static const signInSubtitle = '需要 Recovery Kit 上的 Secret Key。主密码只在本机参与计算，不会发送到服务器。';
+  static const fillAllFields = '请填写邮箱、Secret Key 与主密码';
+  static const deviceNameLabel = '设备名称';
+  static const thisDeviceName = '本设备名称';
+  static const syncServerLabel = '同步服务器';
+  static const verifying = '正在验证…';
+  static const newDeviceEyebrow = 'New device';
+  static const verifyDeviceTitle = '验证这台新设备';
+  static const verifyDeviceSubtitle = '为防止账户被盗用，新设备首次登录必须二次验证。我们已向你的邮箱发送 6 位验证码；也可以在已登录的设备上「设置 → 设备管理」中批准。';
+  static const emailCodeLabel = '邮件验证码';
+  static const emailCodeHint = '6 位数字';
+  static const verifyAndContinue = '验证并继续';
+  static const waitingApproval = '正在等待其他设备批准…';
+  static const cancelSignIn = '取消登录';
+  static const recoverAccountTitle = '用 Recovery Kit 恢复账户';
+  static const recoverAccountSubtitle = '恢复后需设置新主密码，旧恢复码与所有旧设备会话立即失效，你会拿到一份新的 Recovery Kit。';
+  static const recoverAccountAction = '恢复账户';
+
+  // ───────── 云注册过渡 ─────────
+
+  static const cloudSetupRetry = '注册尚未完成，请重试';
+  static const cloudBackupSaved = '加密备份已保存；恢复仍需当前账户的密钥材料';
+  static const cloudBackupFailed = '备份保存失败，请检查保存位置';
+  static const wipeAndReloginTitle = '清除本机数据并重新登录？';
+  static const wipeAndReloginBody = '不会注销云账户。未同步的本机条目和注册草稿会永久丢失，本机保存的 Secret Key 也会删除。请先导出备份并保管恢复材料；云注册超时并不代表云账户未创建。';
+  static const wipeAndReloginConfirm = '确认清除本机数据';
+  static const wipeIncomplete = '清除未完成，请重试；云账户未被注销';
+  static const cloudFinishTitle = '完成云账户注册';
+  static const cloudAttachTitle = '将现有保险库接入云账户';
+  static const cloudFinishBody = '注册材料已在本机加密保存。只有 Java 服务确认后才完成注册；重试沿用同一账户与密钥，不会重新生成。';
+  static const cloudAttachBody = '新版本使用云账户。现有条目、账户标识和密钥全部保留；请使用当前主密码完成接入。若云端同邮箱属于不同账户，不会覆盖或合并。';
+  static const javaServiceLabel = 'Java 服务：{url}';
+  static const cloudVerifyAndFinish = '验证并完成云注册';
+  static const exportBackupFirst = '先导出本机加密备份';
+  static const lockAndContinueLater = '锁定并稍后继续';
+  static const wipeAndReloginAction = '清除本机数据后重新登录';
+  static const cloudZeroKnowledgeNote = '密码、Secret Key 和条目明文不会上传。完成云注册后，条目仍可离线读写，联网自动同步密文。';
+
+  // ───────── 生成器 ─────────
+
+  static const regenerate = '重新生成';
+  static const generatorSubtitle = '使用系统级 CSPRNG 生成，结果只存在于本机内存。';
+  static const generatePassword = '生成密码';
+  static const lengthLabel = '长度';
+  static const excludeAmbiguous = '排除易混字符';
+  static const wordCountLabel = '词数';
+  static const separatorSpace = '空格';
+  static const capitalizeFirst = '首字母大写';
+  static const includeDigits = '含数字';
+  static const useThisPassword = '使用此密码';
+  static const randomPasswordTab = '随机密码';
+  static const passphraseTab = '口令短语';
+
+  // ───────── 部件与扫码 ─────────
+
+  static const sidebarTagline = '能打开你保险库的，\n只有一个人——';
+  static const sidebarTaglineHighlight = '你自己。';
+  static const authAsideBody = '所有数据在这台设备上加密后才会离开。服务器只保存密文——即使被整库拖走，也解不开任何一个密码。';
+  static const featureZeroKnowledge = '零知识';
+  static const featureZeroKnowledgeBody = '主密码从不上传，服务器无法重置，也无法窥视。';
+  static const featureTwoFactorDerivation = '双因子派生';
+  static const featureTwoFactorDerivationBody = 'Argon2id(主密码) × 240-bit Secret Key，离线爆破无从下手。';
+  static const featureItemEncryption = '条目级加密';
+  static const featureItemEncryptionBody = 'AES-256-GCM，每个条目、每个版本独立密钥与随机 IV。';
+  static const authAsideFooter = 'VaultOne · 本地优先的数字资产保险库';
+  static const clipboardCopiedToast = '已复制{label}';
+  static const clipboardClearCountdown = '{seconds} 秒后从剪贴板清除 · 不进入剪贴板历史';
+  static const clearNow = '立即清除';
+  static const qrScanTitle = '扫描两步验证二维码';
+  static const qrScanHint = '将网站提供的二维码置于框内';
+
+  // ───────── 备份与导出（对话框 / 引导页共用） ─────────
+
+  static const saveFailedDisk = '保存失败，请检查目录权限与可用空间。';
+  static const backupCardSavedTo = '备份卡已保存到 {path}';
+  static const backupCardFailed = '备份卡导出失败，请检查目录权限与可用空间。';
+  static const kitSavedTo = '恢复套件已保存到 {path}';
+  static const keyVerifyMismatch = '与本机保存的 Secret Key 不一致。请对照恢复套件逐组核对，注意易混字符 I/L/O 与数字 1/0。';
+  static const verifyIncomplete = '核对未完成，请稍后重试。';
+  static const keyVerifyOk = 'Secret Key 与本机保存的逐字节一致；恢复码格式有效。';
+  static const recoveryCodeInvalid = '恢复码格式不正确，应为 R1- 开头、13 组 Crockford Base32。';
+  static const lastLocalBackup = '最近本机备份';
+  static const neverRecorded = '从未记录';
+  static const cloudBackupHistory = '云端备份历史';
+  static const cloudBackupHistoryNone = '暂无（服务端备份记录端点未实现）';
+  static const backupManagerBody = '本机只保存「最近一次导出」这一事实，不保存文件路径与内容。恢复套件与备份卡都可以在这里重新导出；为避免他人趁保险库未锁定时拿到凭据，重新导出前需要你重新提供恢复材料。';
+  static const verifyMaterials = '恢复材料核对';
+  static const verifyPassed = '核对通过';
+  static const reExport = '重新导出';
+  static const recoveryKitPdfShort = '恢复套件（PDF）';
+  static const backupCardShort = '备份卡（PNG 700×900）';
+  static const viewSecretKey = '查看 Secret Key';
+  static const backupCredentialWarning = '恢复套件与备份卡都等价于明文凭据，导出后请按同等级别保管：打印或存入离线介质，不要放进网盘、邮箱或聊天记录。';
+
+  // ───────── 安全中心 ─────────
+
+  static const securityCenterSubtitle = '所有分析均在本机完成。泄露检测只发送密码 SHA-1 的前 5 位，服务端无法得知你的密码。';
+  static const auditFailed = '审计失败：{reason}';
+  static const breachCheckFailed = '检测失败：{reason}';
+  static const statusGood = '状态良好';
+  static const statusNeedsWork = '有待加强';
+  static const statusActNow = '需要立即处理';
+  static const noPasswordItems = '还没有带密码的条目。';
+  static const riskSummary = '{total} 个带密码的条目中，{problems} 个存在风险。';
+  static const weakPasswords = '弱密码';
+  static const reusedPasswords = '重复使用';
+  static const breachedPasswords = '已泄露';
+  static const twoFactorCoverage = '两步验证';
+  static const breachCheck = '泄露密码检测';
+  static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
+  static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
+  static const startCheck = '开始检测';
+  static const recheck = '重新检测';
+  static const breachedAdvice = '这些密码出现在公开泄露库中，攻击者会优先尝试，请立即更换。';
+  static const breachTimes = '出现 {count} 次';
+  static const weakAdvice = '容易被猜测或字典攻击破解。';
+  static const strengthVeryWeak = '极弱';
+  static const strengthWeak = '弱';
+  static const strengthFair = '一般';
+  static const strengthStrong = '强';
+  static const strengthVeryStrong = '很强';
+  static const reusedAdvice = '一个网站泄露，会连带其他网站失守。';
+  static const reusedWith = '与 {count} 个条目相同';
+  static const noProblems = '没有发现问题。保持下去。';
+  static const securityScore = '安全评分';
+
+  // ───────── 同步冲突 ─────────
+
+  static const conflictLoadFailed = '暂时无法读取冲突，请重试';
+  static const conflictSavedLocal = '选择已保存到本机，等待同步。远端确认前仍可能产生新的冲突。';
+  static const conflictCandidateChanged = '候选已发生变化，请检查刷新后的版本并重新选择。';
+  static const pickConflictHint = '选择一个冲突查看双方版本';
+  static const showHistoryToggle = '显示历史记录';
+  static const noConflictRecords = '暂无冲突记录';
+  static const noPendingConflicts = '没有待处理的冲突';
+  static const untitledItem = '未命名条目';
+  static const refreshList = '刷新列表';
+  static const backToConflictList = '返回冲突列表';
+  static const pickAConflict = '请选择一个冲突';
+  static const candidateExpired = '候选已过期，不能提交旧选择。请先刷新候选。';
+  static const resolutionQueued = '解决方案已在本地排队，等待同步。这里不表示已经同步成功。';
+  static const historyReadOnly = '历史记录，仅供查看，不能再次提交。';
+  static const refreshCandidate = '刷新候选';
+  static const hideSensitive = '隐藏敏感内容';
+  static const showSensitive = '显示敏感内容';
+  static const conflictWholeItemOnly = '条目类型或解决方案存在冲突，只能整条保留一方。';
+  static const keepWholeLocal = '保留整条本地';
+  static const keepWholeRemote = '保留整条远端';
+  static const wholeItemAdvice = '整条保留会采用该方的全部内容；下方可比较所有字段。';
+  static const submitFieldChoices = '提交逐字段选择（{chosen}/{total}）';
+  static const sensitiveHidden = '敏感内容已隐藏';
+  static const deletedYes = '已删除';
+  static const deletedNo = '未删除';
+  static const deletedUnknown = '未知（旧基线未记录）';
+  static const emptyValue = '（空）';
+  static const commonBase = '共同基础 · v{revision}';
+  static const adoptSide = '采用{side}';
+  static const sideRemote = '远端';
+  static const sideWithRevision = '{side} · v{revision}';
+  static const fieldConflictSuffix = '{field} · 冲突';
+  static const adoptFieldSide = '采用{side}{field}';
+
+  // ───────── 冲突字段与状态 ─────────
+
+  static const conflictFieldKind = '条目类型';
+  static const conflictFieldDeleted = '删除状态';
+  static const conflictFieldResolution = '解决方案';
+  static const conflictStatusPending = '待处理';
+  static const conflictStatusAwaitingSync = '等待同步';
+  static const conflictStatusResolved = '已解决';
+  static const conflictStatusSuperseded = '已被替代';
+  static const conflictCandidateStale = '候选已过期';
+
+  // ───────── 浏览器扩展配对 ─────────
+
+  static const pairingTitle = '连接浏览器扩展？';
+  static const pairingBody = '「{name}」中的 VaultOne 扩展请求连接。请确认扩展弹窗中显示的配对码与下方一致；不一致或不是你发起的，请拒绝。';
+  static const rejectAction = '拒绝';
+  static const allowPairing = '配对码一致，允许连接';
+
+  // ───────── 意见反馈 ─────────
+
+  static const feedbackBug = '问题反馈';
+  static const feedbackSuggestion = '功能建议';
+  static const feedbackOther = '其他';
+  static const feedbackStatusInProgress = '处理中';
+  static const feedbackStatusResolved = '已处理';
+  static const feedbackStatusUnknown = '无法识别反馈状态';
+  static const feedbackClose = '关闭反馈';
+  static const refreshAction = '刷新';
+  static const feedbackExpired = '反馈页面已失效，请解锁并重新进入。';
+  static const feedbackWriteTab = '写反馈';
+  static const feedbackHistoryTab = '历史记录';
+  static const feedbackDraftNotice = '关闭或锁定将清除本页内容，但不会撤回已发送的反馈。';
+  static const feedbackConsentTitle = '客服可以读取反馈';
+  static const feedbackConsentBody = '正文和可选联系方式会发送给客服，不属于零知识保险库内容。';
+  static const feedbackNoSecrets = '请勿填写密码、Secret Key、恢复码或保险库内容。';
+  static const feedbackNoAutoAttach = '不会自动附带邮箱、日志、设备诊断或剪贴板。';
+  static const feedbackSubmitted = '提交成功';
+  static const feedbackWriteAnother = '再写一条';
+  static const feedbackCategory = '反馈类型';
+  static const feedbackBody = '反馈正文';
+  static const feedbackBodyHint = '描述遇到的问题或建议，不要填写敏感信息';
+  static const feedbackBodyRequired = '请填写反馈正文';
+  static const feedbackBodyTooLong = '正文最多 4000 个 UTF-16 代码单元';
+  static const feedbackContact = '联系方式（可选）';
+  static const feedbackContactTooLong = '联系方式最多 200 个 UTF-16 代码单元';
+  static const feedbackConsentAck = '我理解正文和联系方式可被客服读取，并同意发送。';
+  static const feedbackConsentRequired = '勾选同意后才能提交。';
+  static const feedbackUnconfirmed = '尚未确认提交结果，反馈可能已保存。原请求和编号已保留，不可编辑；请原样重试，或先查看历史确认。';
+  static const feedbackSubmitting = '正在提交…';
+  static const feedbackRetryAsIs = '原样重试';
+  static const feedbackSubmit = '提交反馈';
+  static const feedbackDiscard = '放弃本次提交';
+  static const feedbackClearDraft = '清空草稿';
+  static const feedbackDiscardWarning = '本次反馈可能已经提交。放弃只清除本页请求，不会删除服务器记录；建议先看历史，避免重复提交。';
+  static const feedbackCheckHistoryFirst = '先看历史';
+  static const feedbackConfirmDiscard = '确认放弃本次提交';
+  static const feedbackCancelDiscard = '取消放弃';
+  static const feedbackRetryHistory = '重试读取历史';
+  static const feedbackHistoryEmpty = '暂无反馈记录。你提交的反馈会显示在这里。';
+  static const feedbackLoadEarlier = '加载更早记录';
+  static const feedbackBackToHistory = '返回历史';
+  static const feedbackRetryDetail = '重试读取详情';
+  static const feedbackSubmittedAt = '提交于 {time}';
+  static const feedbackIdLabel = '反馈编号：{id}';
+  static const feedbackAccountLabel = '账户编号：{id}';
+  static const feedbackSubmittedBody = '提交正文';
+  static const feedbackContactLabel = '联系方式';
+  static const feedbackLatestReply = '客服最近回复';
+  static const feedbackNoReply = '暂时没有回复。';
+  static const feedbackNetworkError = '网络连接异常，请检查连接后重试。';
+  static const feedbackSessionExpired = '云会话已失效，请重新登录后再试。';
+  static const feedbackLocked = '保险库已锁定，请解锁后重新进入。';
+  static const feedbackNotConnected = '请先在设置中连接云服务，再使用反馈。';
+  static const feedbackPrivacyRequired = '请先阅读并同意隐私政策与用户协议。';
+  static const feedbackUnsupported = '此服务器暂不支持反馈功能，请联系支持。';
+  static const feedbackForbidden = '当前设备无权访问反馈，请检查设备授权。';
+  static const feedbackInvalid = '反馈格式不符合要求，请检查类型和长度。';
+  static const feedbackDuplicate = '此提交编号已被使用，请先查看历史确认结果。';
+  static const feedbackNotFound = '反馈不存在或已到期，请刷新历史记录。';
+  static const feedbackRateLimited = '提交过于频繁或已达数量上限，请稍后再试。';
+  static const feedbackUnavailable = '反馈服务暂时不可用，请稍后重试。';
+  static const feedbackGenericError = '暂时无法完成操作，请稍后重试。';
+
+  // ───────── Android 自动填充 ─────────
+
+  static const autofillUnknownApp = '未知应用';
+  static const autofillSetupFirst = '请先打开 VaultOne 完成保险库设置，再使用自动填充。';
+  static const autofillFillTo = '填充到 {source}';
+  static const autofillMatchedSite = '与此网站匹配';
+  static const autofillAppNoMatch = '应用内的登录表单不做自动匹配，请确认所选条目属于该应用。';
+  static const autofillAllLogins = '全部登录条目';
+  static const autofillOtherItems = '其他条目';
+  static const autofillNoLogins = '没有找到登录条目';
+  static const autofillNoUsername = '（无用户名）';
+  static const autofillSaveFailed = '保存失败';
+  static const autofillSaveToVault = '保存到 VaultOne？';
+  static const autofillUpdatePassword = '更新「{title}」的密码？';
+  static const autofillUpdate = '更新';
+  static const autofillDontSave = '不保存';
+
   // ───────── 条目字段与操作 ─────────
 
   static const moveToTrash = '移入回收站';
@@ -327,6 +632,7 @@ abstract final class AppStrings {
   static const fieldPassword = '密码';
   static const fieldTotp = '验证码';
   static const urlMatchSuffix = '{label}匹配';
+  static const urlFieldLabel = '网站 · {label}匹配';
   static const fieldWebsite = '网址';
   static const openInBrowser = '在浏览器中打开';
   static const fieldNotes = '备注';
@@ -691,6 +997,274 @@ abstract final class AppStrings {
     shortcutHint: 'Ctrl+F 搜尋 · Ctrl+N 新增 · Ctrl+G 產生密碼 · Ctrl+L 鎖定',
     itemMissing: '項目不存在',
     cloudNeedsRevalidate: '雲端帳戶需要重新驗證',
+    titleLabel: '標題',
+    titleRequired: '請輸入標題',
+    createdItem: '已建立「{title}」',
+    hintLoginTitle: '例如：GitHub',
+    hintCardTitle: '例如：招商銀行信用卡',
+    hintNoteTitle: '例如：伺服器備忘',
+    hintIdentityTitle: '例如：本人',
+    groupLoginCredentials: '登入憑據',
+    fieldUsernameOrEmail: '使用者名稱 / 電子郵件',
+    generateStrongPassword: '產生強密碼',
+    fieldTotpFull: '兩步驗證（TOTP）',
+    scanQrCode: '掃描 QR Code',
+    preview: '預覽',
+    totpParams: '{alg} · {digits} 位 · {period}s',
+    addAction: '新增',
+    groupWebsite: '網站',
+    groupCardInfo: '卡片資訊',
+    fieldName: '名稱',
+    fieldValue: '值',
+    sensitiveField: '敏感欄位（預設隱藏）',
+    plainField: '一般欄位',
+    groupContent: '內容',
+    notesPlaceholder: '僅你可見，端到端加密',
+    customFieldsExample: '例如：安全問題、U 盾編號、API Key',
+    createItemTitle: '新增{kind}',
+    editItemTitle: '編輯{kind}',
+    editorShortcuts: 'Ctrl+S 儲存 · Esc 取消',
+    templateSection: '從範本開始',
+    templateAllFields: '完整欄位',
+    templateNote: '範本會預設欄位並調整新增表單，已填寫內容不會被覆蓋。',
+    urlMatchPickerLabel: '比對方式（自動填入時使用）',
+    urlMatchDomain: '網域',
+    urlMatchHost: '主機',
+    urlMatchExact: '精確',
+    urlMatchNever: '從不',
+    signInEyebrow: 'Sign in',
+    signInTitle: '登入現有帳戶',
+    signInSubtitle: '需要 Recovery Kit 上的 Secret Key。主密碼只在本機參與計算，不會傳送到伺服器。',
+    fillAllFields: '請填寫電子郵件、Secret Key 與主密碼',
+    deviceNameLabel: '裝置名稱',
+    thisDeviceName: '本裝置名稱',
+    syncServerLabel: '同步伺服器',
+    verifying: '正在驗證…',
+    newDeviceEyebrow: 'New device',
+    verifyDeviceTitle: '驗證這台新裝置',
+    verifyDeviceSubtitle: '為防止帳戶被盜用，新裝置首次登入必須二次驗證。我們已向你的電子郵件寄送 6 位驗證碼；也可以在已登入的裝置上「設定 → 裝置管理」中批准。',
+    emailCodeLabel: '電子郵件驗證碼',
+    emailCodeHint: '6 位數字',
+    verifyAndContinue: '驗證並繼續',
+    waitingApproval: '正在等待其他裝置批准…',
+    cancelSignIn: '取消登入',
+    recoverAccountTitle: '用 Recovery Kit 恢復帳戶',
+    recoverAccountSubtitle: '恢復後需設定新主密碼，舊恢復碼與所有舊裝置工作階段立即失效，你會拿到一份新的 Recovery Kit。',
+    recoverAccountAction: '恢復帳戶',
+    cloudSetupRetry: '註冊尚未完成，請重試',
+    cloudBackupSaved: '加密備份已儲存；恢復仍需目前帳戶的金鑰材料',
+    cloudBackupFailed: '備份儲存失敗，請檢查儲存位置',
+    wipeAndReloginTitle: '清除本機資料並重新登入？',
+    wipeAndReloginBody: '不會註銷雲端帳戶。未同步的本機項目與註冊草稿會永久遺失，本機儲存的 Secret Key 也會刪除。請先匯出備份並保管恢復材料；雲端註冊逾時並不代表雲端帳戶未建立。',
+    wipeAndReloginConfirm: '確認清除本機資料',
+    wipeIncomplete: '清除未完成，請重試；雲端帳戶未被註銷',
+    cloudFinishTitle: '完成雲端帳戶註冊',
+    cloudAttachTitle: '將現有保險庫接入雲端帳戶',
+    cloudFinishBody: '註冊材料已在本機加密儲存。只有 Java 服務確認後才完成註冊；重試沿用同一帳戶與金鑰，不會重新產生。',
+    cloudAttachBody: '新版本使用雲端帳戶。現有項目、帳戶識別與金鑰全部保留；請使用目前主密碼完成接入。若雲端同電子郵件屬於不同帳戶，不會覆蓋或合併。',
+    javaServiceLabel: 'Java 服務：{url}',
+    cloudVerifyAndFinish: '驗證並完成雲端註冊',
+    exportBackupFirst: '先匯出本機加密備份',
+    lockAndContinueLater: '鎖定並稍後繼續',
+    wipeAndReloginAction: '清除本機資料後重新登入',
+    cloudZeroKnowledgeNote: '密碼、Secret Key 與項目明文不會上傳。完成雲端註冊後，項目仍可離線讀寫，連線後自動同步密文。',
+    regenerate: '重新產生',
+    generatorSubtitle: '使用系統級 CSPRNG 產生，結果只存在於本機記憶體。',
+    generatePassword: '產生密碼',
+    lengthLabel: '長度',
+    excludeAmbiguous: '排除易混淆字元',
+    wordCountLabel: '字詞數',
+    separatorSpace: '空格',
+    capitalizeFirst: '首字母大寫',
+    includeDigits: '含數字',
+    useThisPassword: '使用此密碼',
+    randomPasswordTab: '隨機密碼',
+    passphraseTab: '口令短語',
+    sidebarTagline: '能開啟你保險庫的，\n只有一個人——',
+    sidebarTaglineHighlight: '你自己。',
+    authAsideBody: '所有資料在這台裝置上加密後才會離開。伺服器只保存密文——即使被整庫拖走，也解不開任何一個密碼。',
+    featureZeroKnowledge: '零知識',
+    featureZeroKnowledgeBody: '主密碼從不上傳，伺服器無法重設，也無法窺視。',
+    featureTwoFactorDerivation: '雙因子派生',
+    featureTwoFactorDerivationBody: 'Argon2id(主密碼) × 240-bit Secret Key，離線爆破解不開。',
+    featureItemEncryption: '項目級加密',
+    featureItemEncryptionBody: 'AES-256-GCM，每個項目、每個版本獨立金鑰與隨機 IV。',
+    authAsideFooter: 'VaultOne · 本機優先的數位資產保險庫',
+    clipboardCopiedToast: '已複製{label}',
+    clipboardClearCountdown: '{seconds} 秒後從剪貼簿清除 · 不進入剪貼簿歷史',
+    clearNow: '立即清除',
+    qrScanTitle: '掃描兩步驗證 QR Code',
+    qrScanHint: '將網站提供的 QR Code 置於框內',
+    saveFailedDisk: '儲存失敗，請檢查目錄權限與可用空間。',
+    backupCardSavedTo: '備份卡已儲存到 {path}',
+    backupCardFailed: '備份卡匯出失敗，請檢查目錄權限與可用空間。',
+    kitSavedTo: '恢復套件已儲存到 {path}',
+    keyVerifyMismatch: '與本機儲存的 Secret Key 不一致。請對照恢復套件逐組核對，注意易混淆字元 I/L/O 與數字 1/0。',
+    verifyIncomplete: '核對未完成，請稍後重試。',
+    keyVerifyOk: 'Secret Key 與本機儲存的逐位元組一致；恢復碼格式有效。',
+    recoveryCodeInvalid: '恢復碼格式不正確，應為 R1- 開頭、13 組 Crockford Base32。',
+    lastLocalBackup: '最近本機備份',
+    neverRecorded: '從未記錄',
+    cloudBackupHistory: '雲端備份歷史',
+    cloudBackupHistoryNone: '暫無（伺服器備份記錄端點未實作）',
+    backupManagerBody: '本機只保存「最近一次匯出」這個事實，不保存檔案路徑與內容。恢復套件與備份卡都可以在這裡重新匯出；為避免他人趁保險庫未鎖定時拿到憑據，重新匯出前需要你重新提供恢復材料。',
+    verifyMaterials: '恢復材料核對',
+    verifyPassed: '核對通過',
+    reExport: '重新匯出',
+    recoveryKitPdfShort: '恢復套件（PDF）',
+    backupCardShort: '備份卡（PNG 700×900）',
+    viewSecretKey: '查看 Secret Key',
+    backupCredentialWarning: '恢復套件與備份卡都等同於明文憑據，匯出後請按同等級別保管：列印或存進離線媒體，不要放進網盤、電子郵件或聊天記錄。',
+    securityCenterSubtitle: '所有分析均在本機完成。洩漏檢測只傳送密碼 SHA-1 的前 5 位，伺服器無法得知你的密碼。',
+    auditFailed: '稽核失敗：{reason}',
+    breachCheckFailed: '檢測失敗：{reason}',
+    statusGood: '狀態良好',
+    statusNeedsWork: '有待加強',
+    statusActNow: '需要立即處理',
+    noPasswordItems: '還沒有帶密碼的項目。',
+    riskSummary: '{total} 個帶密碼的項目中，{problems} 個存在風險。',
+    weakPasswords: '弱密碼',
+    reusedPasswords: '重複使用',
+    breachedPasswords: '已洩漏',
+    twoFactorCoverage: '兩步驗證',
+    breachCheck: '洩漏密碼檢測',
+    breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
+    breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
+    startCheck: '開始檢測',
+    recheck: '重新檢測',
+    breachedAdvice: '這些密碼出現在公開洩漏庫中，攻擊者會優先嘗試，請立即更換。',
+    breachTimes: '出現 {count} 次',
+    weakAdvice: '容易被猜測或字典攻擊破解。',
+    strengthVeryWeak: '極弱',
+    strengthWeak: '弱',
+    strengthFair: '一般',
+    strengthStrong: '強',
+    strengthVeryStrong: '很強',
+    reusedAdvice: '一個網站洩漏，會連帶其他網站失守。',
+    reusedWith: '與 {count} 個項目相同',
+    noProblems: '沒有發現問題。保持下去。',
+    securityScore: '安全評分',
+    conflictLoadFailed: '暫時無法讀取衝突，請重試',
+    conflictSavedLocal: '選擇已保存到本機，等待同步。遠端確認前仍可能產生新的衝突。',
+    conflictCandidateChanged: '候選已發生變化，請檢查重新整理後的版本並重新選擇。',
+    pickConflictHint: '選擇一個衝突查看雙方版本',
+    showHistoryToggle: '顯示歷史記錄',
+    noConflictRecords: '暫無衝突記錄',
+    noPendingConflicts: '沒有待處理的衝突',
+    untitledItem: '未命名項目',
+    refreshList: '重新整理清單',
+    backToConflictList: '返回衝突清單',
+    pickAConflict: '請選擇一個衝突',
+    candidateExpired: '候選已過期，不能提交舊選擇。請先重新整理候選。',
+    resolutionQueued: '解決方案已在本機排隊，等待同步。這裡不表示已經同步成功。',
+    historyReadOnly: '歷史記錄，僅供查看，不能再次提交。',
+    refreshCandidate: '重新整理候選',
+    hideSensitive: '隱藏敏感內容',
+    showSensitive: '顯示敏感內容',
+    conflictWholeItemOnly: '項目類型或解決方案存在衝突，只能整條保留一方。',
+    keepWholeLocal: '保留整條本機',
+    keepWholeRemote: '保留整條遠端',
+    wholeItemAdvice: '整條保留會採用該方的全部內容；下方可比較所有欄位。',
+    submitFieldChoices: '提交逐欄位選擇（{chosen}/{total}）',
+    sensitiveHidden: '敏感內容已隱藏',
+    deletedYes: '已刪除',
+    deletedNo: '未刪除',
+    deletedUnknown: '未知（舊基線未記錄）',
+    emptyValue: '（空）',
+    commonBase: '共同基礎 · v{revision}',
+    adoptSide: '採用{side}',
+    sideRemote: '遠端',
+    sideWithRevision: '{side} · v{revision}',
+    fieldConflictSuffix: '{field} · 衝突',
+    adoptFieldSide: '採用{side}{field}',
+    conflictFieldKind: '項目類型',
+    conflictFieldDeleted: '刪除狀態',
+    conflictFieldResolution: '解決方案',
+    conflictStatusPending: '待處理',
+    conflictStatusAwaitingSync: '等待同步',
+    conflictStatusResolved: '已解決',
+    conflictStatusSuperseded: '已被替代',
+    conflictCandidateStale: '候選已過期',
+    pairingTitle: '連接瀏覽器擴充功能？',
+    pairingBody: '「{name}」中的 VaultOne 擴充功能要求連線。請確認擴充功能彈窗中顯示的配對碼與下方一致；不一致或不是你發起的，請拒絕。',
+    rejectAction: '拒絕',
+    allowPairing: '配對碼一致，允許連線',
+    feedbackBug: '問題回報',
+    feedbackSuggestion: '功能建議',
+    feedbackOther: '其他',
+    feedbackStatusInProgress: '處理中',
+    feedbackStatusResolved: '已處理',
+    feedbackStatusUnknown: '無法識別回饋狀態',
+    feedbackClose: '關閉回饋',
+    refreshAction: '重新整理',
+    feedbackExpired: '回饋頁面已失效，請解鎖並重新進入。',
+    feedbackWriteTab: '寫回饋',
+    feedbackHistoryTab: '歷史記錄',
+    feedbackDraftNotice: '關閉或鎖定將清除本頁內容，但不會撤回已送出的回饋。',
+    feedbackConsentTitle: '客服可以讀取回饋',
+    feedbackConsentBody: '正文與選填聯絡方式會傳送給客服，不屬於零知識保險庫內容。',
+    feedbackNoSecrets: '請勿填寫密碼、Secret Key、恢復碼或保險庫內容。',
+    feedbackNoAutoAttach: '不會自動附上電子郵件、日誌、裝置診斷或剪貼簿。',
+    feedbackSubmitted: '送出成功',
+    feedbackWriteAnother: '再寫一則',
+    feedbackCategory: '回饋類型',
+    feedbackBody: '回饋正文',
+    feedbackBodyHint: '描述遇到的問題或建議，不要填寫敏感資訊',
+    feedbackBodyRequired: '請填寫回饋正文',
+    feedbackBodyTooLong: '正文最多 4000 個 UTF-16 程式碼單元',
+    feedbackContact: '聯絡方式（選填）',
+    feedbackContactTooLong: '聯絡方式最多 200 個 UTF-16 程式碼單元',
+    feedbackConsentAck: '我理解正文與聯絡方式可被客服讀取，並同意傳送。',
+    feedbackConsentRequired: '勾選同意後才能送出。',
+    feedbackUnconfirmed: '尚未確認送出結果，回饋可能已儲存。原請求與編號已保留，不可編輯；請原樣重試，或先查看歷史確認。',
+    feedbackSubmitting: '正在送出…',
+    feedbackRetryAsIs: '原樣重試',
+    feedbackSubmit: '送出回饋',
+    feedbackDiscard: '放棄本次送出',
+    feedbackClearDraft: '清空草稿',
+    feedbackDiscardWarning: '本次回饋可能已經送出。放棄只清除本頁請求，不會刪除伺服器記錄；建議先看歷史，避免重複送出。',
+    feedbackCheckHistoryFirst: '先看歷史',
+    feedbackConfirmDiscard: '確認放棄本次送出',
+    feedbackCancelDiscard: '取消放棄',
+    feedbackRetryHistory: '重試讀取歷史',
+    feedbackHistoryEmpty: '暫無回饋記錄。你送出的回饋會顯示在這裡。',
+    feedbackLoadEarlier: '載入更早記錄',
+    feedbackBackToHistory: '返回歷史',
+    feedbackRetryDetail: '重試讀取詳情',
+    feedbackSubmittedAt: '送出於 {time}',
+    feedbackIdLabel: '回饋編號：{id}',
+    feedbackAccountLabel: '帳戶編號：{id}',
+    feedbackSubmittedBody: '送出正文',
+    feedbackContactLabel: '聯絡方式',
+    feedbackLatestReply: '客服最近回覆',
+    feedbackNoReply: '暫時沒有回覆。',
+    feedbackNetworkError: '網路連線異常，請檢查連線後重試。',
+    feedbackSessionExpired: '雲端工作階段已失效，請重新登入後再試。',
+    feedbackLocked: '保險庫已鎖定，請解鎖後重新進入。',
+    feedbackNotConnected: '請先在設定中連線雲端服務，再使用回饋。',
+    feedbackPrivacyRequired: '請先閱讀並同意隱私政策與使用者條款。',
+    feedbackUnsupported: '此伺服器暫不支援回饋功能，請聯絡支援。',
+    feedbackForbidden: '目前裝置無權存取回饋，請檢查裝置授權。',
+    feedbackInvalid: '回饋格式不符合要求，請檢查類型與長度。',
+    feedbackDuplicate: '此送出編號已被使用，請先查看歷史確認結果。',
+    feedbackNotFound: '回饋不存在或已到期，請重新整理歷史記錄。',
+    feedbackRateLimited: '送出過於頻繁或已達數量上限，請稍後再試。',
+    feedbackUnavailable: '回饋服務暫時無法使用，請稍後重試。',
+    feedbackGenericError: '暫時無法完成操作，請稍後重試。',
+    autofillUnknownApp: '未知應用程式',
+    autofillSetupFirst: '請先開啟 VaultOne 完成保險庫設定，再使用自動填入。',
+    autofillFillTo: '填入到 {source}',
+    autofillMatchedSite: '與此網站相符',
+    autofillAppNoMatch: '應用程式內的登入表單不做自動比對，請確認所選項目屬於該應用程式。',
+    autofillAllLogins: '全部登入項目',
+    autofillOtherItems: '其他項目',
+    autofillNoLogins: '沒有找到登入項目',
+    autofillNoUsername: '（無使用者名稱）',
+    autofillSaveFailed: '儲存失敗',
+    autofillSaveToVault: '儲存到 VaultOne？',
+    autofillUpdatePassword: '更新「{title}」的密碼？',
+    autofillUpdate: '更新',
+    autofillDontSave: '不儲存',
     moveToTrash: '移至回收筒',
     moveToTrashConfirmTitle: '移至回收筒？',
     moveToTrashConfirmBody: '「{title}」將移至回收筒，可隨時恢復。',
@@ -704,6 +1278,7 @@ abstract final class AppStrings {
     fieldPassword: '密碼',
     fieldTotp: '驗證碼',
     urlMatchSuffix: '{label}比對',
+    urlFieldLabel: '網站 · {label}比對',
     fieldWebsite: '網址',
     openInBrowser: '在瀏覽器中開啟',
     fieldNotes: '備註',
@@ -1048,6 +1623,274 @@ abstract final class AppStrings {
     shortcutHint: 'Ctrl+F search · Ctrl+N new · Ctrl+G generate · Ctrl+L lock',
     itemMissing: 'Item not found',
     cloudNeedsRevalidate: 'The cloud account needs verification again',
+    titleLabel: 'Title',
+    titleRequired: 'Enter a title',
+    createdItem: 'Created “{title}”',
+    hintLoginTitle: 'e.g. GitHub',
+    hintCardTitle: 'e.g. Visa credit card',
+    hintNoteTitle: 'e.g. Server notes',
+    hintIdentityTitle: 'e.g. Myself',
+    groupLoginCredentials: 'Login credentials',
+    fieldUsernameOrEmail: 'Username or email',
+    generateStrongPassword: 'Generate a strong password',
+    fieldTotpFull: 'Two-factor (TOTP)',
+    scanQrCode: 'Scan QR code',
+    preview: 'Preview',
+    totpParams: '{alg} · {digits} digits · {period}s',
+    addAction: 'Add',
+    groupWebsite: 'Website',
+    groupCardInfo: 'Card details',
+    fieldName: 'Name',
+    fieldValue: 'Value',
+    sensitiveField: 'Sensitive field (hidden by default)',
+    plainField: 'Plain field',
+    groupContent: 'Content',
+    notesPlaceholder: 'Visible only to you, end-to-end encrypted',
+    customFieldsExample: 'e.g. security question, hardware token ID, API key',
+    createItemTitle: 'New {kind}',
+    editItemTitle: 'Edit {kind}',
+    editorShortcuts: 'Ctrl+S save · Esc cancel',
+    templateSection: 'Start from a template',
+    templateAllFields: 'All fields',
+    templateNote: 'A template pre-fills fields and trims the new-item form. Content you already typed is never overwritten.',
+    urlMatchPickerLabel: 'Match mode (used for autofill)',
+    urlMatchDomain: 'Domain',
+    urlMatchHost: 'Host',
+    urlMatchExact: 'Exact',
+    urlMatchNever: 'Never',
+    signInEyebrow: 'Sign in',
+    signInTitle: 'Sign in to an existing account',
+    signInSubtitle: 'You need the Secret Key from your Recovery Kit. The master password is only used on this device and is never sent to the server.',
+    fillAllFields: 'Fill in the email, Secret Key and master password',
+    deviceNameLabel: 'Device name',
+    thisDeviceName: 'Name of this device',
+    syncServerLabel: 'Sync server',
+    verifying: 'Verifying…',
+    newDeviceEyebrow: 'New device',
+    verifyDeviceTitle: 'Verify this new device',
+    verifyDeviceSubtitle: 'A new device always needs a second factor to protect the account. We emailed you a 6-digit code; you can also approve it on a signed-in device under Settings → Device management.',
+    emailCodeLabel: 'Email code',
+    emailCodeHint: '6 digits',
+    verifyAndContinue: 'Verify and continue',
+    waitingApproval: 'Waiting for another device to approve…',
+    cancelSignIn: 'Cancel sign-in',
+    recoverAccountTitle: 'Recover the account with the Recovery Kit',
+    recoverAccountSubtitle: 'Recovery sets a new master password; the old recovery code and every old device session stop working and you get a new Recovery Kit.',
+    recoverAccountAction: 'Recover account',
+    cloudSetupRetry: 'Signup is not finished yet. Try again.',
+    cloudBackupSaved: 'Encrypted backup saved. Restoring it still requires this account key material.',
+    cloudBackupFailed: 'Saving the backup failed. Check the destination.',
+    wipeAndReloginTitle: 'Erase local data and sign in again?',
+    wipeAndReloginBody: 'This does not close the cloud account. Unsynced local items and the signup draft are lost permanently, and the locally stored Secret Key is deleted. Export a backup and keep the recovery material first; a signup timeout does not mean the cloud account was not created.',
+    wipeAndReloginConfirm: 'Erase local data',
+    wipeIncomplete: 'Erase did not finish. Try again; the cloud account was not closed.',
+    cloudFinishTitle: 'Finish cloud account signup',
+    cloudAttachTitle: 'Attach this vault to a cloud account',
+    cloudFinishBody: 'The signup material is stored encrypted on this device. Signup completes only after the Java service confirms it; a retry reuses the same account and keys instead of generating new ones.',
+    cloudAttachBody: 'This version uses cloud accounts. Existing items, the account identifier and keys are all kept; confirm with your current master password. If the same email belongs to a different account in the cloud, nothing is overwritten or merged.',
+    javaServiceLabel: 'Java service: {url}',
+    cloudVerifyAndFinish: 'Verify and finish cloud signup',
+    exportBackupFirst: 'Export a local encrypted backup first',
+    lockAndContinueLater: 'Lock and continue later',
+    wipeAndReloginAction: 'Erase local data and sign in again',
+    cloudZeroKnowledgeNote: 'Passwords, the Secret Key and item plaintext are never uploaded. After cloud signup, items stay readable offline and ciphertext syncs when online.',
+    regenerate: 'Regenerate',
+    generatorSubtitle: 'Generated with the system CSPRNG; the result only ever lives in local memory.',
+    generatePassword: 'Generate password',
+    lengthLabel: 'Length',
+    excludeAmbiguous: 'Exclude look-alike characters',
+    wordCountLabel: 'Words',
+    separatorSpace: 'Space',
+    capitalizeFirst: 'Capitalize first letter',
+    includeDigits: 'Include digits',
+    useThisPassword: 'Use this password',
+    randomPasswordTab: 'Random password',
+    passphraseTab: 'Passphrase',
+    sidebarTagline: 'Only one person can open\nyour vault —',
+    sidebarTaglineHighlight: 'you.',
+    authAsideBody: 'Everything is encrypted on this device before it leaves. The server only stores ciphertext, so even a full database theft unlocks nothing.',
+    featureZeroKnowledge: 'Zero knowledge',
+    featureZeroKnowledgeBody: 'The master password is never uploaded, so the server can neither reset nor read it.',
+    featureTwoFactorDerivation: 'Two-factor derivation',
+    featureTwoFactorDerivationBody: 'Argon2id(master password) × 240-bit Secret Key makes offline cracking impractical.',
+    featureItemEncryption: 'Per-item encryption',
+    featureItemEncryptionBody: 'AES-256-GCM with an independent key and random IV for every item and revision.',
+    authAsideFooter: 'VaultOne · a local-first vault for digital assets',
+    clipboardCopiedToast: 'Copied {label}',
+    clipboardClearCountdown: 'Clears from the clipboard in {seconds}s · kept out of clipboard history',
+    clearNow: 'Clear now',
+    qrScanTitle: 'Scan a two-factor QR code',
+    qrScanHint: 'Place the QR code from the website inside the frame',
+    saveFailedDisk: 'Saving failed. Check folder permissions and free space.',
+    backupCardSavedTo: 'Backup card saved to {path}',
+    backupCardFailed: 'Exporting the backup card failed. Check folder permissions and free space.',
+    kitSavedTo: 'Recovery Kit saved to {path}',
+    keyVerifyMismatch: 'This does not match the Secret Key stored on this device. Check it group by group against the Recovery Kit; I/L/O and 1/0 are easy to mix up.',
+    verifyIncomplete: 'Verification did not finish. Try again later.',
+    keyVerifyOk: 'Byte-for-byte identical to the Secret Key stored on this device; the recovery code is well formed.',
+    recoveryCodeInvalid: 'The recovery code is malformed. It must start with R1- and contain 13 Crockford Base32 groups.',
+    lastLocalBackup: 'Last local backup',
+    neverRecorded: 'Never recorded',
+    cloudBackupHistory: 'Cloud backup history',
+    cloudBackupHistoryNone: 'None yet (the server-side backup endpoint is not implemented)',
+    backupManagerBody: 'This device only records the fact of the last export, never the file path or contents. Both the Recovery Kit and the backup card can be re-exported here; because someone could otherwise grab credentials while the vault is unlocked, re-exporting asks you for the recovery material again.',
+    verifyMaterials: 'Verify recovery material',
+    verifyPassed: 'Verified',
+    reExport: 'Re-export',
+    recoveryKitPdfShort: 'Recovery Kit (PDF)',
+    backupCardShort: 'Backup card (PNG 700×900)',
+    viewSecretKey: 'View Secret Key',
+    backupCredentialWarning: 'The Recovery Kit and the backup card are both equivalent to plaintext credentials. Store them to the same standard: print them or keep them on offline media, never in cloud drives, email or chat history.',
+    securityCenterSubtitle: 'Every check runs on this device. Breach detection sends only the first 5 characters of the password SHA-1, so the server never learns your password.',
+    auditFailed: 'Audit failed: {reason}',
+    breachCheckFailed: 'Check failed: {reason}',
+    statusGood: 'In good shape',
+    statusNeedsWork: 'Needs work',
+    statusActNow: 'Act now',
+    noPasswordItems: 'No items with a password yet.',
+    riskSummary: '{problems} of {total} items with a password are at risk.',
+    weakPasswords: 'Weak passwords',
+    reusedPasswords: 'Reused',
+    breachedPasswords: 'Breached',
+    twoFactorCoverage: 'Two-factor',
+    breachCheck: 'Breached password check',
+    breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
+    breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',
+    startCheck: 'Start check',
+    recheck: 'Check again',
+    breachedAdvice: 'These passwords appear in public breach lists and attackers try them first. Replace them now.',
+    breachTimes: 'Seen {count} times',
+    weakAdvice: 'Easy to guess or crack with a dictionary attack.',
+    strengthVeryWeak: 'Very weak',
+    strengthWeak: 'Weak',
+    strengthFair: 'Fair',
+    strengthStrong: 'Strong',
+    strengthVeryStrong: 'Very strong',
+    reusedAdvice: 'One breached site puts every other site using it at risk.',
+    reusedWith: 'Same as {count} other items',
+    noProblems: 'Nothing found. Keep it up.',
+    securityScore: 'Security score',
+    conflictLoadFailed: 'Could not read conflicts right now. Try again.',
+    conflictSavedLocal: 'Your choice is saved locally and waiting to sync. New conflicts can still appear before the remote confirms.',
+    conflictCandidateChanged: 'The candidate changed. Check the refreshed version and choose again.',
+    pickConflictHint: 'Pick a conflict to compare both versions',
+    showHistoryToggle: 'Show history',
+    noConflictRecords: 'No conflict records',
+    noPendingConflicts: 'No conflicts waiting',
+    untitledItem: 'Untitled item',
+    refreshList: 'Refresh list',
+    backToConflictList: 'Back to the conflict list',
+    pickAConflict: 'Pick a conflict',
+    candidateExpired: 'The candidate expired, so an old choice cannot be submitted. Refresh the candidate first.',
+    resolutionQueued: 'The resolution is queued locally and waiting to sync. This does not mean it has synced yet.',
+    historyReadOnly: 'History is read-only and cannot be submitted again.',
+    refreshCandidate: 'Refresh candidate',
+    hideSensitive: 'Hide sensitive content',
+    showSensitive: 'Show sensitive content',
+    conflictWholeItemOnly: 'The item type or the resolution conflicts, so the whole item must be kept from one side.',
+    keepWholeLocal: 'Keep the whole local item',
+    keepWholeRemote: 'Keep the whole remote item',
+    wholeItemAdvice: 'Keeping the whole item adopts everything from that side; every field is compared below.',
+    submitFieldChoices: 'Submit per-field choices ({chosen}/{total})',
+    sensitiveHidden: 'Sensitive content hidden',
+    deletedYes: 'Deleted',
+    deletedNo: 'Not deleted',
+    deletedUnknown: 'Unknown (the old baseline did not record it)',
+    emptyValue: '(empty)',
+    commonBase: 'Common base · v{revision}',
+    adoptSide: 'Adopt {side}',
+    sideRemote: 'Remote',
+    sideWithRevision: '{side} · v{revision}',
+    fieldConflictSuffix: '{field} · conflict',
+    adoptFieldSide: 'Adopt {side} {field}',
+    conflictFieldKind: 'Item type',
+    conflictFieldDeleted: 'Deleted state',
+    conflictFieldResolution: 'Resolution',
+    conflictStatusPending: 'Pending',
+    conflictStatusAwaitingSync: 'Waiting to sync',
+    conflictStatusResolved: 'Resolved',
+    conflictStatusSuperseded: 'Superseded',
+    conflictCandidateStale: 'Candidate expired',
+    pairingTitle: 'Connect the browser extension?',
+    pairingBody: 'The VaultOne extension in “{name}” asks to connect. Check that the pairing code shown in the extension popup matches the one below; if it differs, or you did not start this, reject it.',
+    rejectAction: 'Reject',
+    allowPairing: 'Codes match, allow the connection',
+    feedbackBug: 'Bug report',
+    feedbackSuggestion: 'Feature idea',
+    feedbackOther: 'Other',
+    feedbackStatusInProgress: 'In progress',
+    feedbackStatusResolved: 'Resolved',
+    feedbackStatusUnknown: 'Unrecognized feedback status',
+    feedbackClose: 'Close feedback',
+    refreshAction: 'Refresh',
+    feedbackExpired: 'This feedback page expired. Unlock and open it again.',
+    feedbackWriteTab: 'Write feedback',
+    feedbackHistoryTab: 'History',
+    feedbackDraftNotice: 'Closing or locking clears this page, but does not retract feedback already sent.',
+    feedbackConsentTitle: 'Support can read your feedback',
+    feedbackConsentBody: 'The body and the optional contact go to support and are not part of the zero-knowledge vault.',
+    feedbackNoSecrets: 'Never write passwords, the Secret Key, recovery codes or vault contents here.',
+    feedbackNoAutoAttach: 'No email address, logs, device diagnostics or clipboard contents are attached automatically.',
+    feedbackSubmitted: 'Submitted',
+    feedbackWriteAnother: 'Write another',
+    feedbackCategory: 'Category',
+    feedbackBody: 'Feedback body',
+    feedbackBodyHint: 'Describe the problem or idea; do not include sensitive information',
+    feedbackBodyRequired: 'Enter the feedback body',
+    feedbackBodyTooLong: 'The body is limited to 4000 UTF-16 code units',
+    feedbackContact: 'Contact (optional)',
+    feedbackContactTooLong: 'The contact is limited to 200 UTF-16 code units',
+    feedbackConsentAck: 'I understand support can read the body and contact, and I agree to send it.',
+    feedbackConsentRequired: 'Tick the consent box before submitting.',
+    feedbackUnconfirmed: 'The submission result is unconfirmed, so the feedback may already be saved. The original request and id are kept and cannot be edited; retry as is, or check the history first.',
+    feedbackSubmitting: 'Submitting…',
+    feedbackRetryAsIs: 'Retry as is',
+    feedbackSubmit: 'Submit feedback',
+    feedbackDiscard: 'Discard this submission',
+    feedbackClearDraft: 'Clear draft',
+    feedbackDiscardWarning: 'This feedback may already be submitted. Discarding only clears this page — it does not delete the server record. Check the history first to avoid a duplicate.',
+    feedbackCheckHistoryFirst: 'Check history first',
+    feedbackConfirmDiscard: 'Confirm discarding',
+    feedbackCancelDiscard: 'Keep editing',
+    feedbackRetryHistory: 'Retry loading history',
+    feedbackHistoryEmpty: 'No feedback yet. What you submit shows up here.',
+    feedbackLoadEarlier: 'Load earlier entries',
+    feedbackBackToHistory: 'Back to history',
+    feedbackRetryDetail: 'Retry loading details',
+    feedbackSubmittedAt: 'Submitted {time}',
+    feedbackIdLabel: 'Feedback id: {id}',
+    feedbackAccountLabel: 'Account id: {id}',
+    feedbackSubmittedBody: 'Body',
+    feedbackContactLabel: 'Contact',
+    feedbackLatestReply: 'Latest reply from support',
+    feedbackNoReply: 'No reply yet.',
+    feedbackNetworkError: 'The network connection failed. Check it and try again.',
+    feedbackSessionExpired: 'The cloud session expired. Sign in again and retry.',
+    feedbackLocked: 'The vault is locked. Unlock it and come back.',
+    feedbackNotConnected: 'Connect a cloud service in Settings before using feedback.',
+    feedbackPrivacyRequired: 'Read and accept the Privacy Policy and Terms of Service first.',
+    feedbackUnsupported: 'This server does not support feedback yet. Contact support instead.',
+    feedbackForbidden: 'This device has no access to feedback. Check the device authorization.',
+    feedbackInvalid: 'The feedback format is invalid. Check the category and lengths.',
+    feedbackDuplicate: 'This submission id was already used. Check the history to confirm the result.',
+    feedbackNotFound: 'The feedback is gone or expired. Refresh the history.',
+    feedbackRateLimited: 'Too many submissions, or the limit was reached. Try again later.',
+    feedbackUnavailable: 'The feedback service is temporarily unavailable. Try again later.',
+    feedbackGenericError: 'The operation could not be completed. Try again later.',
+    autofillUnknownApp: 'Unknown app',
+    autofillSetupFirst: 'Open VaultOne and finish vault setup before using autofill.',
+    autofillFillTo: 'Fill into {source}',
+    autofillMatchedSite: 'Matches this site',
+    autofillAppNoMatch: 'Login forms inside apps are not matched automatically; check that the item you picked belongs to this app.',
+    autofillAllLogins: 'All logins',
+    autofillOtherItems: 'Other items',
+    autofillNoLogins: 'No logins found',
+    autofillNoUsername: '(no username)',
+    autofillSaveFailed: 'Saving failed',
+    autofillSaveToVault: 'Save to VaultOne?',
+    autofillUpdatePassword: 'Update the password for “{title}”?',
+    autofillUpdate: 'Update',
+    autofillDontSave: 'Do not save',
     moveToTrash: 'Move to trash',
     moveToTrashConfirmTitle: 'Move to trash?',
     moveToTrashConfirmBody: '“{title}” moves to the trash and can be restored at any time.',
@@ -1062,6 +1905,7 @@ abstract final class AppStrings {
     fieldPassword: 'Password',
     fieldTotp: 'Code',
     urlMatchSuffix: '{label} match',
+    urlFieldLabel: 'Website · {label} match',
     fieldWebsite: 'Website',
     openInBrowser: 'Open in browser',
     fieldNotes: 'Notes',

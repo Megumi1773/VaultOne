@@ -1,0 +1,35 @@
+[
+  {
+    "file": "app/lib/src/app.dart",
+    "replace": [
+      ["                Text('连接浏览器扩展？', style: context.text.headlineSmall),",
+       "                Text(context.tr(AppStrings.pairingTitle), style: context.text.headlineSmall),"],
+      ["                  '「${p.name}」中的 VaultOne 扩展请求连接。请确认扩展弹窗中显示的配对码与下方一致；不一致或不是你发起的，请拒绝。',",
+       "                  context.trf(AppStrings.pairingBody, {'name': p.name}),"],
+      ["                  ZoButton(label: '拒绝', variant: ZoButtonVariant.ghost, onPressed: () => state.respondPairing(false)),\n                  const SizedBox(width: 8),\n                  ZoButton(label: '配对码一致，允许连接', onPressed: () => state.respondPairing(true)),",
+       "                  ZoButton(\n                    label: context.tr(AppStrings.rejectAction),\n                    variant: ZoButtonVariant.ghost,\n                    onPressed: () => state.respondPairing(false),\n                  ),\n                  const SizedBox(width: 8),\n                  ZoButton(\n                    label: context.tr(AppStrings.allowPairing),\n                    onPressed: () => state.respondPairing(true),\n                  ),"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/home.dart",
+    "replace": [
+      ["                  ? ZoIconButton(icon: Icons.delete_sweep_outlined, tooltip: '清空回收站', onPressed: _emptyTrash)",
+       "                  ? ZoIconButton(\n                      icon: Icons.delete_sweep_outlined,\n                      tooltip: context.tr(AppStrings.clearTrashTooltip),\n                      onPressed: _emptyTrash,\n                    )"],
+      ["                    ZoIconButton(icon: Icons.lock_outline_rounded, tooltip: '立即锁定 (Ctrl+L)', onPressed: onLock),",
+       "                    ZoIconButton(\n                      icon: Icons.lock_outline_rounded,\n                      tooltip: context.tr(AppStrings.lockNowHotkey),\n                      onPressed: onLock,\n                    ),"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/onboarding.dart",
+    "replace": [
+      ["      if (mounted && canContinue()) showZoMessage(context, '保存失败，请检查目录权限与可用空间。', error: true);",
+       "      if (mounted && canContinue()) showZoMessage(context, context.tr(AppStrings.saveFailedDisk), error: true);"],
+      ["        showZoMessage(context, '备份卡已保存到 $path');", "        showZoMessage(context, context.trf(AppStrings.backupCardSavedTo, {'path': path}));"],
+      ["      if (mounted && canContinue()) showZoMessage(context, '备份卡导出失败，请检查目录权限与可用空间。', error: true);",
+       "      if (mounted && canContinue()) showZoMessage(context, context.tr(AppStrings.backupCardFailed), error: true);"],
+      ["          'secret_key_mismatch' => '与本机保存的 Secret Key 不一致。请对照恢复套件逐组核对，注意易混字符 I/L/O 与数字 1/0。',\n          'locked' || 'session_expired' => '保险库已锁定，请解锁后重试。',\n          _ => '核对未完成，请稍后重试。',",
+       "          'secret_key_mismatch' => context.tr(AppStrings.keyVerifyMismatch),\n          'locked' || 'session_expired' => context.tr(AppStrings.vaultLockedRetry),\n          _ => context.tr(AppStrings.verifyIncomplete),"],
+      ["              label: context.tr(AppStrings.verifyAction),", "              label: context.tr(AppStrings.verifyActionShort),"]
+    ]
+  }
+]

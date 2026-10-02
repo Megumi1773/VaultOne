@@ -1,0 +1,16 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/home.dart",
+    "replace": [
+      ["                      tooltip: context.tr(AppStrings.clearTrashTooltip),", "                      tooltip: context.tr(AppStrings.emptyTrashTooltip),"],
+      ["                      tooltip: context.tr(AppStrings.lockNowHotkey),", "                      tooltip: context.tr(AppStrings.lockNowWithHotkey),"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/onboarding.dart",
+    "replace": [
+      ["          'locked' || 'session_expired' => context.tr(AppStrings.vaultLockedRetry),", "          'locked' || 'session_expired' => context.tr(AppStrings.purgeErrorLocked),"],
+      ["              label: context.tr(AppStrings.verifyActionShort),", "              label: context.tr(AppStrings.verifyAction),"]
+    ]
+  }
+]

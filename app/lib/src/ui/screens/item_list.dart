@@ -79,7 +79,11 @@ class ItemListPane extends StatelessWidget {
                           PopupMenuItem(
                             value: k,
                             height: 38,
-                            child: Row(children: [Icon(k.icon, size: 16, color: c.textMuted), const SizedBox(width: 10), Text(k.label)]),
+                            child: Row(children: [
+                              Icon(k.icon, size: 16, color: c.textMuted),
+                              const SizedBox(width: 10),
+                              Text(k.title(context)),
+                            ]),
                           ),
                       ],
                       child: Padding(

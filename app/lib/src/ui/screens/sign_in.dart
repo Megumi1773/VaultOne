@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/api.dart';
 import '../../core/config.dart';
 import '../../core/ffi.dart';
+import '../../l10n/strings.dart';
 import '../../state/scope.dart';
 import '../theme.dart';
 import '../widgets/auth_layout.dart';
@@ -44,7 +45,7 @@ class _SignInFormState extends State<SignInForm> {
     if (_busy) return;
     if (_email.text.trim().isEmpty || _sk.text.trim().isEmpty || _pw.text.isEmpty) {
       setState(() {
-        _error = '请填写邮箱、Secret Key 与主密码';
+        _error = context.tr(AppStrings.fillAllFields);
         _shake++;
       });
       return;
@@ -78,18 +79,24 @@ class _SignInFormState extends State<SignInForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ZoButton(label: '返回', icon: Icons.arrow_back_rounded, variant: ZoButtonVariant.ghost, dense: true, onPressed: _busy ? null : widget.onBack),
-          const SizedBox(height: 24),
-          const AuthHeader(
-            eyebrow: 'Sign in',
-            title: '登录已有账户',
-            subtitle: '需要 Recovery Kit 上的 Secret Key。主密码只在本机参与计算，不会发送到服务器。',
+          ZoButton(
+            label: context.tr(AppStrings.back),
+            icon: Icons.arrow_back_rounded,
+            variant: ZoButtonVariant.ghost,
+            dense: true,
+            onPressed: _busy ? null : widget.onBack,
           ),
-          ZoTextField(controller: _email, label: '邮箱', prefixIcon: Icons.alternate_email_rounded, keyboardType: TextInputType.emailAddress, autofocus: true),
+          const SizedBox(height: 24),
+          AuthHeader(
+            eyebrow: AppStrings.signInEyebrow,
+            title: context.tr(AppStrings.signInTitle),
+            subtitle: context.tr(AppStrings.signInSubtitle),
+          ),
+          ZoTextField(controller: _email, label: context.tr(AppStrings.fieldEmail), prefixIcon: Icons.alternate_email_rounded, keyboardType: TextInputType.emailAddress, autofocus: true),
           const SizedBox(height: 16),
-          ZoTextField(controller: _sk, label: 'Secret Key', hint: 'V1-XXXXXX-XXXXXX-…', mono: true, prefixIcon: Icons.vpn_key_outlined),
+          ZoTextField(controller: _sk, label: AppStrings.secretKeyLabel, hint: 'V1-XXXXXX-XXXXXX-…', mono: true, prefixIcon: Icons.vpn_key_outlined),
           const SizedBox(height: 16),
-          ZoTextField(controller: _pw, label: '主密码', obscure: true, prefixIcon: Icons.key_rounded, onSubmitted: (_) => _submit()),
+          ZoTextField(controller: _pw, label: context.tr(AppStrings.masterPassword), obscure: true, prefixIcon: Icons.key_rounded, onSubmitted: (_) => _submit()),
           // 错误是表单级的（可能是服务器地址、网络或凭据问题），不能挂在密码字段下，
           // 否则任何失败都像「主密码错」。
           if (_error case final message?) ...[
@@ -100,18 +107,18 @@ class _SignInFormState extends State<SignInForm> {
           TextButton.icon(
             onPressed: () => setState(() => _advanced = !_advanced),
             icon: Icon(_advanced ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18),
-            label: const Text('设备名称'),
+            label: Text(context.tr(AppStrings.deviceNameLabel)),
           ),
           if (_advanced) ...[
             if (AppConfig.allowCustomServer) ...[
-              ZoTextField(controller: _server, label: '同步服务器', hint: AppConfig.defaultServerUrl, prefixIcon: Icons.dns_outlined),
+              ZoTextField(controller: _server, label: context.tr(AppStrings.syncServerLabel), hint: AppConfig.defaultServerUrl, prefixIcon: Icons.dns_outlined),
               const SizedBox(height: 12),
             ],
-            ZoTextField(controller: _device, label: '本设备名称', prefixIcon: Icons.devices_outlined),
+            ZoTextField(controller: _device, label: context.tr(AppStrings.thisDeviceName), prefixIcon: Icons.devices_outlined),
             const SizedBox(height: 8),
           ],
           const SizedBox(height: 16),
-          ZoButton(label: _busy ? '正在验证…' : '登录', icon: Icons.login_rounded, expand: true, loading: _busy, onPressed: _submit),
+          ZoButton(label: _busy ? context.tr(AppStrings.verifying) : context.tr(AppStrings.sectionLogin), icon: Icons.login_rounded, expand: true, loading: _busy, onPressed: _submit),
         ],
       ),
     );
@@ -177,15 +184,15 @@ class _DeviceApprovalViewState extends State<DeviceApprovalView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const AuthHeader(
-          eyebrow: 'New device',
-          title: '验证这台新设备',
-          subtitle: '为防止账户被盗用，新设备首次登录必须二次验证。我们已向你的邮箱发送 6 位验证码；也可以在已登录的设备上「设置 → 设备管理」中批准。',
+        AuthHeader(
+          eyebrow: AppStrings.newDeviceEyebrow,
+          title: context.tr(AppStrings.verifyDeviceTitle),
+          subtitle: context.tr(AppStrings.verifyDeviceSubtitle),
         ),
         ZoTextField(
           controller: _code,
-          label: '邮件验证码',
-          hint: '6 位数字',
+          label: context.tr(AppStrings.emailCodeLabel),
+          hint: context.tr(AppStrings.emailCodeHint),
           mono: true,
           autofocus: true,
           keyboardType: TextInputType.number,
@@ -194,19 +201,19 @@ class _DeviceApprovalViewState extends State<DeviceApprovalView> {
           onSubmitted: (_) => _verify(),
         ),
         const SizedBox(height: 20),
-        ZoButton(label: '验证并继续', expand: true, loading: _busy, onPressed: _verify),
+        ZoButton(label: context.tr(AppStrings.verifyAndContinue), expand: true, loading: _busy, onPressed: _verify),
         const SizedBox(height: 16),
         Row(children: [
           SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: c.textFaint)),
           const SizedBox(width: 10),
-          Expanded(child: Text('正在等待其他设备批准…', style: context.text.bodySmall)),
+          Expanded(child: Text(context.tr(AppStrings.waitingApproval), style: context.text.bodySmall)),
         ]),
         const SizedBox(height: 12),
         Center(
           child: TextButton(
             onPressed: AppScope.read(context).cancelDeviceApproval,
             style: TextButton.styleFrom(foregroundColor: c.textMuted),
-            child: const Text('取消登录'),
+            child: Text(context.tr(AppStrings.cancelSignIn)),
           ),
         ),
       ],
@@ -251,8 +258,8 @@ class _CloudRecoverFormState extends State<CloudRecoverForm> {
 
   Future<void> _submit() async {
     if (_busy) return;
-    if (_pw.text.characters.length < 10) return _fail('新主密码至少 10 个字符');
-    if (_pw.text != _pw2.text) return _fail('两次输入的新主密码不一致');
+    if (_pw.text.characters.length < 10) return _fail(context.tr(AppStrings.newPasswordTooShort));
+    if (_pw.text != _pw2.text) return _fail(context.tr(AppStrings.newPasswordMismatch));
     setState(() {
       _busy = true;
       _error = null;
@@ -274,28 +281,34 @@ class _CloudRecoverFormState extends State<CloudRecoverForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ZoButton(label: '返回', icon: Icons.arrow_back_rounded, variant: ZoButtonVariant.ghost, dense: true, onPressed: _busy ? null : widget.onBack),
-          const SizedBox(height: 24),
-          const AuthHeader(
-            eyebrow: 'Recovery',
-            title: '用 Recovery Kit 恢复账户',
-            subtitle: '恢复后需设置新主密码，旧恢复码与所有旧设备会话立即失效，你会拿到一份新的 Recovery Kit。',
+          ZoButton(
+            label: context.tr(AppStrings.back),
+            icon: Icons.arrow_back_rounded,
+            variant: ZoButtonVariant.ghost,
+            dense: true,
+            onPressed: _busy ? null : widget.onBack,
           ),
-          ZoTextField(controller: _email, label: '邮箱', prefixIcon: Icons.alternate_email_rounded, keyboardType: TextInputType.emailAddress),
+          const SizedBox(height: 24),
+          AuthHeader(
+            eyebrow: AppStrings.recoverEyebrow,
+            title: context.tr(AppStrings.recoverAccountTitle),
+            subtitle: context.tr(AppStrings.recoverAccountSubtitle),
+          ),
+          ZoTextField(controller: _email, label: context.tr(AppStrings.fieldEmail), prefixIcon: Icons.alternate_email_rounded, keyboardType: TextInputType.emailAddress),
           const SizedBox(height: 14),
-          ZoTextField(controller: _sk, label: 'Secret Key', hint: 'V1-…', mono: true),
+          ZoTextField(controller: _sk, label: AppStrings.secretKeyLabel, hint: 'V1-…', mono: true),
           const SizedBox(height: 14),
-          ZoTextField(controller: _rc, label: 'Recovery Code', hint: 'R1-XXXX-XXXX-…', mono: true),
+          ZoTextField(controller: _rc, label: AppStrings.recoveryCodeLabel, hint: 'R1-XXXX-XXXX-…', mono: true),
           const SizedBox(height: 14),
-          ZoTextField(controller: _pw, label: '新主密码', obscure: true, onChanged: (_) => setState(() {})),
+          ZoTextField(controller: _pw, label: context.tr(AppStrings.newMasterPassword), obscure: true, onChanged: (_) => setState(() {})),
           const SizedBox(height: 8),
           StrengthMeter(strength: VaultApi.strength(_pw.text)),
           const SizedBox(height: 14),
-          ZoTextField(controller: _pw2, label: '确认新主密码', obscure: true, error: _error, onSubmitted: (_) => _submit()),
+          ZoTextField(controller: _pw2, label: context.tr(AppStrings.confirmNewMasterPassword), obscure: true, error: _error, onSubmitted: (_) => _submit()),
           const SizedBox(height: 14),
-          ZoTextField(controller: _device, label: '本设备名称', prefixIcon: Icons.devices_outlined),
+          ZoTextField(controller: _device, label: context.tr(AppStrings.thisDeviceName), prefixIcon: Icons.devices_outlined),
           const SizedBox(height: 24),
-          ZoButton(label: '恢复账户', expand: true, loading: _busy, onPressed: _submit),
+          ZoButton(label: context.tr(AppStrings.recoverAccountAction), expand: true, loading: _busy, onPressed: _submit),
         ],
       ),
     );

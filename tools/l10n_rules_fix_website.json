@@ -1,0 +1,30 @@
+[
+  {
+    "file": "app/lib/src/l10n/strings.dart",
+    "replace": [
+      ["  static const addAction = '添加';\n  static const groupCardInfo = '卡片信息';",
+       "  static const addAction = '添加';\n  static const groupWebsite = '网站';\n  static const groupCardInfo = '卡片信息';"],
+      ["    addAction: '新增',\n    groupCardInfo: '卡片資訊',",
+       "    addAction: '新增',\n    groupWebsite: '網站',\n    groupCardInfo: '卡片資訊',"],
+      ["    addAction: 'Add',\n    groupCardInfo: 'Card details',",
+       "    addAction: 'Add',\n    groupWebsite: 'Website',\n    groupCardInfo: 'Card details',"],
+      ["  static const urlMatchSuffix = '{label}匹配';",
+       "  static const urlMatchSuffix = '{label}匹配';\n  static const urlFieldLabel = '网站 · {label}匹配';"],
+      ["    urlMatchSuffix: '{label}比對',", "    urlMatchSuffix: '{label}比對',\n    urlFieldLabel: '網站 · {label}比對',"],
+      ["    urlMatchSuffix: '{label} match',", "    urlMatchSuffix: '{label} match',\n    urlFieldLabel: 'Website · {label} match',"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/item_editor.dart",
+    "replace": [
+      ["            title: context.tr(AppStrings.fieldWebsite),\n            action: ZoButton(", "            title: context.tr(AppStrings.groupWebsite),\n            action: ZoButton("]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/item_detail.dart",
+    "replace": [
+      ["            label: context.trf(AppStrings.urlMatchSuffix, {'label': u.match.label}),",
+       "            label: context.trf(AppStrings.urlFieldLabel, {'label': u.match.label}),"]
+    ]
+  }
+]

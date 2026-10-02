@@ -1,0 +1,15 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/home.dart",
+    "replace": [
+      ["                      Text(k.label, style: context.text.bodyLarge),", "                      Text(k.title(context), style: context.text.bodyLarge),"]
+    ]
+  },
+  {
+    "file": "app/test/item_templates_test.dart",
+    "replace": [
+      ["      expect(templates, isNotEmpty, reason: '${kind.label}缺少模板');", "      expect(templates, isNotEmpty, reason: '${kind.wire}缺少模板');"],
+      ["        reason: '${kind.label}缺少带预置字段的模板',", "        reason: '${kind.wire}缺少带预置字段的模板',"]
+    ]
+  }
+]

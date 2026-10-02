@@ -289,7 +289,7 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
         });
       }
     } catch (_) {
-      if (mounted && canContinue()) showZoMessage(context, '保存失败，请检查目录权限与可用空间。', error: true);
+      if (mounted && canContinue()) showZoMessage(context, context.tr(AppStrings.saveFailedDisk), error: true);
     }
   }
 
@@ -312,10 +312,10 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
       if (path != null && canContinue()) {
         await state.recordBackup('backup_card');
         if (!mounted || epoch != state.sessionEpoch) return;
-        showZoMessage(context, '备份卡已保存到 $path');
+        showZoMessage(context, context.trf(AppStrings.backupCardSavedTo, {'path': path}));
       }
     } catch (_) {
-      if (mounted && canContinue()) showZoMessage(context, '备份卡导出失败，请检查目录权限与可用空间。', error: true);
+      if (mounted && canContinue()) showZoMessage(context, context.tr(AppStrings.backupCardFailed), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -342,9 +342,9 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
         _verified = false;
         _verifiedKey = null;
         _checkError = switch (e.code) {
-          'secret_key_mismatch' => '与本机保存的 Secret Key 不一致。请对照恢复套件逐组核对，注意易混字符 I/L/O 与数字 1/0。',
-          'locked' || 'session_expired' => '保险库已锁定，请解锁后重试。',
-          _ => '核对未完成，请稍后重试。',
+          'secret_key_mismatch' => context.tr(AppStrings.keyVerifyMismatch),
+          'locked' || 'session_expired' => context.tr(AppStrings.purgeErrorLocked),
+          _ => context.tr(AppStrings.verifyIncomplete),
         };
       });
     } finally {

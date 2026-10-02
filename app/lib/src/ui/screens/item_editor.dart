@@ -5,6 +5,7 @@ import '../../core/api.dart';
 import '../../core/ffi.dart';
 import '../../core/item_templates.dart';
 import '../../core/models.dart';
+import '../../l10n/strings.dart';
 import '../../state/scope.dart';
 import '../theme.dart';
 import '../widgets/controls.dart';
@@ -166,7 +167,7 @@ class _ItemEditorState extends State<ItemEditor> {
 
   Future<void> _save() async {
     if (_title.text.trim().isEmpty) {
-      setState(() => _titleError = '请输入标题');
+      setState(() => _titleError = context.tr(AppStrings.titleRequired));
       return;
     }
     if (_totpError != null) return;
@@ -219,7 +220,9 @@ class _ItemEditorState extends State<ItemEditor> {
       if (mounted) {
         showZoMessage(
           context,
-          widget.target.itemId == null ? '已创建「${data.title}」' : '已保存',
+          widget.target.itemId == null
+              ? context.trf(AppStrings.createdItem, {'title': data.title})
+              : context.tr(AppStrings.saved),
         );
         widget.onSaved(item);
       }
@@ -327,14 +330,13 @@ class _ItemEditorState extends State<ItemEditor> {
     final body = <Widget>[
       ZoTextField(
         controller: _title,
-        label: '标题',
-        hint:
-            _template?.titleHint ??
+        label: context.tr(AppStrings.titleLabel),
+        hint: _template?.titleHint ??
             switch (kind) {
-              ItemKind.login => '例如：GitHub',
-              ItemKind.card => '例如：招商银行信用卡',
-              ItemKind.note => '例如：服务器备忘',
-              ItemKind.identity => '例如：本人',
+              ItemKind.login => context.tr(AppStrings.hintLoginTitle),
+              ItemKind.card => context.tr(AppStrings.hintCardTitle),
+              ItemKind.note => context.tr(AppStrings.hintNoteTitle),
+              ItemKind.identity => context.tr(AppStrings.hintIdentityTitle),
             },
         autofocus: isNew,
         error: _titleError,
@@ -355,17 +357,17 @@ class _ItemEditorState extends State<ItemEditor> {
       final groups = <Widget>[
         if (_shows(TemplateSection.loginCredentials))
           _EditGroup(
-            title: '登录凭据',
+            title: context.tr(AppStrings.groupLoginCredentials),
             children: [
               ZoTextField(
                 controller: _username,
-                label: '用户名 / 邮箱',
+                label: context.tr(AppStrings.fieldUsernameOrEmail),
                 prefixIcon: Icons.person_outline_rounded,
               ),
               _gapS,
               ZoTextField(
                 controller: _password,
-                label: '密码',
+                label: context.tr(AppStrings.fieldPassword),
                 obscure: true,
                 mono: true,
                 prefixIcon: Icons.password_rounded,
@@ -378,7 +380,7 @@ class _ItemEditorState extends State<ItemEditor> {
                 trailing: [
                   ZoIconButton(
                     icon: Icons.auto_awesome_outlined,
-                    tooltip: '生成强密码',
+                    tooltip: context.tr(AppStrings.generateStrongPassword),
                     size: 28,
                     onPressed: _openGenerator,
                   ),
@@ -389,7 +391,7 @@ class _ItemEditorState extends State<ItemEditor> {
               _gapS,
               ZoTextField(
                 controller: _totp,
-                label: '两步验证（TOTP）',
+                label: context.tr(AppStrings.fieldTotpFull),
                 hint: '粘贴 otpauth:// 链接或 Base32 密钥',
                 mono: true,
                 prefixIcon: Icons.timer_outlined,
@@ -399,7 +401,7 @@ class _ItemEditorState extends State<ItemEditor> {
                   if (QrScanPage.supported)
                     ZoIconButton(
                       icon: Icons.qr_code_scanner_rounded,
-                      tooltip: '扫描二维码',
+                      tooltip: context.tr(AppStrings.scanQrCode),
                       onPressed: () async {
                         final raw = await Navigator.of(context).push<String>(
                           MaterialPageRoute(builder: (_) => const QrScanPage()),
@@ -416,12 +418,16 @@ class _ItemEditorState extends State<ItemEditor> {
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    Text('预览', style: context.text.labelMedium),
+                    Text(context.tr(AppStrings.preview), style: context.text.labelMedium),
                     const SizedBox(width: 12),
                     TotpView(config: _totpConfig!),
                     const Spacer(),
                     Text(
-                      '${_totpConfig!.alg} · ${_totpConfig!.digits} 位 · ${_totpConfig!.period}s',
+                      context.trf(AppStrings.totpParams, {
+                        'alg': _totpConfig!.alg,
+                        'digits': _totpConfig!.digits,
+                        'period': _totpConfig!.period,
+                      }),
                       style: context.text.bodySmall,
                     ),
                   ],
@@ -431,9 +437,9 @@ class _ItemEditorState extends State<ItemEditor> {
           ),
         if (_shows(TemplateSection.website))
           _EditGroup(
-            title: '网站',
+            title: context.tr(AppStrings.groupWebsite),
             action: ZoButton(
-              label: '添加',
+              label: context.tr(AppStrings.addAction),
               icon: Icons.add_rounded,
               variant: ZoButtonVariant.ghost,
               dense: true,
@@ -460,7 +466,7 @@ class _ItemEditorState extends State<ItemEditor> {
                     ),
                     ZoIconButton(
                       icon: Icons.remove_circle_outline_rounded,
-                      tooltip: '移除',
+                      tooltip: context.tr(AppStrings.removeAction),
                       onPressed: () => setState(
                         () => _urls.removeAt(i).controller.dispose(),
                       ),
@@ -478,13 +484,13 @@ class _ItemEditorState extends State<ItemEditor> {
       body.addAll([
         _gap,
         _EditGroup(
-          title: '卡片信息',
+          title: context.tr(AppStrings.groupCardInfo),
           children: [
-            ZoTextField(controller: _holder, label: '持卡人'),
+            ZoTextField(controller: _holder, label: context.tr(AppStrings.fieldCardholder)),
             _gapS,
             ZoTextField(
               controller: _number,
-              label: '卡号',
+              label: context.tr(AppStrings.fieldCardNumber),
               mono: true,
               keyboardType: TextInputType.number,
               inputFormatters: [
@@ -498,7 +504,7 @@ class _ItemEditorState extends State<ItemEditor> {
                 Expanded(
                   child: ZoTextField(
                     controller: _expiry,
-                    label: '有效期',
+                    label: context.tr(AppStrings.fieldExpiry),
                     hint: 'MM/YY',
                     mono: true,
                   ),
@@ -507,7 +513,7 @@ class _ItemEditorState extends State<ItemEditor> {
                 Expanded(
                   child: ZoTextField(
                     controller: _cvv,
-                    label: '安全码',
+                    label: context.tr(AppStrings.fieldCvv),
                     obscure: true,
                     mono: true,
                   ),
@@ -516,7 +522,7 @@ class _ItemEditorState extends State<ItemEditor> {
                 Expanded(
                   child: ZoTextField(
                     controller: _pin,
-                    label: 'PIN',
+                    label: AppStrings.fieldPin,
                     obscure: true,
                     mono: true,
                   ),
@@ -532,16 +538,16 @@ class _ItemEditorState extends State<ItemEditor> {
       body.addAll([
         _gap,
         _EditGroup(
-          title: '身份信息',
+          title: context.tr(AppStrings.sectionIdentity),
           children: [
             Row(
               children: [
                 Expanded(
-                  child: ZoTextField(controller: _fullName, label: '姓名'),
+                  child: ZoTextField(controller: _fullName, label: context.tr(AppStrings.fieldFullName)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ZoTextField(controller: _company, label: '公司'),
+                  child: ZoTextField(controller: _company, label: context.tr(AppStrings.fieldCompany)),
                 ),
               ],
             ),
@@ -549,23 +555,23 @@ class _ItemEditorState extends State<ItemEditor> {
             Row(
               children: [
                 Expanded(
-                  child: ZoTextField(controller: _idEmail, label: '邮箱'),
+                  child: ZoTextField(controller: _idEmail, label: context.tr(AppStrings.fieldEmail)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ZoTextField(controller: _phone, label: '电话'),
+                  child: ZoTextField(controller: _phone, label: context.tr(AppStrings.fieldPhone)),
                 ),
               ],
             ),
             _gapS,
             ZoTextField(
               controller: _idNumber,
-              label: '证件号',
+              label: context.tr(AppStrings.fieldIdNumber),
               obscure: true,
               mono: true,
             ),
             _gapS,
-            ZoTextField(controller: _address, label: '地址', maxLines: 2),
+            ZoTextField(controller: _address, label: context.tr(AppStrings.fieldAddress), maxLines: 2),
           ],
         ),
       ]);
@@ -575,9 +581,9 @@ class _ItemEditorState extends State<ItemEditor> {
       body.addAll([
         _gap,
         _EditGroup(
-          title: '自定义字段',
+          title: context.tr(AppStrings.customFields),
           action: ZoButton(
-            label: '添加',
+            label: context.tr(AppStrings.addAction),
             icon: Icons.add_rounded,
             variant: ZoButtonVariant.ghost,
             dense: true,
@@ -587,7 +593,7 @@ class _ItemEditorState extends State<ItemEditor> {
           children: [
             if (_fields.isEmpty)
               Text(
-                '例如：安全问题、U 盾编号、API Key',
+                context.tr(AppStrings.customFieldsExample),
                 style: context.text.bodySmall?.copyWith(color: c.textFaint),
               ),
             for (var i = 0; i < _fields.length; i++) ...[
@@ -598,7 +604,7 @@ class _ItemEditorState extends State<ItemEditor> {
                     width: 150,
                     child: ZoTextField(
                       controller: _fields[i].label,
-                      hint: '名称',
+                      hint: context.tr(AppStrings.fieldName),
                       dense: true,
                     ),
                   ),
@@ -606,7 +612,7 @@ class _ItemEditorState extends State<ItemEditor> {
                   Expanded(
                     child: ZoTextField(
                       controller: _fields[i].value,
-                      hint: '值',
+                      hint: context.tr(AppStrings.fieldValue),
                       dense: true,
                       obscure: _fields[i].sensitive,
                     ),
@@ -615,7 +621,9 @@ class _ItemEditorState extends State<ItemEditor> {
                     icon: _fields[i].sensitive
                         ? Icons.lock_rounded
                         : Icons.lock_open_rounded,
-                    tooltip: _fields[i].sensitive ? '敏感字段（默认隐藏）' : '普通字段',
+                    tooltip: context.tr(
+                      _fields[i].sensitive ? AppStrings.sensitiveField : AppStrings.plainField,
+                    ),
                     active: _fields[i].sensitive,
                     onPressed: () => setState(
                       () => _fields[i].sensitive = !_fields[i].sensitive,
@@ -623,7 +631,7 @@ class _ItemEditorState extends State<ItemEditor> {
                   ),
                   ZoIconButton(
                     icon: Icons.remove_circle_outline_rounded,
-                    tooltip: '移除',
+                    tooltip: context.tr(AppStrings.removeAction),
                     onPressed: () => setState(() {
                       final f = _fields.removeAt(i);
                       f.label.dispose();
@@ -642,13 +650,13 @@ class _ItemEditorState extends State<ItemEditor> {
       body.addAll([
         _gap,
         _EditGroup(
-          title: kind == ItemKind.note ? '内容' : '备注',
+          title: context.tr(kind == ItemKind.note ? AppStrings.groupContent : AppStrings.fieldNotes),
           children: [
             ZoTextField(
               controller: _notes,
               maxLines: kind == ItemKind.note ? 16 : 5,
               minLines: kind == ItemKind.note ? 10 : 3,
-              hint: '仅你可见，端到端加密',
+              hint: context.tr(AppStrings.notesPlaceholder),
             ),
           ],
         ),
@@ -673,24 +681,27 @@ class _ItemEditorState extends State<ItemEditor> {
                 Icon(kind.icon, size: 18, color: c.accent),
                 const SizedBox(width: 10),
                 Text(
-                  isNew ? '新建${kind.label}' : '编辑${kind.label}',
+                  context.trf(
+                    isNew ? AppStrings.createItemTitle : AppStrings.editItemTitle,
+                    {'kind': kind.title(context)},
+                  ),
                   style: context.text.headlineSmall,
                 ),
                 const Spacer(),
                 Text(
-                  'Ctrl+S 保存 · Esc 取消',
+                  context.tr(AppStrings.editorShortcuts),
                   style: context.text.bodySmall?.copyWith(color: c.textFaint),
                 ),
                 const SizedBox(width: 16),
                 ZoButton(
-                  label: '取消',
+                  label: context.tr(AppStrings.cancel),
                   variant: ZoButtonVariant.ghost,
                   dense: true,
                   onPressed: widget.onCancel,
                 ),
                 const SizedBox(width: 8),
                 ZoButton(
-                  label: '保存',
+                  label: context.tr(AppStrings.save),
                   icon: Icons.check_rounded,
                   dense: true,
                   loading: _saving,
@@ -748,7 +759,7 @@ class _TemplatePicker extends StatelessWidget {
           SizedBox(
             height: 32,
             child: SectionLabel(
-              '从模板开始',
+              context.tr(AppStrings.templateSection),
               trailing: selected == null
                   ? null
                   : TextButton(
@@ -757,13 +768,13 @@ class _TemplatePicker extends StatelessWidget {
                         foregroundColor: c.textMuted,
                         textStyle: const TextStyle(fontSize: 12.5),
                       ),
-                      child: const Text('完整字段'),
+                      child: Text(context.tr(AppStrings.templateAllFields)),
                     ),
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            '模板会预置字段并调整新建表单，已填写内容不会被覆盖。',
+            context.tr(AppStrings.templateNote),
             style: context.text.bodySmall?.copyWith(color: c.textFaint),
           ),
           const SizedBox(height: 12),
@@ -825,7 +836,7 @@ class _MatchPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.zo;
     return PopupMenuButton<UrlMatch>(
-      tooltip: '匹配方式（自动填充时使用）',
+      tooltip: context.tr(AppStrings.urlMatchPickerLabel),
       position: PopupMenuPosition.under,
       onSelected: onChanged,
       itemBuilder: (_) => [
@@ -833,7 +844,7 @@ class _MatchPicker extends StatelessWidget {
           PopupMenuItem(
             value: m,
             height: 36,
-            child: Text('${m.label}匹配', style: context.text.bodyMedium),
+            child: Text(context.trf(AppStrings.urlMatchSuffix, {'label': m.title(context)}), style: context.text.bodyMedium),
           ),
       ],
       child: Container(
@@ -846,7 +857,7 @@ class _MatchPicker extends StatelessWidget {
         child: Row(
           children: [
             Text(
-              value.label,
+              value.title(context),
               style: context.text.bodySmall?.copyWith(color: c.text),
             ),
             Icon(Icons.expand_more_rounded, size: 16, color: c.textMuted),

@@ -196,19 +196,26 @@ class _PairingPrompt extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('连接浏览器扩展？', style: context.text.headlineSmall),
+                Text(context.tr(AppStrings.pairingTitle), style: context.text.headlineSmall),
                 const SizedBox(height: 8),
                 Text(
-                  '「${p.name}」中的 VaultOne 扩展请求连接。请确认扩展弹窗中显示的配对码与下方一致；不一致或不是你发起的，请拒绝。',
+                  context.trf(AppStrings.pairingBody, {'name': p.name}),
                   style: context.text.bodyMedium?.copyWith(color: context.zo.textMuted),
                 ),
                 const SizedBox(height: 18),
                 Center(child: Text(p.code, style: monoStyle(context, size: 28, weight: FontWeight.w700, spacing: 3))),
                 const SizedBox(height: 22),
                 Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  ZoButton(label: '拒绝', variant: ZoButtonVariant.ghost, onPressed: () => state.respondPairing(false)),
+                  ZoButton(
+                    label: context.tr(AppStrings.rejectAction),
+                    variant: ZoButtonVariant.ghost,
+                    onPressed: () => state.respondPairing(false),
+                  ),
                   const SizedBox(width: 8),
-                  ZoButton(label: '配对码一致，允许连接', onPressed: () => state.respondPairing(true)),
+                  ZoButton(
+                    label: context.tr(AppStrings.allowPairing),
+                    onPressed: () => state.respondPairing(true),
+                  ),
                 ]),
               ],
             ),

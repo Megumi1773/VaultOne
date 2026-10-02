@@ -1,0 +1,43 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/backup_dialog.dart",
+    "replace": [
+      ["import '../../core/models.dart';", "import '../../core/models.dart';\nimport '../../l10n/strings.dart';"],
+      ["        _status = 'Secret Key 与本机保存的逐字节一致；恢复码格式有效。';", "        _status = context.tr(AppStrings.keyVerifyOk);"],
+      ["          'secret_key_mismatch' => 'Secret Key 与本机保存的不一致。请对照恢复套件逐组核对，注意易混字符 I/L/O 与数字 1/0。',\n          'invalid_input' => '恢复码格式不正确，应为 R1- 开头、13 组 Crockford Base32。',\n          'locked' || 'session_expired' => '保险库已锁定，请解锁后重试。',\n          _ => '核对未完成，请稍后重试。',",
+       "          'secret_key_mismatch' => context.tr(AppStrings.keyVerifyMismatch),\n          'invalid_input' => context.tr(AppStrings.recoveryCodeInvalid),\n          'locked' || 'session_expired' => context.tr(AppStrings.purgeErrorLocked),\n          _ => context.tr(AppStrings.verifyIncomplete),"],
+      ["      setState(() => _status = '恢复套件已保存到 $path');", "      setState(() => _status = context.trf(AppStrings.kitSavedTo, {'path': path}));"],
+      ["      if (mounted && canContinue()) setState(() => _error = '保存失败，请检查目录权限与可用空间。');",
+       "      if (mounted && canContinue()) setState(() => _error = context.tr(AppStrings.saveFailedDisk));"],
+      ["      setState(() => _status = '备份卡已保存到 $path');", "      setState(() => _status = context.trf(AppStrings.backupCardSavedTo, {'path': path}));"],
+      ["      if (mounted && canContinue()) setState(() => _error = '备份卡导出失败，请检查目录权限与可用空间。');",
+       "      if (mounted && canContinue()) setState(() => _error = context.tr(AppStrings.backupCardFailed));"],
+      ["            child: const Text('复制'),", "            child: Text(context.tr(AppStrings.copy)),"],
+      ["          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),", "          TextButton(\n            onPressed: () => Navigator.pop(ctx),\n            child: Text(context.tr(AppStrings.close)),\n          ),"],
+      ["      title: const Text('密钥与备份'),", "      title: Text(context.tr(AppStrings.sectionKeyBackup)),"],
+      ["                label: '最近本机备份',\n                value: state.lastBackupAt == 0 ? '从未记录' : '${_fmtDay(state.lastBackupAt)}（${_kindLabel(state.lastBackupKind)}）',",
+       "                label: context.tr(AppStrings.lastLocalBackup),\n                value: state.lastBackupAt == 0\n                    ? context.tr(AppStrings.neverRecorded)\n                    : '${_fmtDay(state.lastBackupAt)}（${_kindLabel(context, state.lastBackupKind)}）',"],
+      ["                label: '云端备份历史',\n                value: '暂无（服务端备份记录端点未实现）',",
+       "                label: context.tr(AppStrings.cloudBackupHistory),\n                value: context.tr(AppStrings.cloudBackupHistoryNone),"],
+      ["                '本机只保存「最近一次导出」这一事实，不保存文件路径与内容。恢复套件与备份卡都可以在这里重新导出；'\n                '为避免他人趁保险库未锁定时拿到凭据，重新导出前需要你重新提供恢复材料。',",
+       "                context.tr(AppStrings.backupManagerBody),"],
+      ["              SectionLabel('恢复材料核对'),", "              SectionLabel(context.tr(AppStrings.verifyMaterials)),"],
+      ["                label: 'Secret Key',", "                label: AppStrings.secretKeyLabel,"],
+      ["                label: 'Recovery Code',", "                label: AppStrings.recoveryCodeLabel,"],
+      ["                  Expanded(child: Text(_status ?? '核对通过', style: context.text.bodySmall?.copyWith(color: c.success))),",
+       "                  Expanded(\n                    child: Text(\n                      _status ?? context.tr(AppStrings.verifyPassed),\n                      style: context.text.bodySmall?.copyWith(color: c.success),\n                    ),\n                  ),"],
+      ["                ZoButton(label: '核对', icon: Icons.spellcheck_rounded, dense: true, loading: _checking, onPressed: _checking ? null : _verify),",
+       "                ZoButton(\n                  label: context.tr(AppStrings.verifyAction),\n                  icon: Icons.spellcheck_rounded,\n                  dense: true,\n                  loading: _checking,\n                  onPressed: _checking ? null : _verify,\n                ),"],
+      ["              SectionLabel('重新导出'),", "              SectionLabel(context.tr(AppStrings.reExport)),"],
+      ["                    label: '恢复套件（PDF）',", "                    label: context.tr(AppStrings.recoveryKitPdfShort),"],
+      ["                    label: '备份卡（PNG 700×900）',", "                    label: context.tr(AppStrings.backupCardShort),"],
+      ["                    label: '查看 Secret Key',", "                    label: context.tr(AppStrings.viewSecretKey),"],
+      ["                '恢复套件与备份卡都等价于明文凭据，导出后请按同等级别保管：打印或存入离线介质，不要放进网盘、邮箱或聊天记录。',",
+       "                context.tr(AppStrings.backupCredentialWarning),"],
+      ["      actions: [TextButton(onPressed: _busy ? null : () => Navigator.pop(context), child: const Text('关闭'))],",
+       "      actions: [\n        TextButton(\n          onPressed: _busy ? null : () => Navigator.pop(context),\n          child: Text(context.tr(AppStrings.close)),\n        ),\n      ],"],
+      ["String _kindLabel(String? kind) => switch (kind) {\n      'recovery_kit' => '恢复套件 PDF',\n      'backup_card' => '备份卡 PNG',\n      'wljbak' => '加密备份 .wljbak',\n      'csv' => '明文 CSV',\n      null => '未记录',\n      _ => kind,\n    };",
+       "String _kindLabel(BuildContext context, String? kind) => switch (kind) {\n      'recovery_kit' => context.tr(AppStrings.backupKindRecoveryKit),\n      'backup_card' => context.tr(AppStrings.backupKindCard),\n      'wljbak' => context.tr(AppStrings.backupKindWljbak),\n      'csv' => context.tr(AppStrings.backupKindCsv),\n      _ => context.tr(AppStrings.neverRecorded),\n    };"]
+    ]
+  }
+]

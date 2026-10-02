@@ -1,0 +1,34 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/sign_in.dart",
+    "replace": [
+      ["import '../../core/ffi.dart';", "import '../../core/ffi.dart';\nimport '../../l10n/strings.dart';"],
+      ["        _error = '请填写邮箱、Secret Key 与主密码';", "        _error = context.tr(AppStrings.fillAllFields);"],
+      ["          ZoButton(label: '返回', icon: Icons.arrow_back_rounded, variant: ZoButtonVariant.ghost, dense: true, onPressed: _busy ? null : widget.onBack),\n          const SizedBox(height: 24),\n          const AuthHeader(\n            eyebrow: 'Sign in',\n            title: '登录已有账户',\n            subtitle: '需要 Recovery Kit 上的 Secret Key。主密码只在本机参与计算，不会发送到服务器。',\n          ),\n          ZoTextField(controller: _email, label: '邮箱',",
+       "          ZoButton(\n            label: context.tr(AppStrings.back),\n            icon: Icons.arrow_back_rounded,\n            variant: ZoButtonVariant.ghost,\n            dense: true,\n            onPressed: _busy ? null : widget.onBack,\n          ),\n          const SizedBox(height: 24),\n          AuthHeader(\n            eyebrow: AppStrings.signInEyebrow,\n            title: context.tr(AppStrings.signInTitle),\n            subtitle: context.tr(AppStrings.signInSubtitle),\n          ),\n          ZoTextField(controller: _email, label: context.tr(AppStrings.fieldEmail),"],
+      ["          ZoTextField(controller: _sk, label: 'Secret Key', hint: 'V1-XXXXXX-XXXXXX-…', mono: true, prefixIcon: Icons.vpn_key_outlined),",
+       "          ZoTextField(controller: _sk, label: AppStrings.secretKeyLabel, hint: 'V1-XXXXXX-XXXXXX-…', mono: true, prefixIcon: Icons.vpn_key_outlined),"],
+      ["          ZoTextField(controller: _pw, label: '主密码', obscure: true, prefixIcon: Icons.key_rounded, onSubmitted: (_) => _submit()),",
+       "          ZoTextField(controller: _pw, label: context.tr(AppStrings.masterPassword), obscure: true, prefixIcon: Icons.key_rounded, onSubmitted: (_) => _submit()),"],
+      ["            label: const Text('设备名称'),", "            label: Text(context.tr(AppStrings.deviceNameLabel)),"],
+      ["              ZoTextField(controller: _server, label: '同步服务器',", "              ZoTextField(controller: _server, label: context.tr(AppStrings.syncServerLabel),"],
+      ["            ZoTextField(controller: _device, label: '本设备名称', prefixIcon: Icons.devices_outlined),\n            const SizedBox(height: 8),\n          ],\n          const SizedBox(height: 16),\n          ZoButton(label: _busy ? '正在验证…' : '登录',",
+       "            ZoTextField(controller: _device, label: context.tr(AppStrings.thisDeviceName), prefixIcon: Icons.devices_outlined),\n            const SizedBox(height: 8),\n          ],\n          const SizedBox(height: 16),\n          ZoButton(label: _busy ? context.tr(AppStrings.verifying) : context.tr(AppStrings.sectionLogin),"],
+      ["        const AuthHeader(\n          eyebrow: 'New device',\n          title: '验证这台新设备',\n          subtitle: '为防止账户被盗用，新设备首次登录必须二次验证。我们已向你的邮箱发送 6 位验证码；也可以在已登录的设备上「设置 → 设备管理」中批准。',\n        ),\n        ZoTextField(\n          controller: _code,\n          label: '邮件验证码',\n          hint: '6 位数字',",
+       "        AuthHeader(\n          eyebrow: AppStrings.newDeviceEyebrow,\n          title: context.tr(AppStrings.verifyDeviceTitle),\n          subtitle: context.tr(AppStrings.verifyDeviceSubtitle),\n        ),\n        ZoTextField(\n          controller: _code,\n          label: context.tr(AppStrings.emailCodeLabel),\n          hint: context.tr(AppStrings.emailCodeHint),"],
+      ["        ZoButton(label: '验证并继续', expand: true,", "        ZoButton(label: context.tr(AppStrings.verifyAndContinue), expand: true,"],
+      ["          Expanded(child: Text('正在等待其他设备批准…', style: context.text.bodySmall)),", "          Expanded(child: Text(context.tr(AppStrings.waitingApproval), style: context.text.bodySmall)),"],
+      ["            child: const Text('取消登录'),", "            child: Text(context.tr(AppStrings.cancelSignIn)),"],
+      ["    if (_pw.text.characters.length < 10) return _fail('新主密码至少 10 个字符');\n    if (_pw.text != _pw2.text) return _fail('两次输入的新主密码不一致');",
+       "    if (_pw.text.characters.length < 10) return _fail(context.tr(AppStrings.newPasswordTooShort));\n    if (_pw.text != _pw2.text) return _fail(context.tr(AppStrings.newPasswordMismatch));"],
+      ["          ZoButton(label: '返回', icon: Icons.arrow_back_rounded, variant: ZoButtonVariant.ghost, dense: true, onPressed: _busy ? null : widget.onBack),\n          const SizedBox(height: 24),\n          const AuthHeader(\n            eyebrow: 'Recovery',\n            title: '用 Recovery Kit 恢复账户',\n            subtitle: '恢复后需设置新主密码，旧恢复码与所有旧设备会话立即失效，你会拿到一份新的 Recovery Kit。',\n          ),\n          ZoTextField(controller: _email, label: '邮箱',",
+       "          ZoButton(\n            label: context.tr(AppStrings.back),\n            icon: Icons.arrow_back_rounded,\n            variant: ZoButtonVariant.ghost,\n            dense: true,\n            onPressed: _busy ? null : widget.onBack,\n          ),\n          const SizedBox(height: 24),\n          AuthHeader(\n            eyebrow: AppStrings.recoverEyebrow,\n            title: context.tr(AppStrings.recoverAccountTitle),\n            subtitle: context.tr(AppStrings.recoverAccountSubtitle),\n          ),\n          ZoTextField(controller: _email, label: context.tr(AppStrings.fieldEmail),"],
+      ["          ZoTextField(controller: _sk, label: 'Secret Key', hint: 'V1-…', mono: true),", "          ZoTextField(controller: _sk, label: AppStrings.secretKeyLabel, hint: 'V1-…', mono: true),"],
+      ["          ZoTextField(controller: _rc, label: 'Recovery Code', hint: 'R1-XXXX-XXXX-…', mono: true),", "          ZoTextField(controller: _rc, label: AppStrings.recoveryCodeLabel, hint: 'R1-XXXX-XXXX-…', mono: true),"],
+      ["          ZoTextField(controller: _pw, label: '新主密码', obscure: true, onChanged: (_) => setState(() {})),", "          ZoTextField(controller: _pw, label: context.tr(AppStrings.newMasterPassword), obscure: true, onChanged: (_) => setState(() {})),"],
+      ["          ZoTextField(controller: _pw2, label: '确认新主密码', obscure: true, error: _error, onSubmitted: (_) => _submit()),", "          ZoTextField(controller: _pw2, label: context.tr(AppStrings.confirmNewMasterPassword), obscure: true, error: _error, onSubmitted: (_) => _submit()),"],
+      ["          ZoTextField(controller: _device, label: '本设备名称', prefixIcon: Icons.devices_outlined),\n          const SizedBox(height: 24),\n          ZoButton(label: '恢复账户', expand: true,",
+       "          ZoTextField(controller: _device, label: context.tr(AppStrings.thisDeviceName), prefixIcon: Icons.devices_outlined),\n          const SizedBox(height: 24),\n          ZoButton(label: context.tr(AppStrings.recoverAccountAction), expand: true,"]
+    ]
+  }
+]

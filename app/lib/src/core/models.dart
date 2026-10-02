@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/strings.dart';
+
 /// 导入结果。`format` 为内核识别出的来源（chrome / firefox / bitwarden / lastpass / 1password / 1pif / csv）。
 typedef ImportSummary = ({String format, int added, int duplicates, int skipped});
 
@@ -9,30 +11,48 @@ typedef PairingRequest = ({String clientId, String name, String code});
 typedef BrowserClient = ({String id, String name, int createdAt, int lastUsedAt});
 
 enum ItemKind {
-  login('login', '登录', Icons.key_rounded),
-  card('card', '支付卡', Icons.credit_card_rounded),
-  note('note', '安全笔记', Icons.sticky_note_2_outlined),
-  identity('identity', '身份信息', Icons.badge_outlined);
+  login('login', Icons.key_rounded),
+  card('card', Icons.credit_card_rounded),
+  note('note', Icons.sticky_note_2_outlined),
+  identity('identity', Icons.badge_outlined);
 
-  const ItemKind(this.wire, this.label, this.icon);
+  const ItemKind(this.wire, this.icon);
 
   final String wire;
-  final String label;
   final IconData icon;
+
+  /// 类型名的**唯一来源**是文案表；枚举只持引用，避免同一文案在枚举里再写一份而分叉。
+  String title(BuildContext context) => context.tr(_labelKeys[this]!);
+
+  static const _labelKeys = <ItemKind, String>{
+    ItemKind.login: AppStrings.sectionLogin,
+    ItemKind.card: AppStrings.sectionCard,
+    ItemKind.note: AppStrings.sectionNote,
+    ItemKind.identity: AppStrings.sectionIdentity,
+  };
 
   static ItemKind parse(String? s) => ItemKind.values.firstWhere((k) => k.wire == s, orElse: () => ItemKind.login);
 }
 
 enum UrlMatch {
-  domain('domain', '域名'),
-  host('host', '主机'),
-  exact('exact', '精确'),
-  never('never', '从不');
+  domain('domain'),
+  host('host'),
+  exact('exact'),
+  never('never');
 
-  const UrlMatch(this.wire, this.label);
+  const UrlMatch(this.wire);
 
   final String wire;
-  final String label;
+
+  /// 匹配方式标签同样只来自文案表。
+  String title(BuildContext context) => context.tr(_labelKeys[this]!);
+
+  static const _labelKeys = <UrlMatch, String>{
+    UrlMatch.domain: AppStrings.urlMatchDomain,
+    UrlMatch.host: AppStrings.urlMatchHost,
+    UrlMatch.exact: AppStrings.urlMatchExact,
+    UrlMatch.never: AppStrings.urlMatchNever,
+  };
 
   static UrlMatch parse(String? s) => UrlMatch.values.firstWhere((m) => m.wire == s, orElse: () => UrlMatch.domain);
 }

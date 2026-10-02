@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api.dart';
 import '../../core/ffi.dart';
+import '../../l10n/strings.dart';
 import '../../state/app_state.dart';
 import '../../state/scope.dart';
 import '../theme.dart';
@@ -46,7 +47,9 @@ class _CloudSetupScreenState extends State<CloudSetupScreen> {
       );
     } catch (e) {
       if (mounted) {
-        setState(() => _error = e is CoreException ? e.message : '注册尚未完成，请重试');
+        setState(
+          () => _error = e is CoreException ? e.message : context.tr(AppStrings.cloudSetupRetry),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -69,11 +72,11 @@ class _CloudSetupScreenState extends State<CloudSetupScreen> {
       );
       if (location == null || !active()) return;
       await File(location.path).writeAsBytes(bytes, flush: true);
-      if (mounted && active()) showZoMessage(context, '加密备份已保存；恢复仍需当前账户的密钥材料');
+      if (mounted && active()) showZoMessage(context, context.tr(AppStrings.cloudBackupSaved));
     } catch (e) {
       if (active()) {
         setState(
-          () => _error = e is CoreException ? e.message : '备份保存失败，请检查保存位置',
+          () => _error = e is CoreException ? e.message : context.tr(AppStrings.cloudBackupFailed),
         );
       }
     } finally {
@@ -87,18 +90,16 @@ class _CloudSetupScreenState extends State<CloudSetupScreen> {
     final approved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('清除本机数据并重新登录？'),
-        content: const Text(
-          '不会注销云账户。未同步的本机条目和注册草稿会永久丢失，本机保存的 Secret Key 也会删除。请先导出备份并保管恢复材料；云注册超时并不代表云账户未创建。',
-        ),
+        title: Text(context.tr(AppStrings.wipeAndReloginTitle)),
+        content: Text(context.tr(AppStrings.wipeAndReloginBody)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(context.tr(AppStrings.cancel)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('确认清除本机数据'),
+            child: Text(context.tr(AppStrings.wipeAndReloginConfirm)),
           ),
         ],
       ),
@@ -113,7 +114,7 @@ class _CloudSetupScreenState extends State<CloudSetupScreen> {
     try {
       await state.wipeThisDevice();
     } catch (_) {
-      if (mounted) setState(() => _error = '清除未完成，请重试；云账户未被注销');
+      if (mounted) setState(() => _error = context.tr(AppStrings.wipeIncomplete));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -128,30 +129,30 @@ class _CloudSetupScreenState extends State<CloudSetupScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            pending ? '完成云账户注册' : '将现有保险库接入云账户',
+            context.tr(pending ? AppStrings.cloudFinishTitle : AppStrings.cloudAttachTitle),
             style: context.text.headlineMedium,
           ),
           const SizedBox(height: 14),
           Text(
-            pending ? '注册材料已在本机加密保存。只有 Java 服务确认后才完成注册；重试沿用同一账户与密钥，不会重新生成。' : '新版本使用云账户。现有条目、账户标识和密钥全部保留；请使用当前主密码完成接入。若云端同邮箱属于不同账户，不会覆盖或合并。',
+            context.tr(pending ? AppStrings.cloudFinishBody : AppStrings.cloudAttachBody),
           ),
           const SizedBox(height: 12),
           SelectableText(
-            'Java 服务：${state.settings.serverUrl}',
+            context.trf(AppStrings.javaServiceLabel, {'url': state.settings.serverUrl}),
             style: context.text.bodySmall,
           ),
           const SizedBox(height: 20),
           if (!state.hasStoredSecretKey) ...[
             ZoTextField(
               controller: _secretKey,
-              label: 'Secret Key',
+              label: AppStrings.secretKeyLabel,
               enabled: !_busy,
             ),
             const SizedBox(height: 12),
           ],
           ZoTextField(
             controller: _password,
-            label: '当前主密码',
+            label: context.tr(AppStrings.currentMasterPassword),
             obscure: true,
             enabled: !_busy,
             onSubmitted: (_) => _complete(),
@@ -166,24 +167,24 @@ class _CloudSetupScreenState extends State<CloudSetupScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          ZoButton(label: '验证并完成云注册', loading: _busy, onPressed: _complete),
+          ZoButton(label: context.tr(AppStrings.cloudVerifyAndFinish), loading: _busy, onPressed: _complete),
           const SizedBox(height: 10),
           ZoButton(
-            label: '先导出本机加密备份',
+            label: context.tr(AppStrings.exportBackupFirst),
             variant: ZoButtonVariant.secondary,
             onPressed: _busy ? null : _backup,
           ),
           TextButton(
             onPressed: _busy ? null : state.lock,
-            child: const Text('锁定并稍后继续'),
+            child: Text(context.tr(AppStrings.lockAndContinueLater)),
           ),
           TextButton(
             onPressed: _busy ? null : _resetDevice,
-            child: const Text('清除本机数据后重新登录'),
+            child: Text(context.tr(AppStrings.wipeAndReloginAction)),
           ),
           const SizedBox(height: 12),
           Text(
-            '密码、Secret Key 和条目明文不会上传。完成云注册后，条目仍可离线读写，联网自动同步密文。',
+            context.tr(AppStrings.cloudZeroKnowledgeNote),
             style: context.text.bodySmall,
           ),
         ],

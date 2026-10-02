@@ -357,7 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Icon(k.icon, size: 18, color: c.textMuted),
                       const SizedBox(width: 14),
-                      Text(k.label, style: context.text.bodyLarge),
+                      Text(k.title(context), style: context.text.bodyLarge),
                     ],
                   ),
                 ),
@@ -408,7 +408,11 @@ class _HomeScreenState extends State<HomeScreen> {
               }),
               onNew: _section == Section.trash ? null : _newItem,
               headerAction: _section == Section.trash && state.trash.isNotEmpty
-                  ? ZoIconButton(icon: Icons.delete_sweep_outlined, tooltip: '清空回收站', onPressed: _emptyTrash)
+                  ? ZoIconButton(
+                      icon: Icons.delete_sweep_outlined,
+                      tooltip: context.tr(AppStrings.emptyTrashTooltip),
+                      onPressed: _emptyTrash,
+                    )
                   : null,
             ),
           ),
@@ -703,7 +707,11 @@ class _Sidebar extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    ZoIconButton(icon: Icons.lock_outline_rounded, tooltip: '立即锁定 (Ctrl+L)', onPressed: onLock),
+                    ZoIconButton(
+                      icon: Icons.lock_outline_rounded,
+                      tooltip: context.tr(AppStrings.lockNowWithHotkey),
+                      onPressed: onLock,
+                    ),
                   ],
                 ),
               ],

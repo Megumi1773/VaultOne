@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../l10n/strings.dart';
+
 /// TOTP 二维码扫描（F-07，仅移动端）。直接使用 `mobile_scanner`（CameraX / AVFoundation + 本地条码识别），
 /// 图像只在本机处理；识别到 `otpauth://` 链接后立即返回。
 class QrScanPage extends StatefulWidget {
@@ -39,7 +41,7 @@ class _QrScanPageState extends State<QrScanPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: Colors.black,
-        appBar: AppBar(title: const Text('扫描两步验证二维码'), backgroundColor: Colors.black, foregroundColor: Colors.white),
+        appBar: AppBar(title: Text(context.tr(AppStrings.qrScanTitle)), backgroundColor: Colors.black, foregroundColor: Colors.white),
         body: Stack(
           children: [
             MobileScanner(controller: _controller, onDetect: _onDetect),
@@ -50,11 +52,15 @@ class _QrScanPageState extends State<QrScanPage> {
                 decoration: BoxDecoration(border: Border.all(color: Colors.white70, width: 2), borderRadius: BorderRadius.circular(16)),
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 24,
               right: 24,
               bottom: 48,
-              child: Text('将网站提供的二维码置于框内', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70)),
+              child: Text(
+                context.tr(AppStrings.qrScanHint),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70),
+              ),
             ),
           ],
         ),

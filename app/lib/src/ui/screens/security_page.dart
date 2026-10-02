@@ -6,6 +6,7 @@ import '../../core/api.dart';
 import '../../core/ffi.dart';
 import '../../core/models.dart';
 import '../../state/scope.dart';
+import '../../l10n/strings.dart';
 import '../theme.dart';
 import '../widgets/controls.dart';
 
@@ -38,7 +39,7 @@ class _SecurityPageState extends State<SecurityPage> {
     } on CoreException catch (e) {
       // 页面可能在审计返回前被全局锁定销毁，不再展示旧会话结果。
       if (mounted && e.code != 'session_expired') {
-        setState(() => _breachError = '审计失败：${e.message}');
+        setState(() => _breachError = context.trf(AppStrings.auditFailed, {'reason': e.message}));
       }
     }
   }
@@ -53,7 +54,7 @@ class _SecurityPageState extends State<SecurityPage> {
       final result = await VaultApi.checkBreaches([for (final i in logins) i.id]);
       if (mounted) setState(() => _breaches = result);
     } on CoreException catch (e) {
-      if (mounted) setState(() => _breachError = '检测失败：${e.message}');
+      if (mounted) setState(() => _breachError = context.trf(AppStrings.breachCheckFailed, {'reason': e.message}));
     } finally {
       if (mounted) setState(() => _checking = false);
     }
@@ -83,10 +84,12 @@ class _SecurityPageState extends State<SecurityPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('安全中心', style: context.text.headlineMedium),
+                Text(context.tr(AppStrings.sectionSecurityCenter), style: context.text.headlineMedium),
                 const SizedBox(height: 6),
-                Text('所有分析均在本机完成。泄露检测只发送密码 SHA-1 的前 5 位，服务端无法得知你的密码。',
-                    style: context.text.bodyMedium?.copyWith(color: c.textMuted)),
+                Text(
+                  context.tr(AppStrings.securityCenterSubtitle),
+                  style: context.text.bodyMedium?.copyWith(color: c.textMuted),
+                ),
                 const SizedBox(height: 28),
                 ZoPanel(
                   padding: const EdgeInsets.all(28),
@@ -99,20 +102,38 @@ class _SecurityPageState extends State<SecurityPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              score >= 90 ? '状态良好' : score >= 60 ? '有待加强' : '需要立即处理',
+                              context.tr(score >= 90
+                                  ? AppStrings.statusGood
+                                  : score >= 60
+                                      ? AppStrings.statusNeedsWork
+                                      : AppStrings.statusActNow),
                               style: context.text.headlineSmall,
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              logins.isEmpty ? '还没有带密码的条目。' : '${logins.length} 个带密码的条目中，${problems.length} 个存在风险。',
+                              logins.isEmpty
+                                  ? context.tr(AppStrings.noPasswordItems)
+                                  : context.trf(AppStrings.riskSummary, {
+                                      'total': logins.length,
+                                      'problems': problems.length,
+                                    }),
                               style: context.text.bodyMedium?.copyWith(color: c.textMuted),
                             ),
                             const SizedBox(height: 18),
                             Wrap(spacing: 10, runSpacing: 10, children: [
-                              _Stat('弱密码', weak.length, c.danger),
-                              _Stat('重复使用', reused.length, c.warning),
-                              _Stat('已泄露', _breaches == null ? null : breached.length, c.danger),
-                              _Stat('两步验证', loginItems.isEmpty ? null : with2fa, c.success, suffix: '/${loginItems.length}'),
+                              _Stat(context.tr(AppStrings.weakPasswords), weak.length, c.danger),
+                              _Stat(context.tr(AppStrings.reusedPasswords), reused.length, c.warning),
+                              _Stat(
+                                context.tr(AppStrings.breachedPasswords),
+                                _breaches == null ? null : breached.length,
+                                c.danger,
+                              ),
+                              _Stat(
+                                context.tr(AppStrings.twoFactorCoverage),
+                                loginItems.isEmpty ? null : with2fa,
+                                c.success,
+                                suffix: '/${loginItems.length}',
+                              ),
                             ]),
                           ],
                         ),
@@ -130,13 +151,13 @@ class _SecurityPageState extends State<SecurityPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('泄露密码检测', style: context.text.titleMedium),
+                            Text(context.tr(AppStrings.breachCheck), style: context.text.titleMedium),
                             const SizedBox(height: 3),
                             Text(
                               _breachError ??
                                   (_breaches == null
-                                      ? '对照 Have I Been Pwned 数据库（k-匿名），需要联网。'
-                                      : '检测完成：${breached.length} 个条目的密码出现在公开泄露数据中。'),
+                                      ? context.tr(AppStrings.breachCheckSubtitle)
+                                      : context.trf(AppStrings.breachCheckDone, {'count': breached.length})),
                               style: context.text.bodySmall?.copyWith(color: _breachError != null ? c.danger : null),
                             ),
                           ],
@@ -144,7 +165,7 @@ class _SecurityPageState extends State<SecurityPage> {
                       ),
                       const SizedBox(width: 12),
                       ZoButton(
-                        label: _breaches == null ? '开始检测' : '重新检测',
+                        label: context.tr(_breaches == null ? AppStrings.startCheck : AppStrings.recheck),
                         variant: ZoButtonVariant.secondary,
                         dense: true,
                         loading: _checking,
@@ -156,37 +177,58 @@ class _SecurityPageState extends State<SecurityPage> {
                 const SizedBox(height: 28),
                 if (breached.isNotEmpty) ...[
                   _IssueList(
-                    title: '已泄露',
+                    title: context.tr(AppStrings.breachedPasswords),
                     color: c.danger,
-                    description: '这些密码出现在公开泄露库中，攻击者会优先尝试，请立即更换。',
-                    items: [for (final id in breached) (state.byId(id), '出现 ${_breaches![id]} 次')],
+                    description: context.tr(AppStrings.breachedAdvice),
+                    items: [
+                      for (final id in breached)
+                        (state.byId(id), context.trf(AppStrings.breachTimes, {'count': _breaches![id]})),
+                    ],
                     onOpen: widget.onOpenItem,
                   ),
                   const SizedBox(height: 20),
                 ],
                 if (weak.isNotEmpty) ...[
                   _IssueList(
-                    title: '弱密码',
+                    title: context.tr(AppStrings.weakPasswords),
                     color: c.danger,
-                    description: '容易被猜测或字典攻击破解。',
-                    items: [for (final f in weak) (state.byId(f.itemId), const ['极弱', '弱', '一般', '强', '很强'][f.score])],
+                    description: context.tr(AppStrings.weakAdvice),
+                    items: [
+                      for (final f in weak)
+                        (
+                          state.byId(f.itemId),
+                          context.tr([
+                            AppStrings.strengthVeryWeak,
+                            AppStrings.strengthWeak,
+                            AppStrings.strengthFair,
+                            AppStrings.strengthStrong,
+                            AppStrings.strengthVeryStrong,
+                          ][f.score]),
+                        ),
+                    ],
                     onOpen: widget.onOpenItem,
                   ),
                   const SizedBox(height: 20),
                 ],
                 if (reused.isNotEmpty)
                   _IssueList(
-                    title: '重复使用',
+                    title: context.tr(AppStrings.reusedPasswords),
                     color: c.warning,
-                    description: '一个网站泄露，会连带其他网站失守。',
-                    items: [for (final f in reused) (state.byId(f.itemId), '与 ${f.reusedWith} 个条目相同')],
+                    description: context.tr(AppStrings.reusedAdvice),
+                    items: [
+                      for (final f in reused)
+                        (state.byId(f.itemId), context.trf(AppStrings.reusedWith, {'count': f.reusedWith})),
+                    ],
                     onOpen: widget.onOpenItem,
                   ),
                 if (_findings != null && problems.isEmpty && logins.isNotEmpty)
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text('没有发现问题。保持下去。', style: context.text.bodyMedium?.copyWith(color: c.success)),
+                      child: Text(
+                        context.tr(AppStrings.noProblems),
+                        style: context.text.bodyMedium?.copyWith(color: c.success),
+                      ),
                     ),
                   ),
               ],
@@ -252,7 +294,7 @@ class _ScoreRing extends StatelessWidget {
           child: Center(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Text('${(v * 100).round()}', style: monoStyle(context, size: 38, weight: FontWeight.w700, spacing: -1)),
-              Text('安全评分', style: context.text.labelMedium),
+              Text(context.tr(AppStrings.securityScore), style: context.text.labelMedium),
             ]),
           ),
         ),

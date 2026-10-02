@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/ffi.dart';
 import '../../core/models.dart';
+import '../../l10n/strings.dart';
 import '../../state/backup_card.dart';
 import '../../state/clipboard.dart';
 import '../../state/recovery_kit.dart';
@@ -75,17 +76,17 @@ class _BackupManagerDialogState extends State<BackupManagerDialog> {
         _verified = true;
         _secretKeyCanonical = r.secretKey;
         _recoveryCodeCanonical = r.recoveryCode;
-        _status = 'Secret Key 与本机保存的逐字节一致；恢复码格式有效。';
+        _status = context.tr(AppStrings.keyVerifyOk);
       });
     } on CoreException catch (e) {
       if (!mounted || epoch != state.sessionEpoch) return;
       setState(() {
         _verified = false;
         _error = switch (e.code) {
-          'secret_key_mismatch' => 'Secret Key 与本机保存的不一致。请对照恢复套件逐组核对，注意易混字符 I/L/O 与数字 1/0。',
-          'invalid_input' => '恢复码格式不正确，应为 R1- 开头、13 组 Crockford Base32。',
-          'locked' || 'session_expired' => '保险库已锁定，请解锁后重试。',
-          _ => '核对未完成，请稍后重试。',
+          'secret_key_mismatch' => context.tr(AppStrings.keyVerifyMismatch),
+          'invalid_input' => context.tr(AppStrings.recoveryCodeInvalid),
+          'locked' || 'session_expired' => context.tr(AppStrings.purgeErrorLocked),
+          _ => context.tr(AppStrings.verifyIncomplete),
         };
       });
     } finally {
@@ -119,9 +120,9 @@ class _BackupManagerDialogState extends State<BackupManagerDialog> {
       if (path == null || !canContinue()) return;
       await state.recordBackup('recovery_kit');
       if (!mounted || epoch != state.sessionEpoch) return;
-      setState(() => _status = '恢复套件已保存到 $path');
+      setState(() => _status = context.trf(AppStrings.kitSavedTo, {'path': path}));
     } catch (_) {
-      if (mounted && canContinue()) setState(() => _error = '保存失败，请检查目录权限与可用空间。');
+      if (mounted && canContinue()) setState(() => _error = context.tr(AppStrings.saveFailedDisk));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -142,9 +143,9 @@ class _BackupManagerDialogState extends State<BackupManagerDialog> {
       if (path == null || !canContinue()) return;
       await state.recordBackup('backup_card');
       if (!mounted || epoch != state.sessionEpoch) return;
-      setState(() => _status = '备份卡已保存到 $path');
+      setState(() => _status = context.trf(AppStrings.backupCardSavedTo, {'path': path}));
     } catch (_) {
-      if (mounted && canContinue()) setState(() => _error = '备份卡导出失败，请检查目录权限与可用空间。');
+      if (mounted && canContinue()) setState(() => _error = context.tr(AppStrings.backupCardFailed));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -162,9 +163,12 @@ class _BackupManagerDialogState extends State<BackupManagerDialog> {
         actions: [
           TextButton(
             onPressed: () => ClipboardService.copy(sk, label: 'Secret Key', clearAfterSeconds: state.settings.clipboardSeconds),
-            child: const Text('复制'),
+            child: Text(context.tr(AppStrings.copy)),
           ),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(context.tr(AppStrings.close)),
+          ),
         ],
       ),
     );
@@ -175,7 +179,7 @@ class _BackupManagerDialogState extends State<BackupManagerDialog> {
     final c = context.zo;
     final state = AppScope.of(context);
     return AlertDialog(
-      title: const Text('密钥与备份'),
+      title: Text(context.tr(AppStrings.sectionKeyBackup)),
       content: SizedBox(
         width: 520,
         child: SingleChildScrollView(
@@ -183,26 +187,27 @@ class _BackupManagerDialogState extends State<BackupManagerDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _StatusRow(
-                label: '最近本机备份',
-                value: state.lastBackupAt == 0 ? '从未记录' : '${_fmtDay(state.lastBackupAt)}（${_kindLabel(state.lastBackupKind)}）',
+                label: context.tr(AppStrings.lastLocalBackup),
+                value: state.lastBackupAt == 0
+                    ? context.tr(AppStrings.neverRecorded)
+                    : '${_fmtDay(state.lastBackupAt)}（${_kindLabel(context, state.lastBackupKind)}）',
               ),
               _StatusRow(
-                label: '云端备份历史',
-                value: '暂无（服务端备份记录端点未实现）',
+                label: context.tr(AppStrings.cloudBackupHistory),
+                value: context.tr(AppStrings.cloudBackupHistoryNone),
                 faint: true,
               ),
               const SizedBox(height: 10),
               Text(
-                '本机只保存「最近一次导出」这一事实，不保存文件路径与内容。恢复套件与备份卡都可以在这里重新导出；'
-                '为避免他人趁保险库未锁定时拿到凭据，重新导出前需要你重新提供恢复材料。',
+                context.tr(AppStrings.backupManagerBody),
                 style: context.text.bodySmall?.copyWith(color: c.textFaint),
               ),
               const SizedBox(height: 18),
-              SectionLabel('恢复材料核对'),
+              SectionLabel(context.tr(AppStrings.verifyMaterials)),
               const SizedBox(height: 8),
               ZoTextField(
                 controller: _secretKey,
-                label: 'Secret Key',
+                label: AppStrings.secretKeyLabel,
                 hint: 'V1-XXXXXX-XXXXXX-…',
                 mono: true,
                 enabled: !_verified,
@@ -211,7 +216,7 @@ class _BackupManagerDialogState extends State<BackupManagerDialog> {
               const SizedBox(height: 10),
               ZoTextField(
                 controller: _recoveryCode,
-                label: 'Recovery Code',
+                label: AppStrings.recoveryCodeLabel,
                 hint: 'R1-XXXX-XXXX-…',
                 mono: true,
                 enabled: !_verified,
@@ -226,35 +231,46 @@ class _BackupManagerDialogState extends State<BackupManagerDialog> {
                 Row(children: [
                   Icon(Icons.verified_rounded, size: 16, color: c.success),
                   const SizedBox(width: 6),
-                  Expanded(child: Text(_status ?? '核对通过', style: context.text.bodySmall?.copyWith(color: c.success))),
+                  Expanded(
+                    child: Text(
+                      _status ?? context.tr(AppStrings.verifyPassed),
+                      style: context.text.bodySmall?.copyWith(color: c.success),
+                    ),
+                  ),
                 ]),
               ] else ...[
                 const SizedBox(height: 12),
-                ZoButton(label: '核对', icon: Icons.spellcheck_rounded, dense: true, loading: _checking, onPressed: _checking ? null : _verify),
+                ZoButton(
+                  label: context.tr(AppStrings.verifyAction),
+                  icon: Icons.spellcheck_rounded,
+                  dense: true,
+                  loading: _checking,
+                  onPressed: _checking ? null : _verify,
+                ),
               ],
               const SizedBox(height: 18),
-              SectionLabel('重新导出'),
+              SectionLabel(context.tr(AppStrings.reExport)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
                   ZoButton(
-                    label: '恢复套件（PDF）',
+                    label: context.tr(AppStrings.recoveryKitPdfShort),
                     icon: Icons.picture_as_pdf_outlined,
                     dense: true,
                     variant: ZoButtonVariant.secondary,
                     onPressed: _verified && !_busy ? _saveKit : null,
                   ),
                   ZoButton(
-                    label: '备份卡（PNG 700×900）',
+                    label: context.tr(AppStrings.backupCardShort),
                     icon: Icons.image_outlined,
                     dense: true,
                     variant: ZoButtonVariant.secondary,
                     onPressed: _verified && !_busy ? _saveCard : null,
                   ),
                   ZoButton(
-                    label: '查看 Secret Key',
+                    label: context.tr(AppStrings.viewSecretKey),
                     icon: Icons.visibility_outlined,
                     dense: true,
                     variant: ZoButtonVariant.ghost,
@@ -264,7 +280,7 @@ class _BackupManagerDialogState extends State<BackupManagerDialog> {
               ),
               const SizedBox(height: 10),
               Text(
-                '恢复套件与备份卡都等价于明文凭据，导出后请按同等级别保管：打印或存入离线介质，不要放进网盘、邮箱或聊天记录。',
+                context.tr(AppStrings.backupCredentialWarning),
                 style: context.text.bodySmall?.copyWith(color: c.textFaint),
               ),
               if (_verified && _status != null && _error == null) ...[
@@ -275,7 +291,12 @@ class _BackupManagerDialogState extends State<BackupManagerDialog> {
           ),
         ),
       ),
-      actions: [TextButton(onPressed: _busy ? null : () => Navigator.pop(context), child: const Text('关闭'))],
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.pop(context),
+          child: Text(context.tr(AppStrings.close)),
+        ),
+      ],
     );
   }
 }
@@ -306,11 +327,10 @@ String _fmtDay(int unix) {
   return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
 }
 
-String _kindLabel(String? kind) => switch (kind) {
-      'recovery_kit' => '恢复套件 PDF',
-      'backup_card' => '备份卡 PNG',
-      'wljbak' => '加密备份 .wljbak',
-      'csv' => '明文 CSV',
-      null => '未记录',
-      _ => kind,
+String _kindLabel(BuildContext context, String? kind) => switch (kind) {
+      'recovery_kit' => context.tr(AppStrings.backupKindRecoveryKit),
+      'backup_card' => context.tr(AppStrings.backupKindCard),
+      'wljbak' => context.tr(AppStrings.backupKindWljbak),
+      'csv' => context.tr(AppStrings.backupKindCsv),
+      _ => context.tr(AppStrings.neverRecorded),
     };

@@ -1,0 +1,17 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/feedback_page.dart",
+    "replace": [
+      ["import '../theme.dart';", "import '../../l10n/strings.dart';\nimport '../theme.dart';"],
+      ["    final code = error is CoreException ? error.code : null;\n    return switch (code) {\n      'network' || 'timeout' => '网络连接异常，请检查连接后重试。',\n      'unauthorized' => '云会话已失效，请重新登录后再试。',\n      'locked' || 'session_expired' => '保险库已锁定，请解锁后重新进入。',\n      'not_connected' => '请先在设置中连接云服务，再使用反馈。',\n      'privacy_required' => '请先阅读并同意隐私政策与用户协议。',\n      'feedback_unavailable' => '此服务器暂不支持反馈功能，请联系支持。',\n      'forbidden' ||\n      'device_not_approved' ||\n      'device_pending' ||\n      'device_revoked' => '当前设备无权访问反馈，请检查设备授权。',\n      'invalid_input' ||\n      'bad_request' ||\n      'unprocessable_entity' => '反馈格式不符合要求，请检查类型和长度。',\n      'conflict' => '此提交编号已被使用，请先查看历史确认结果。',\n      'not_found' => '反馈不存在或已到期，请刷新历史记录。',\n      'rate_limited' => '提交过于频繁或已达数量上限，请稍后再试。',\n      'unavailable' || 'service_unavailable' => '反馈服务暂时不可用，请稍后重试。',\n      _ => '暂时无法完成操作，请稍后重试。',\n    };\n  }",
+       "    final code = error is CoreException ? error.code : null;\n    final source = switch (code) {\n      'network' || 'timeout' => AppStrings.feedbackNetworkError,\n      'unauthorized' => AppStrings.feedbackSessionExpired,\n      'locked' || 'session_expired' => AppStrings.feedbackLocked,\n      'not_connected' => AppStrings.feedbackNotConnected,\n      'privacy_required' => AppStrings.feedbackPrivacyRequired,\n      'feedback_unavailable' => AppStrings.feedbackUnsupported,\n      'forbidden' ||\n      'device_not_approved' ||\n      'device_pending' ||\n      'device_revoked' => AppStrings.feedbackForbidden,\n      'invalid_input' ||\n      'bad_request' ||\n      'unprocessable_entity' => AppStrings.feedbackInvalid,\n      'conflict' => AppStrings.feedbackDuplicate,\n      'not_found' => AppStrings.feedbackNotFound,\n      'rate_limited' => AppStrings.feedbackRateLimited,\n      'unavailable' || 'service_unavailable' => AppStrings.feedbackUnavailable,\n      _ => AppStrings.feedbackGenericError,\n    };\n    return context.tr(source);\n  }"],
+      ["            tooltip: '关闭反馈',", "            tooltip: context.tr(AppStrings.feedbackClose),"],
+      ["          title: Text('意见反馈', style: context.text.headlineSmall),", "          title: Text(context.tr(AppStrings.feedback), style: context.text.headlineSmall),"],
+      ["                tooltip: '刷新',", "                tooltip: context.tr(AppStrings.refreshAction),"],
+      ["            ? const Center(child: Text('反馈页面已失效，请解锁并重新进入。'))", "            ? Center(child: Text(context.tr(AppStrings.feedbackExpired)))"],
+      ["                                label: const Text('写反馈'),", "                                label: Text(context.tr(AppStrings.feedbackWriteTab)),"],
+      ["                                label: const Text('历史记录'),", "                                label: Text(context.tr(AppStrings.feedbackHistoryTab)),"],
+      ["                          Text(\n                            '关闭或锁定将清除本页内容，但不会撤回已发送的反馈。',", "                          Text(\n                            context.tr(AppStrings.feedbackDraftNotice),"]
+    ]
+  }
+]
