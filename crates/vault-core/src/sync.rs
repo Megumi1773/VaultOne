@@ -28,6 +28,9 @@ use crate::{Result, VaultError};
 const HTTP_TIMEOUT: Duration = Duration::from_secs(20);
 const MAX_SYNC_ROUNDS: usize = 4;
 
+/// 账户资料在本机设置里的键（以 Vault Key 密封存放，锁定时读不到）。
+const PROFILE_CACHE_KEY: &str = "account_profile";
+
 // ───────────────────────── HTTP 客户端 ─────────────────────────
 
 pub struct ApiClient {
@@ -148,6 +151,10 @@ impl ApiClient {
 
     pub(crate) fn post<Req: Serialize, Resp: DeserializeOwned>(&self, path: &str, body: &Req) -> Result<Resp> {
         self.call(reqwest::Method::POST, path, Some(body))
+    }
+
+    pub(crate) fn put<Req: Serialize, Resp: DeserializeOwned>(&self, path: &str, body: &Req) -> Result<Resp> {
+        self.call(reqwest::Method::PUT, path, Some(body))
     }
 
     /// SRP-6a 登录。返回 (登录结果, AuthKey 派生所用的账户信息)。
@@ -558,6 +565,38 @@ impl Vault {
 
     pub fn audit_events(&self) -> Result<Vec<AuditEventOut>> {
         self.remote_api()?.0.get("/v1/audit")
+    }
+
+    // ───────── 账户资料（§8.1 / §8.2）─────────
+
+    /// 读取账户资料（昵称 / 头像地址 / 注册时间）。需要联网，成功后写入本机缓存。
+    pub fn fetch_profile(&mut self) -> Result<AccountProfile> {
+        let acc: AccountResponse = self.remote_api()?.0.get("/v1/account")?;
+        let profile = acc.profile();
+        self.cache_profile(&profile)?;
+        Ok(profile)
+    }
+
+    /// 更新账户资料（§8.2）。服务端返回更新后的完整账户信息，直接用来刷新缓存。
+    pub fn update_profile(&mut self, nickname: &str, avatar: &str) -> Result<AccountProfile> {
+        let req = UpdateProfileRequest { nickname: nickname.to_string(), avatar: avatar.to_string() };
+        let acc: AccountResponse = self.remote_api()?.0.put("/v1/account/profile", &req)?;
+        let profile = acc.profile();
+        self.cache_profile(&profile)?;
+        Ok(profile)
+    }
+
+    /// 本机缓存的资料。**离线时账户总览仍要有东西可显示**，因此缓存不是可选项。
+    ///
+    /// 以 Vault Key 密封存放（复用 `set_sealed_setting`）：昵称与头像地址是用户自选的展示信息，
+    /// 但不该明文躺在磁盘上。锁定时读不到——账户总览本来也只在解锁后可见。
+    pub fn cached_profile(&self) -> Result<Option<AccountProfile>> {
+        let Some(raw) = self.get_sealed_setting(PROFILE_CACHE_KEY)? else { return Ok(None) };
+        Ok(serde_json::from_slice(&raw).ok())
+    }
+
+    pub(crate) fn cache_profile(&self, profile: &AccountProfile) -> Result<()> {
+        self.set_sealed_setting(PROFILE_CACHE_KEY, &serde_json::to_vec(profile)?)
     }
 
     // ───────── 同步主流程 ─────────

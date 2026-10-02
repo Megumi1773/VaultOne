@@ -156,6 +156,11 @@ class AppState extends ChangeNotifier {
   String? fatalError;
   String? accountId;
   AccountInfo? account;
+
+  /// 账户资料（§8.1）。**不在 `refresh()` 里自动拉取**：那是网络调用，不该塞进每次刷新；
+  /// 账户总览进入时显式调 [`refreshProfile`]。
+  AccountProfile? profile;
+
   bool hasStoredSecretKey = false;
   bool quickUnlockEnabled = false;
   bool biometricsAvailable = false;
@@ -866,6 +871,25 @@ class AppState extends ChangeNotifier {
   Future<List<TransferRecord>> transferHistory() => _withSession(VaultApi.transferHistory);
 
   Future<void> clearTransferHistory() => _withSession(VaultApi.clearTransferHistory);
+
+  // ---------- 账户资料（§8.1 / §8.2）----------
+
+  /// 拉取账户资料。**离线不抛错**：拿到本机缓存并置 `online=false`，界面据此提示。
+  Future<AccountProfile> refreshProfile() => _withSession(() async {
+        final p = await VaultApi.accountProfile();
+        profile = p;
+        notifyListeners();
+        return p;
+      });
+
+  /// 更新账户资料。需要联网，失败时抛 `CoreException` 由界面展示。
+  Future<AccountProfile> updateProfile({required String nickname, required String avatar}) =>
+      _withSession(() async {
+        final p = await VaultApi.updateAccountProfile(nickname, avatar);
+        profile = p;
+        notifyListeners();
+        return p;
+      });
 
   // ---------- 设置 ----------
 

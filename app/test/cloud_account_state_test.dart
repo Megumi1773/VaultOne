@@ -1,3 +1,4 @@
+import 'package:vaultone/src/rust/api/sync.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:vaultone/src/core/api.dart';
@@ -149,6 +150,11 @@ class _CloudBridge implements RustLibApi {
 
   @override
   Future<void> crateApiSyncConfigureDevelopmentHttp({String? serverUrl}) async {}
+  // 设置页进入账户分区时会后台拉一次资料；这两个方法在生产路径上会被调用，测试里给出空实现。
+  @override
+  Future<AccountProfileDto> crateApiSyncAccountProfile() async =>
+      const AccountProfileDto(nickname: '', avatar: '', createdAt: 0, online: false);
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

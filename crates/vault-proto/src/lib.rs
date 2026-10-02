@@ -194,6 +194,41 @@ pub struct VerifyDeviceRequest {
 pub struct AccountResponse {
     pub email: String,
     pub keys: AccountKeys,
+    /// 昵称（§8.2）。旧服务端不返回该字段，因此必须 `serde(default)`——否则接旧服务端会直接反序列化失败。
+    #[serde(default)]
+    pub nickname: String,
+    /// 头像地址（§8.1）。同上，缺省为空。
+    #[serde(default)]
+    pub avatar: String,
+    /// 注册时间（Unix 秒，§8.1）。恢复流程复用本类型时不返回该字段，缺省为 0。
+    #[serde(default)]
+    pub created_at: i64,
+}
+
+/// 更新账户资料（§8.2）。两个字段都是全量替换。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateProfileRequest {
+    pub nickname: String,
+    pub avatar: String,
+}
+
+/// 账户资料（§8.1）。从 [`AccountResponse`] 里抽出来的三个展示字段。
+///
+/// 单独一个类型是因为客户端要把它缓存到本机：缓存整份 `AccountResponse` 会把密钥材料也写进去，
+/// 而密钥材料有它自己的存放方式，不该顺手多存一份。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountProfile {
+    pub nickname: String,
+    pub avatar: String,
+    /// 注册时间（Unix 秒）。旧服务端不返回时为 0。
+    pub created_at: i64,
+}
+
+impl AccountResponse {
+    /// 取出资料部分。
+    pub fn profile(&self) -> AccountProfile {
+        AccountProfile { nickname: self.nickname.clone(), avatar: self.avatar.clone(), created_at: self.created_at }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -403,5 +438,33 @@ mod tests {
         assert_eq!(serde_json::to_string(&Platform::Windows).unwrap(), "\"windows\"");
         assert_eq!(Platform::parse("android"), Platform::Android);
         assert_eq!(Platform::parse("toaster"), Platform::Other);
+    }
+
+    #[test]
+    fn account_response_tolerates_old_servers_without_profile_fields() {
+        // 旧服务端（以及恢复流程的 keysOnly）不返回资料字段：必须能解析，不能因为多了三个字段就
+        // 把「连旧服务端」变成硬失败。
+        let keys = AccountKeys {
+            account_id: "a".into(),
+            vault_id: "v".into(),
+            kdf: KdfParams { alg: "argon2id".into(), m: 19456, t: 2, p: 1, salt: "AAAAAAAAAAAAAAAAAAAAAA==".into() },
+            vk_wrap: Bytes(vec![1]),
+            vk_gen: 1,
+            recovery_wrap: Bytes(vec![2]),
+        };
+        let json = serde_json::json!({ "email": "a@b.c", "keys": keys });
+        let acc: AccountResponse = serde_json::from_value(json).unwrap();
+        assert_eq!(acc.nickname, "");
+        assert_eq!(acc.avatar, "");
+        assert_eq!(acc.created_at, 0);
+        assert_eq!(acc.profile(), AccountProfile::default());
+
+        // 新服务端返回资料时正常解析。
+        let full = serde_json::json!({
+            "email": "a@b.c", "keys": keys, "nickname": "阿澈", "avatar": "https://e.com/a.png", "created_at": 1700000000
+        });
+        let acc: AccountResponse = serde_json::from_value(full).unwrap();
+        assert_eq!(acc.profile().nickname, "阿澈");
+        assert_eq!(acc.profile().created_at, 1700000000);
     }
 }

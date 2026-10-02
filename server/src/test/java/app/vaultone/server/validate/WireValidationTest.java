@@ -295,4 +295,76 @@ class WireValidationTest {
     assertThatCode(() -> WireValidation.itemBlob(asInt.getBytes(StandardCharsets.UTF_8)))
         .doesNotThrowAnyException();
   }
+
+  // ── 账户资料（§8.2）──
+
+  @Test
+  void profileAcceptsEmptyAndOrdinaryValues() {
+    assertThatCode(() -> WireValidation.profile("", "")).doesNotThrowAnyException();
+    assertThatCode(() -> WireValidation.profile("阿澈", "https://example.com/a.png"))
+        .doesNotThrowAnyException();
+    // 中文、emoji、空格都允许：昵称只用于显示，不参与认证或寻址。
+    assertThatCode(() -> WireValidation.profile(" 小 明 🎉 ", "")).doesNotThrowAnyException();
+    // 首尾空白会被裁掉，因此"全是空白"等价于未设置，不该报错。
+    assertThatCode(() -> WireValidation.profile("   ", "   ")).doesNotThrowAnyException();
+  }
+
+  @Test
+  void profileRejectsOverlongNicknameByCodePoints() {
+    assertThatCode(() -> WireValidation.profile("字".repeat(WireValidation.NICKNAME_MAX), ""))
+        .doesNotThrowAnyException();
+    assertThatThrownBy(
+            () -> WireValidation.profile("字".repeat(WireValidation.NICKNAME_MAX + 1), ""))
+        .isInstanceOf(WireValidation.ValidationException.class);
+    // 按码点而不是 UTF-16 长度：emoji 是代理对，按长度算会少一半名额。
+    assertThatCode(() -> WireValidation.profile("🎉".repeat(WireValidation.NICKNAME_MAX), ""))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  void profileRejectsControlCharacters() {
+    assertThatThrownBy(() -> WireValidation.profile("a\nb", ""))
+        .isInstanceOf(WireValidation.ValidationException.class);
+    assertThatThrownBy(() -> WireValidation.profile("a\u0000b", ""))
+        .isInstanceOf(WireValidation.ValidationException.class);
+    assertThatThrownBy(() -> WireValidation.profile("", "https://example.com/a\nb"))
+        .isInstanceOf(WireValidation.ValidationException.class);
+  }
+
+  @Test
+  void avatarOnlyAcceptsHttpAndHttps() {
+    assertThatCode(() -> WireValidation.profile("", "http://example.com/a.png"))
+        .doesNotThrowAnyException();
+    assertThatCode(() -> WireValidation.profile("", "HTTPS://example.com/a.png"))
+        .doesNotThrowAnyException();
+    // 这个值最终会被客户端拿去渲染，伪协议必须挡住。
+    for (String bad :
+        new String[] {
+          "javascript:alert(1)",
+          "data:image/png;base64,AAAA",
+          "file:///etc/passwd",
+          "/local/path.png"
+        }) {
+      assertThatThrownBy(() -> WireValidation.profile("", bad), bad)
+          .isInstanceOf(WireValidation.ValidationException.class);
+    }
+  }
+
+  @Test
+  void avatarRejectsOverlongAndNull() {
+    assertThatCode(
+            () ->
+                WireValidation.profile(
+                    "", "https://e.com/" + "a".repeat(WireValidation.AVATAR_MAX - 20)))
+        .doesNotThrowAnyException();
+    assertThatThrownBy(
+            () ->
+                WireValidation.profile(
+                    "", "https://e.com/" + "a".repeat(WireValidation.AVATAR_MAX)))
+        .isInstanceOf(WireValidation.ValidationException.class);
+    assertThatThrownBy(() -> WireValidation.profile(null, ""))
+        .isInstanceOf(WireValidation.ValidationException.class);
+    assertThatThrownBy(() -> WireValidation.profile("", null))
+        .isInstanceOf(WireValidation.ValidationException.class);
+  }
 }

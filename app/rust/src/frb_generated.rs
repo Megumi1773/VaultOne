@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1939437027;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 431357949;
 
 // Section: executor
 
@@ -66,6 +66,31 @@ fn wire__crate__api__vault__account_info_impl(
             move |context| {
                 transform_result_sse::<_, crate::api::BridgeError>((move || {
                     let output_ok = crate::api::vault::account_info()?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__sync__account_profile_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "account_profile",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::sync::account_profile()?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -2370,6 +2395,33 @@ fn wire__crate__api__vault__unlock_with_quick_key_impl(
         },
     )
 }
+fn wire__crate__api__sync__update_account_profile_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "update_account_profile",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_nickname = <String>::sse_decode(&mut deserializer);
+            let api_avatar = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::sync::update_account_profile(api_nickname, api_avatar)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__vault__update_item_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2543,6 +2595,22 @@ impl SseDecode for crate::api::vault::AccountInfo {
             kdf_summary: var_kdfSummary,
             pending_changes: var_pendingChanges,
             item_count: var_itemCount,
+        };
+    }
+}
+
+impl SseDecode for crate::api::sync::AccountProfileDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_nickname = <String>::sse_decode(deserializer);
+        let mut var_avatar = <String>::sse_decode(deserializer);
+        let mut var_createdAt = <i64>::sse_decode(deserializer);
+        let mut var_online = <bool>::sse_decode(deserializer);
+        return crate::api::sync::AccountProfileDto {
+            nickname: var_nickname,
+            avatar: var_avatar,
+            created_at: var_createdAt,
+            online: var_online,
         };
     }
 }
@@ -2975,89 +3043,91 @@ fn pde_ffi_dispatcher_primary_impl(
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
         1 => wire__crate__api__vault__account_info_impl(port, ptr, rust_vec_len, data_len),
-        2 => wire__crate__api__sync__approve_device_impl(port, ptr, rust_vec_len, data_len),
-        3 => wire__crate__api__sync__audit_events_impl(port, ptr, rust_vec_len, data_len),
-        4 => wire__crate__api__vault__audit_local_impl(port, ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__vault__canonical_recovery_code_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__vault__category_tree_impl(port, ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__cloud_account__change_password_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__vault__change_password_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__vault__check_breaches_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__sync__check_new_device_approved_impl(port, ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__vault__clear_transfer_history_impl(port, ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__cloud_account__complete_registration_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__sync__configure_development_http_impl(port, ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__cloud_account__confirm_enrollment_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__sync__connect_register_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__vault__create_account_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__vault__create_item_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__vault__delete_item_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__sync__delete_remote_account_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__vault__disable_quick_unlock_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__sync__disconnect_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__vault__empty_trash_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__vault__enable_quick_unlock_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__vault__export_backup_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__vault__export_csv_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__conflicts__get_conflict_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__feedback__get_feedback_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__vault__get_setting_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__vault__health_checkup_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__vault__import_backup_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__vault__import_items_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__vault__import_items_with_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__vault__import_preview_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__logging__init_logging_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__browser__list_browser_clients_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__conflicts__list_conflicts_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__sync__list_devices_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__feedback__list_feedback_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__vault__list_items_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__vault__list_trash_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__vault__lock_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__logging__log_event_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__sync__login_existing_impl(port, ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__cloud_account__logout_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__vault__match_items_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__feedback__new_feedback_id_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__vault__open_vault_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__cloud_account__pending_enrollment_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__cloud_account__pending_operation_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__sync__ping_server_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__cloud_account__prepare_registration_impl(port, ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__vault__purge_item_impl(port, ptr, rust_vec_len, data_len),
-        61 => wire__crate__api__cloud_account__reconnect_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__sync__reconnect_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__cloud_account__recover_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__sync__recover_from_server_impl(port, ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__vault__recover_local_impl(port, ptr, rust_vec_len, data_len),
-        66 => wire__crate__api__conflicts__refresh_conflict_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__browser__register_native_host_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__api__sync__remote_status_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__browser__remove_browser_client_impl(port, ptr, rust_vec_len, data_len),
-        70 => wire__crate__api__conflicts__resolve_conflict_impl(port, ptr, rust_vec_len, data_len),
-        71 => wire__crate__api__browser__respond_pairing_impl(port, ptr, rust_vec_len, data_len),
-        72 => wire__crate__api__vault__restore_item_impl(port, ptr, rust_vec_len, data_len),
-        73 => wire__crate__api__sync__revoke_device_impl(port, ptr, rust_vec_len, data_len),
-        75 => wire__crate__api__vault__set_setting_impl(port, ptr, rust_vec_len, data_len),
-        76 => wire__crate__api__browser__start_browser_bridge_impl(port, ptr, rust_vec_len, data_len),
-        77 => wire__crate__api__vault__status_impl(port, ptr, rust_vec_len, data_len),
-        78 => wire__crate__api__browser__stop_browser_bridge_impl(port, ptr, rust_vec_len, data_len),
-        79 => wire__crate__api__feedback__submit_feedback_impl(port, ptr, rust_vec_len, data_len),
-        80 => wire__crate__api__sync__sync_now_impl(port, ptr, rust_vec_len, data_len),
-        81 => wire__crate__api__vault__taxonomy_clear_category_impl(port, ptr, rust_vec_len, data_len),
-        82 => wire__crate__api__vault__taxonomy_delete_tag_impl(port, ptr, rust_vec_len, data_len),
-        83 => wire__crate__api__vault__taxonomy_rename_category_impl(port, ptr, rust_vec_len, data_len),
-        84 => wire__crate__api__vault__taxonomy_rename_tag_impl(port, ptr, rust_vec_len, data_len),
-        86 => wire__crate__api__vault__transfer_history_impl(port, ptr, rust_vec_len, data_len),
-        87 => wire__crate__api__vault__unlock_impl(port, ptr, rust_vec_len, data_len),
-        88 => wire__crate__api__vault__unlock_with_quick_key_impl(port, ptr, rust_vec_len, data_len),
-        89 => wire__crate__api__vault__update_item_impl(port, ptr, rust_vec_len, data_len),
-        90 => wire__crate__api__vault__verify_master_password_impl(port, ptr, rust_vec_len, data_len),
-        91 => wire__crate__api__sync__verify_new_device_impl(port, ptr, rust_vec_len, data_len),
-        92 => wire__crate__api__vault__verify_secret_key_impl(port, ptr, rust_vec_len, data_len),
-        93 => wire__crate__api__vault__wipe_local_impl(port, ptr, rust_vec_len, data_len),
+        2 => wire__crate__api__sync__account_profile_impl(port, ptr, rust_vec_len, data_len),
+        3 => wire__crate__api__sync__approve_device_impl(port, ptr, rust_vec_len, data_len),
+        4 => wire__crate__api__sync__audit_events_impl(port, ptr, rust_vec_len, data_len),
+        5 => wire__crate__api__vault__audit_local_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__vault__canonical_recovery_code_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__vault__category_tree_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__cloud_account__change_password_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__vault__change_password_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__vault__check_breaches_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__sync__check_new_device_approved_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__vault__clear_transfer_history_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__cloud_account__complete_registration_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__sync__configure_development_http_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__cloud_account__confirm_enrollment_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__sync__connect_register_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__vault__create_account_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__vault__create_item_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__vault__delete_item_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__sync__delete_remote_account_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__vault__disable_quick_unlock_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__sync__disconnect_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__vault__empty_trash_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__vault__enable_quick_unlock_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__vault__export_backup_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__vault__export_csv_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__conflicts__get_conflict_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__feedback__get_feedback_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__vault__get_setting_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__vault__health_checkup_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__vault__import_backup_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__vault__import_items_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__vault__import_items_with_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__vault__import_preview_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__logging__init_logging_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__browser__list_browser_clients_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__conflicts__list_conflicts_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__sync__list_devices_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__feedback__list_feedback_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__vault__list_items_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__vault__list_trash_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__vault__lock_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__logging__log_event_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__sync__login_existing_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__cloud_account__logout_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__vault__match_items_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__feedback__new_feedback_id_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__vault__open_vault_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__cloud_account__pending_enrollment_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__cloud_account__pending_operation_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__sync__ping_server_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__cloud_account__prepare_registration_impl(port, ptr, rust_vec_len, data_len),
+        61 => wire__crate__api__vault__purge_item_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__cloud_account__reconnect_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__sync__reconnect_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__cloud_account__recover_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__sync__recover_from_server_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__vault__recover_local_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__conflicts__refresh_conflict_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__browser__register_native_host_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__sync__remote_status_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__browser__remove_browser_client_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__conflicts__resolve_conflict_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__browser__respond_pairing_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__vault__restore_item_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__sync__revoke_device_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__vault__set_setting_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__browser__start_browser_bridge_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__vault__status_impl(port, ptr, rust_vec_len, data_len),
+        79 => wire__crate__api__browser__stop_browser_bridge_impl(port, ptr, rust_vec_len, data_len),
+        80 => wire__crate__api__feedback__submit_feedback_impl(port, ptr, rust_vec_len, data_len),
+        81 => wire__crate__api__sync__sync_now_impl(port, ptr, rust_vec_len, data_len),
+        82 => wire__crate__api__vault__taxonomy_clear_category_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__vault__taxonomy_delete_tag_impl(port, ptr, rust_vec_len, data_len),
+        84 => wire__crate__api__vault__taxonomy_rename_category_impl(port, ptr, rust_vec_len, data_len),
+        85 => wire__crate__api__vault__taxonomy_rename_tag_impl(port, ptr, rust_vec_len, data_len),
+        87 => wire__crate__api__vault__transfer_history_impl(port, ptr, rust_vec_len, data_len),
+        88 => wire__crate__api__vault__unlock_impl(port, ptr, rust_vec_len, data_len),
+        89 => wire__crate__api__vault__unlock_with_quick_key_impl(port, ptr, rust_vec_len, data_len),
+        90 => wire__crate__api__sync__update_account_profile_impl(port, ptr, rust_vec_len, data_len),
+        91 => wire__crate__api__vault__update_item_impl(port, ptr, rust_vec_len, data_len),
+        92 => wire__crate__api__vault__verify_master_password_impl(port, ptr, rust_vec_len, data_len),
+        93 => wire__crate__api__sync__verify_new_device_impl(port, ptr, rust_vec_len, data_len),
+        94 => wire__crate__api__vault__verify_secret_key_impl(port, ptr, rust_vec_len, data_len),
+        95 => wire__crate__api__vault__wipe_local_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -3070,15 +3140,15 @@ fn pde_ffi_dispatcher_sync_impl(
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        12 => wire__crate__api__clipboard__clipboard_clear_if_unchanged_impl(ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__clipboard__clipboard_copy_sensitive_impl(ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__tools__generate_passphrase_impl(ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__tools__generate_password_impl(ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__screenshot__is_supported_impl(ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__tools__parse_totp_impl(ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__tools__password_strength_impl(ptr, rust_vec_len, data_len),
-        74 => wire__crate__api__screenshot__set_protection_impl(ptr, rust_vec_len, data_len),
-        85 => wire__crate__api__tools__totp_code_impl(ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__clipboard__clipboard_clear_if_unchanged_impl(ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__clipboard__clipboard_copy_sensitive_impl(ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__tools__generate_passphrase_impl(ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__tools__generate_password_impl(ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__screenshot__is_supported_impl(ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__tools__parse_totp_impl(ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__tools__password_strength_impl(ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__screenshot__set_protection_impl(ptr, rust_vec_len, data_len),
+        86 => wire__crate__api__tools__totp_code_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -3101,6 +3171,24 @@ impl flutter_rust_bridge::IntoDart for crate::api::vault::AccountInfo {
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::vault::AccountInfo {}
 impl flutter_rust_bridge::IntoIntoDart<crate::api::vault::AccountInfo> for crate::api::vault::AccountInfo {
     fn into_into_dart(self) -> crate::api::vault::AccountInfo {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::sync::AccountProfileDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.nickname.into_into_dart().into_dart(),
+            self.avatar.into_into_dart().into_dart(),
+            self.created_at.into_into_dart().into_dart(),
+            self.online.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::sync::AccountProfileDto {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::sync::AccountProfileDto> for crate::api::sync::AccountProfileDto {
+    fn into_into_dart(self) -> crate::api::sync::AccountProfileDto {
         self
     }
 }
@@ -3421,6 +3509,16 @@ impl SseEncode for crate::api::vault::AccountInfo {
         <String>::sse_encode(self.kdf_summary, serializer);
         <u64>::sse_encode(self.pending_changes, serializer);
         <u64>::sse_encode(self.item_count, serializer);
+    }
+}
+
+impl SseEncode for crate::api::sync::AccountProfileDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.nickname, serializer);
+        <String>::sse_encode(self.avatar, serializer);
+        <i64>::sse_encode(self.created_at, serializer);
+        <bool>::sse_encode(self.online, serializer);
     }
 }
 

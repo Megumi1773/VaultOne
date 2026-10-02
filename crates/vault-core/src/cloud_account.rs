@@ -329,7 +329,8 @@ impl Vault {
                 }
                 remote = remote_record(&op.server, &op.device, &finish.session, &op.candidate, &key)?;
                 api = ApiClient::new(&op.server)?.with_token(Zeroizing::new(finish.session.token));
-                AccountResponse { email, keys }
+                // 换绑只关心邮箱与密钥材料；资料字段随后由 `/v1/account` 刷新（或留空）。
+                AccountResponse { email, keys, nickname: String::new(), avatar: String::new(), created_at: 0 }
             }
             Err(error) => return Err(error),
         };

@@ -6,6 +6,16 @@ import '../l10n/strings.dart';
 /// `updated` 是按「覆盖」策略改写掉的现有条目数——它改变了既有数据，必须单独展示。
 typedef ImportSummary = ({String format, int added, int updated, int duplicates, int skipped});
 
+/// 账户资料（§8.1）。`online` 为 false 表示本次没连上服务端，展示的是本机缓存。
+typedef AccountProfile = ({String nickname, String avatar, int createdAt, bool online});
+
+AccountProfile accountProfileFromJson(Map<String, dynamic> j) => (
+      nickname: j['nickname'] as String? ?? '',
+      avatar: j['avatar'] as String? ?? '',
+      createdAt: (j['createdAt'] as num?)?.toInt() ?? 0,
+      online: j['online'] == true,
+    );
+
 /// 导入 / 导出历史的一条记录（计划书 §3.7）。本机记录、以 Vault Key 密封、不参与同步。
 typedef TransferRecord = ({
   int at,

@@ -151,3 +151,38 @@ pub fn recover_from_server(
 ) -> BridgeResult<EnrollmentDto> {
     with_vault(|v| v.recover_from_server(&server_url, &email, &recovery_code, &secret_key, &new_password, &device_name).map(Into::into))
 }
+
+// ───────── 账户资料（§8.1 / §8.2）─────────
+
+/// 账户资料。`online` 表示本次是否成功从服务端刷新；失败时返回的是本机缓存。
+#[derive(Debug, Clone)]
+pub struct AccountProfileDto {
+    pub nickname: String,
+    pub avatar: String,
+    pub created_at: i64,
+    pub online: bool,
+}
+
+/// 读取账户资料（§8.1）。**联网失败不报错**，回退到本机缓存并置 `online=false` ——
+/// 账户总览在离线时也该有东西可显示，这正是本地优先的意思。
+pub fn account_profile() -> BridgeResult<AccountProfileDto> {
+    with_vault(|v| {
+        let cached = v.cached_profile()?;
+        match v.fetch_profile() {
+            Ok(p) => Ok(AccountProfileDto { nickname: p.nickname, avatar: p.avatar, created_at: p.created_at, online: true }),
+            Err(e) => {
+                tracing::debug!(target: "bridge", error = %e, "account profile fetch failed; serving cache");
+                let p = cached.unwrap_or_default();
+                Ok(AccountProfileDto { nickname: p.nickname, avatar: p.avatar, created_at: p.created_at, online: false })
+            }
+        }
+    })
+}
+
+/// 更新账户资料（§8.2）。需要联网；成功后服务端返回的值即为新值。
+pub fn update_account_profile(nickname: String, avatar: String) -> BridgeResult<AccountProfileDto> {
+    with_vault(|v| {
+        let p = v.update_profile(&nickname, &avatar)?;
+        Ok(AccountProfileDto { nickname: p.nickname, avatar: p.avatar, created_at: p.created_at, online: true })
+    })
+}

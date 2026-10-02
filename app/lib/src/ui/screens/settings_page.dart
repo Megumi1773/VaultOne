@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
@@ -21,7 +22,7 @@ import '../widgets/vault_widgets.dart';
 import 'backup_dialog.dart';
 import 'conflicts_page.dart';
 import 'feedback_page.dart';
-import 'item_detail.dart' show confirmDialog;
+import 'item_detail.dart' show confirmDialog, formatTime;
 import 'import_dialog.dart';
 import 'sidebar_layout.dart';
 import 'taxonomy_dialog.dart';
@@ -377,8 +378,30 @@ class _MasterPasswordDialogState extends State<_MasterPasswordDialog> {
 
 // ───────────────────────── 账户 ─────────────────────────
 
-class _AccountSection extends StatelessWidget {
+class _AccountSection extends StatefulWidget {
   const _AccountSection();
+
+  @override
+  State<_AccountSection> createState() => _AccountSectionState();
+}
+
+class _AccountSectionState extends State<_AccountSection> {
+  @override
+  void initState() {
+    super.initState();
+    // 进账户页时拉一次资料。**离线不报错**：内核会回退到本机缓存并置 online=false。
+    // 其他错误（未解锁、桥不可用）也在这里兜住——资料只是展示信息，拉不到不该让整个账户页渲染失败。
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_loadProfile()));
+  }
+
+  Future<void> _loadProfile() async {
+    if (!mounted) return;
+    try {
+      await AppScope.of(context).refreshProfile();
+    } catch (e) {
+      VaultApi.log('profile refresh failed: ${e is CoreException ? e.code : e.runtimeType}', level: 'warn');
+    }
+  }
 
   /// 查看 Secret Key 是敏感操作：先在备份对话框里用「重输 Secret Key + 恢复码」做字节级核对，
   /// 核对通过后才能查看或重新导出恢复材料。仅凭主密码即可查看会让未锁定的设备成为旁路。
@@ -393,7 +416,25 @@ class _AccountSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final a = state.account;
+    final p = state.profile;
     return _Section(title: context.tr(AppStrings.sectionAccount), children: [
+      // 资料行（§8.1）：昵称 + 头像地址。离线时展示本机缓存并明确标注。
+      _Row(
+        title: (p?.nickname.isNotEmpty ?? false) ? p!.nickname : context.tr(AppStrings.profileNoNickname),
+        subtitle: p == null
+            ? context.tr(AppStrings.profileNickname)
+            : '${context.tr(AppStrings.profileNickname)}'
+                '${p.online ? '' : ' · ${context.tr(AppStrings.profileOffline)}'}'
+                '${p.createdAt > 0 ? ' · ${context.trf(AppStrings.profileCreatedAt, {'time': formatTime(p.createdAt)})}' : ''}',
+        trailing: ZoButton(
+          label: context.tr(AppStrings.profileEdit),
+          dense: true,
+          variant: ZoButtonVariant.secondary,
+          onPressed: () => _editProfile(context),
+        ),
+      ),
+      if (p != null && p.avatar.isNotEmpty)
+        _Row(title: context.tr(AppStrings.profileAvatar), subtitle: p.avatar),
       _Row(title: a?.email ?? AppStrings.placeholder, subtitle: context.trf(AppStrings.accountIdLabel, {'id': a?.accountId ?? AppStrings.placeholder})),
       _Row(
         title: context.tr(AppStrings.keyDerivation),
@@ -412,6 +453,86 @@ class _AccountSection extends StatelessWidget {
       ),
     ]);
   }
+
+  /// 编辑资料（§8.2）。昵称与头像地址都是**全量替换**，与线协议一致。
+  Future<void> _editProfile(BuildContext context) async {
+    final state = AppScope.of(context);
+    final epoch = state.sessionEpoch;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => _ProfileDialog(
+        nickname: state.profile?.nickname ?? '',
+        avatar: state.profile?.avatar ?? '',
+        save: state.updateProfile,
+      ),
+    );
+    if (saved == true && context.mounted && state.isCurrentSession(epoch)) {
+      showZoMessage(context, context.tr(AppStrings.profileSaved));
+    }
+  }
+}
+
+/// 资料编辑对话框。校验规则**只在服务端**（`WireValidation.profile`）：这里只做长度提示，
+/// 不另写一份「昵称合法性」，否则两份规则迟早对不上。
+class _ProfileDialog extends StatefulWidget {
+  const _ProfileDialog({required this.nickname, required this.avatar, required this.save});
+
+  final String nickname;
+  final String avatar;
+  final Future<AccountProfile> Function({required String nickname, required String avatar}) save;
+
+  @override
+  State<_ProfileDialog> createState() => _ProfileDialogState();
+}
+
+class _ProfileDialogState extends State<_ProfileDialog> {
+  late final TextEditingController _nickname = TextEditingController(text: widget.nickname);
+  late final TextEditingController _avatar = TextEditingController(text: widget.avatar);
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _nickname.dispose();
+    _avatar.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() => _busy = true);
+    try {
+      await widget.save(nickname: _nickname.text.trim(), avatar: _avatar.text.trim());
+      if (mounted) Navigator.pop(context, true);
+    } on CoreException catch (e) {
+      if (mounted) showZoMessage(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(context.tr(AppStrings.profileEdit)),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ZoTextField(controller: _nickname, hint: context.tr(AppStrings.profileNickname)),
+              const SizedBox(height: 6),
+              Text(context.tr(AppStrings.profileNicknameHint), style: context.text.labelSmall),
+              const SizedBox(height: 14),
+              ZoTextField(controller: _avatar, hint: context.tr(AppStrings.profileAvatar)),
+              const SizedBox(height: 6),
+              Text(context.tr(AppStrings.profileAvatarHint), style: context.text.labelSmall),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: _busy ? null : () => Navigator.pop(context), child: Text(context.tr(AppStrings.cancel))),
+          FilledButton(onPressed: _busy ? null : _submit, child: Text(context.tr(AppStrings.save))),
+        ],
+      );
 }
 
 /// 密钥与备份：本机备份状态 + 重新导出恢复套件 / 备份卡入口。

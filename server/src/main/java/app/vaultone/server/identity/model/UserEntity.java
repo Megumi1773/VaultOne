@@ -74,6 +74,18 @@ public class UserEntity implements Persistable<String> {
   @Column(name = "session_epoch", nullable = false)
   private long sessionEpoch;
 
+  /** 昵称（计划书 §8.2）。空串表示未设置；只用于界面显示，不参与认证。 */
+  @Column(name = "nickname", nullable = false)
+  @NotAudited
+  private String nickname = "";
+
+  /**
+   * 头像地址（计划书 §8.1 / §8.2）。存**地址**而不是图片本身：本部署没有对象存储， 且本实体是 @Audited，内联 base64 会被复制进每一版修订记录。空串表示未设置。
+   */
+  @Column(name = "avatar", nullable = false)
+  @NotAudited
+  private String avatar = "";
+
   @Column(name = "created_at", nullable = false)
   @NotAudited
   private String createdAt;
@@ -218,6 +230,25 @@ public class UserEntity implements Persistable<String> {
 
   public long getSessionEpoch() {
     return sessionEpoch;
+  }
+
+  public String getNickname() {
+    return nickname;
+  }
+
+  public String getAvatar() {
+    return avatar;
+  }
+
+  /**
+   * 更新资料（昵称 / 头像地址）。只动这两个字段，不碰密钥材料、不推进 session_epoch —— 改昵称不该把其他设备踢下线。
+   *
+   * <p>值已在服务层校验（长度、字符、地址形态）；这里只做落库与 updated_at 推进。
+   */
+  public void updateProfile(String nickname, String avatar, Instant now) {
+    this.nickname = nickname;
+    this.avatar = avatar;
+    this.updatedAt = InstantText.format(now);
   }
 
   public Instant getCreatedAt() {

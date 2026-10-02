@@ -77,7 +77,17 @@ abstract final class VaultApi {
   static Future<void> initLogging(String dir, {bool verbose = false}) =>
       guard(() => rlog.initLogging(logDir: dir, verbose: verbose));
 
-  static void log(String message, {String level = 'info'}) => rlog.logEvent(level: level, message: message);
+  /// 写一条日志。
+  ///
+  /// **日志失败一律吞掉**：调用点经常在 `catch` 里，如果写日志自己再抛异常，原始错误会被
+  /// 后一个异常盖掉，排查时看到的就是一个完全无关的报错。日志是诊断手段，不是业务逻辑。
+  static void log(String message, {String level = 'info'}) {
+    try {
+      rlog.logEvent(level: level, message: message);
+    } catch (_) {
+      // 桥未初始化或日志系统不可用时无路可写，只能放弃这条日志。
+    }
+  }
 
   static Future<void> open(String path) => guard(() => rvault.openVault(path: path));
 
@@ -279,6 +289,20 @@ abstract final class VaultApi {
       });
 
   static Future<void> clearTransferHistory() => _session(rvault.clearTransferHistory);
+
+  // ---------- 账户资料（§8.1 / §8.2）----------
+
+  /// 读取账户资料。**离线不报错**：返回本机缓存并置 `online=false`。
+  static Future<AccountProfile> accountProfile() => _session(() async {
+        final p = await rsync.accountProfile();
+        return (nickname: p.nickname, avatar: p.avatar, createdAt: p.createdAt, online: p.online);
+      });
+
+  /// 更新账户资料（昵称 / 头像地址）。需要联网。
+  static Future<AccountProfile> updateAccountProfile(String nickname, String avatar) => _session(() async {
+        final p = await rsync.updateAccountProfile(nickname: nickname, avatar: avatar);
+        return (nickname: p.nickname, avatar: p.avatar, createdAt: p.createdAt, online: p.online);
+      });
 
   // ---------- 本机冲突裁决 ----------
 

@@ -5,6 +5,7 @@ import app.vaultone.server.crypto.ServerKeys;
 import app.vaultone.server.proto.AccountResponse;
 import app.vaultone.server.proto.ChangeCredentialsRequest;
 import app.vaultone.server.proto.ChangeCredentialsResponse;
+import app.vaultone.server.proto.UpdateProfileRequest;
 import app.vaultone.server.security.Approved;
 import app.vaultone.server.web.OkResponse;
 import app.vaultone.server.web.RequestIds;
@@ -37,6 +38,14 @@ public class AccountController {
   public ChangeCredentialsResponse changeCredentials(
       Approved approved, @RequestBody ChangeCredentialsRequest req, HttpServletRequest request) {
     return account.changeCredentials(
+        approved, req, RequestIds.clientIpHash(keys, request), RequestIds.currentRequestId());
+  }
+
+  /** 更新账户资料（昵称 / 头像地址，计划书 §8.2）。返回更新后的完整账户信息。 */
+  @PutMapping("/profile")
+  public AccountResponse updateProfile(
+      Approved approved, @RequestBody UpdateProfileRequest req, HttpServletRequest request) {
+    return account.updateProfile(
         approved, req, RequestIds.clientIpHash(keys, request), RequestIds.currentRequestId());
   }
 

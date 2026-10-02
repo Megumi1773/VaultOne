@@ -388,7 +388,7 @@ public class IdentityService {
       app.vaultone.server.proto.RecoveryFetchRequest req, byte[] ipHash) {
     RecoveryPersistence.RecoverySnapshot snapshot =
         recoveryPersistence.verify(req.email(), req.recoveryAuth().toByteArray(), keys, ipHash);
-    return new app.vaultone.server.proto.AccountResponse(
+    return app.vaultone.server.proto.AccountResponse.keysOnly(
         ServerKeys.normalizeEmail(req.email()), snapshot.keys());
   }
 

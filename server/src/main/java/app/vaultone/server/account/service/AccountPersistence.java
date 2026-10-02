@@ -78,6 +78,22 @@ public class AccountPersistence {
     return newGen;
   }
 
+  /**
+   * 更新账户资料（计划书 §8.2）。锁账户 → 校验 → 落库，返回更新后的实体。
+   *
+   * <p>**不推进 session_epoch、不撤设备**：改昵称不该把其他设备踢下线。资料字段也不进审计修订表 （users_aud 是白名单）。
+   */
+  @Transactional
+  public AccountView updateProfile(Approved approved, String nickname, String avatar) {
+    AccountGuard.Principal principal = guard.lock(approved.ref());
+    UserEntity user = principal.user();
+    WireValidation.profile(nickname, avatar);
+    user.updateProfile(nickname.trim(), avatar.trim(), Instant.now());
+    // 与 view() 同一形状：调用方要回完整的账户响应，不该再去读一次密钥材料。
+    return new AccountView(
+        user, keysMapper.toKeys(user), new DeviceEpoch(principal.device().getEpoch()));
+  }
+
   /** 注销读取（锁账户）；调用方在同一事务内删除。 */
   @Transactional
   public UserEntity lockUser(Approved approved) {

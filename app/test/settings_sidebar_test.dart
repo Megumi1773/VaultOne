@@ -1,3 +1,4 @@
+import 'package:vaultone/src/rust/api/sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vaultone/src/rust/frb_generated.dart';
@@ -20,6 +21,14 @@ class _Bridge implements RustLibApi {
   }
 
   /// 未用到的 FRB 方法走默认实现，这样测试只声明它真正需要的那两个。
+  // 设置页进入账户分区时会后台拉一次资料；这两个方法在生产路径上会被调用，测试里给出空实现。
+  @override
+  Future<AccountProfileDto> crateApiSyncAccountProfile() async =>
+      const AccountProfileDto(nickname: '', avatar: '', createdAt: 0, online: false);
+
+  @override
+  Future<void> crateApiLoggingLogEvent({required String level, required String message}) async {}
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

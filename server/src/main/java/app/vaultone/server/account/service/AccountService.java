@@ -11,6 +11,7 @@ import app.vaultone.server.identity.model.UserEntity;
 import app.vaultone.server.proto.AccountResponse;
 import app.vaultone.server.proto.ChangeCredentialsRequest;
 import app.vaultone.server.proto.ChangeCredentialsResponse;
+import app.vaultone.server.proto.UpdateProfileRequest;
 import app.vaultone.server.security.Approved;
 import app.vaultone.server.security.SessionStore;
 import java.util.List;
@@ -54,7 +55,31 @@ public class AccountService {
   @Transactional
   public AccountResponse getAccount(Approved approved) {
     var view = persistence.view(approved);
-    return new AccountResponse(serverKeys.decryptEmail(view.user().getEmailEnc()), view.keys());
+    return toResponse(view);
+  }
+
+  /** 更新账户资料（计划书 §8.2）：昵称与头像地址。成功审计同事务，敏感等级低。 */
+  @Transactional
+  public AccountResponse updateProfile(
+      Approved approved, UpdateProfileRequest req, byte[] ipHash, String requestId) {
+    var view = persistence.updateProfile(approved, req.nickname(), req.avatar());
+    audit.record(
+        approved.userId(),
+        approved.deviceId(),
+        AuditEvents.PROFILE_UPDATED,
+        AuditService.SUCCESS,
+        requestId,
+        ipHash);
+    return toResponse(view);
+  }
+
+  private AccountResponse toResponse(AccountPersistence.AccountView view) {
+    return new AccountResponse(
+        serverKeys.decryptEmail(view.user().getEmailEnc()),
+        view.keys(),
+        view.user().getNickname(),
+        view.user().getAvatar(),
+        view.user().getCreatedAt().getEpochSecond());
   }
 
   /** 变更主密码：账户行悲观锁 + vk_gen 条件更新；成功审计同事务。 */

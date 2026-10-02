@@ -1225,6 +1225,27 @@ mod tests {
         assert!(matches!(v.clear_transfer_history(), Err(VaultError::Locked)));
     }
 
+    /// 账户资料的本机缓存（计划书 §8.1）。离线时账户总览也要有东西可显示，所以缓存不是可选项。
+    #[test]
+    fn profile_cache_roundtrips_and_is_sealed() {
+        use vault_proto::AccountProfile;
+        let (mut v, _) = new_vault();
+        assert!(v.cached_profile().unwrap().is_none(), "一开始没有缓存");
+
+        let profile = AccountProfile { nickname: "阿澈".into(), avatar: "https://e.com/a.png".into(), created_at: 1700000000 };
+        v.cache_profile(&profile).unwrap();
+        assert_eq!(v.cached_profile().unwrap(), Some(profile.clone()));
+
+        // 明文不能落在设置表里。
+        let stored = v.get_setting("sealed:account_profile").unwrap().unwrap();
+        assert!(!stored.contains("阿澈"), "资料缓存必须以 Vault Key 密封存放");
+        assert!(v.get_setting("account_profile").unwrap().is_none(), "不该有明文键");
+
+        // 锁定时读不出来（密封），与历史一致。
+        v.lock();
+        assert!(matches!(v.cached_profile(), Err(VaultError::Locked)));
+    }
+
     /// 动态字段类型在保存路径上的行为（计划书 §3.1）。
     #[test]
     fn custom_field_kinds_are_validated_and_normalized_on_save() {

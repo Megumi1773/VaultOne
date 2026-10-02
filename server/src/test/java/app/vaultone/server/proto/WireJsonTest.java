@@ -317,4 +317,50 @@ class WireJsonTest {
             () -> MAPPER.readValue("{\"email\":\"a@b.c\"} trailing", LoginStartRequest.class))
         .isInstanceOf(RuntimeException.class);
   }
+
+  // ── 账户资料（§8.1 / §8.2）──
+
+  @Test
+  void accountResponseCarriesProfileFieldsInSnakeCase() {
+    AccountResponse r =
+        new AccountResponse("a@b.c", keys(), "阿澈", "https://example.com/a.png", 1700000000L);
+    String json = MAPPER.writeValueAsString(r);
+    assertThat(json)
+        .contains("\"nickname\":\"阿澈\"")
+        .contains("\"avatar\":\"https://example.com/a.png\"")
+        .contains("\"created_at\":1700000000");
+    // 昵称与头像不进日志整行输出。
+    assertThat(r.toString()).doesNotContain("阿澈").doesNotContain("example.com");
+  }
+
+  @Test
+  void accountResponseToleratesMissingProfileFields() {
+    // 恢复流程用 keysOnly：资料字段为空、created_at 为 0，客户端必须能接受。
+    String json = MAPPER.writeValueAsString(AccountResponse.keysOnly("a@b.c", keys()));
+    assertThat(json).contains("\"nickname\":\"\"").contains("\"avatar\":\"\"");
+    AccountResponse back = MAPPER.readValue(json, AccountResponse.class);
+    assertThat(back.createdAt()).isZero();
+    assertThat(back.nickname()).isEmpty();
+  }
+
+  @Test
+  void updateProfileRequestRequiresBothFields() {
+    UpdateProfileRequest req =
+        MAPPER.readValue("{\"nickname\":\"n\",\"avatar\":\"\"}", UpdateProfileRequest.class);
+    assertThat(req.nickname()).isEqualTo("n");
+    assertThat(req.toString()).contains("<redacted>").doesNotContain("\"n\"");
+    // 缺字段直接拒绝，避免"没传 = 清空"被误当成"没传 = 不改"。
+    assertThatThrownBy(() -> MAPPER.readValue("{\"nickname\":\"n\"}", UpdateProfileRequest.class))
+        .isInstanceOf(RuntimeException.class);
+  }
+
+  private static AccountKeys keys() {
+    return new AccountKeys(
+        "00000000-0000-4000-8000-000000000001",
+        "00000000-0000-4000-8000-000000000002",
+        new KdfParams("argon2id", 19456, 2, 1, "AAAAAAAAAAAAAAAAAAAAAA=="),
+        Bytes.copyOf(new byte[] {1, 2, 3}),
+        1L,
+        Bytes.copyOf(new byte[] {4, 5}));
+  }
 }

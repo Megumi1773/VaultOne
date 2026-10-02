@@ -101,6 +101,47 @@ public final class WireValidation {
     }
   }
 
+  /** 昵称长度上限（字符数）。够长到能写中文名，短到不会变成一句自我介绍。 */
+  public static final int NICKNAME_MAX = 32;
+
+  /** 头像地址长度上限（字符数）。 */
+  public static final int AVATAR_MAX = 512;
+
+  /**
+   * 账户资料（计划书 §8.2）：昵称与头像地址。两者都允许为空串（表示清除）。
+   *
+   * <p>昵称只做长度与控制字符校验——它只用于显示，不参与认证或寻址，所以不限制字符集， 中文、emoji、空格都允许；但**必须去掉首尾空白**，否则 `" "` 会被当成设置了昵称。
+   *
+   * <p>头像只接受 http/https 地址：本部署没有对象存储，内联 base64 会被写进审计修订表。 拒绝 `javascript:`
+   * 之类的伪协议是必须的——这个值最终会被客户端拿去渲染。
+   */
+  public static void profile(String nickname, String avatar) {
+    if (nickname == null || avatar == null) {
+      throw new ValidationException("资料字段不能为 null");
+    }
+    String name = nickname.trim();
+    if (name.codePointCount(0, name.length()) > NICKNAME_MAX) {
+      throw new ValidationException("昵称不能超过 " + NICKNAME_MAX + " 个字符");
+    }
+    if (name.chars().anyMatch(c -> c < 0x20 || c == 0x7f)) {
+      throw new ValidationException("昵称不能包含控制字符");
+    }
+    String url = avatar.trim();
+    if (url.isEmpty()) {
+      return;
+    }
+    if (url.length() > AVATAR_MAX) {
+      throw new ValidationException("头像地址不能超过 " + AVATAR_MAX + " 个字符");
+    }
+    String lower = url.toLowerCase(java.util.Locale.ROOT);
+    if (!lower.startsWith("http://") && !lower.startsWith("https://")) {
+      throw new ValidationException("头像地址必须是 http 或 https 链接");
+    }
+    if (url.chars().anyMatch(c -> c < 0x20 || c == 0x7f)) {
+      throw new ValidationException("头像地址不能包含控制字符");
+    }
+  }
+
   /** 生产 KDF 下限：alg=argon2id，m∈[19456,4194304] KiB，t∈[2,64]，p∈[1,16]，盐解码 ≥16B。 */
   public static void kdf(KdfParams k) {
     if (k == null) {

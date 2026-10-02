@@ -593,6 +593,17 @@ abstract final class AppStrings {
   static const transferBytes = '{n} 字节';
   static const transferCounts = '新增 {added}，覆盖 {updated}，重复 {duplicates}，跳过 {skipped}';
 
+  // ---------- 账户资料（§8.1 / §8.2）----------
+  static const profileEdit = '编辑资料';
+  static const profileNickname = '昵称';
+  static const profileAvatar = '头像地址';
+  static const profileNoNickname = '未设置昵称';
+  static const profileSaved = '资料已更新';
+  static const profileOffline = '离线：显示的是本机缓存';
+  static const profileNicknameHint = '最多 32 个字符，可留空';
+  static const profileAvatarHint = 'http 或 https 链接，可留空';
+  static const profileCreatedAt = '注册时间：{time}';
+
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
   static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
@@ -1477,6 +1488,15 @@ abstract final class AppStrings {
     transferNoSource: '未記錄來源',
     transferBytes: '{n} 位元組',
     transferCounts: '新增 {added}，覆寫 {updated}，重複 {duplicates}，跳過 {skipped}',
+    profileEdit: '編輯資料',
+    profileNickname: '暱稱',
+    profileAvatar: '頭像網址',
+    profileNoNickname: '未設定暱稱',
+    profileSaved: '資料已更新',
+    profileOffline: '離線：顯示的是本機快取',
+    profileNicknameHint: '最多 32 個字元，可留空',
+    profileAvatarHint: 'http 或 https 連結，可留空',
+    profileCreatedAt: '註冊時間：{time}',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2294,6 +2314,15 @@ abstract final class AppStrings {
     transferNoSource: 'No source recorded',
     transferBytes: '{n} bytes',
     transferCounts: '{added} added, {updated} overwritten, {duplicates} duplicates, {skipped} skipped',
+    profileEdit: 'Edit profile',
+    profileNickname: 'Nickname',
+    profileAvatar: 'Avatar URL',
+    profileNoNickname: 'No nickname set',
+    profileSaved: 'Profile updated',
+    profileOffline: 'Offline: showing the local cache',
+    profileNicknameHint: 'Up to 32 characters; may be empty',
+    profileAvatarHint: 'http or https link; may be empty',
+    profileCreatedAt: 'Registered {time}',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',

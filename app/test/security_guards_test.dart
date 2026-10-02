@@ -1,3 +1,4 @@
+import 'package:vaultone/src/rust/api/sync.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -97,6 +98,11 @@ class _Bridge implements RustLibApi {
   Future<void> crateApiSyncPingServer({required String serverUrl}) async { networkCalls++; }
   @override
   Future<void> crateApiSyncConfigureDevelopmentHttp({String? serverUrl}) async {}
+  // 设置页进入账户分区时会后台拉一次资料；该方法在生产路径上会被调用，测试里给出空实现。
+  @override
+  Future<AccountProfileDto> crateApiSyncAccountProfile() async =>
+      const AccountProfileDto(nickname: '', avatar: '', createdAt: 0, online: false);
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

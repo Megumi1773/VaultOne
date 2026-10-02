@@ -10,7 +10,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 import 'vault.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
 
 Future<RemoteStatusDto?> remoteStatus() =>
     RustLib.instance.api.crateApiSyncRemoteStatus();
@@ -102,6 +102,52 @@ Future<EnrollmentDto> recoverFromServer({
   newPassword: newPassword,
   deviceName: deviceName,
 );
+
+/// 读取账户资料（§8.1）。**联网失败不报错**，回退到本机缓存并置 `online=false` ——
+/// 账户总览在离线时也该有东西可显示，这正是本地优先的意思。
+Future<AccountProfileDto> accountProfile() =>
+    RustLib.instance.api.crateApiSyncAccountProfile();
+
+/// 更新账户资料（§8.2）。需要联网；成功后服务端返回的值即为新值。
+Future<AccountProfileDto> updateAccountProfile({
+  required String nickname,
+  required String avatar,
+}) => RustLib.instance.api.crateApiSyncUpdateAccountProfile(
+  nickname: nickname,
+  avatar: avatar,
+);
+
+/// 账户资料。`online` 表示本次是否成功从服务端刷新；失败时返回的是本机缓存。
+class AccountProfileDto {
+  final String nickname;
+  final String avatar;
+  final PlatformInt64 createdAt;
+  final bool online;
+
+  const AccountProfileDto({
+    required this.nickname,
+    required this.avatar,
+    required this.createdAt,
+    required this.online,
+  });
+
+  @override
+  int get hashCode =>
+      nickname.hashCode ^
+      avatar.hashCode ^
+      createdAt.hashCode ^
+      online.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AccountProfileDto &&
+          runtimeType == other.runtimeType &&
+          nickname == other.nickname &&
+          avatar == other.avatar &&
+          createdAt == other.createdAt &&
+          online == other.online;
+}
 
 class AuditEventDto {
   final String event;

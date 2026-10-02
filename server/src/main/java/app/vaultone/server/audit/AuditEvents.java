@@ -18,6 +18,9 @@ public final class AuditEvents {
   public static final String FEEDBACK_CREATED = "feedback_created";
   public static final String FEEDBACK_HANDLED = "feedback_handled";
 
+  /** 账户资料变更（昵称 / 头像）。低敏感：不涉及密钥、设备或凭据。 */
+  public static final String PROFILE_UPDATED = "profile_updated";
+
   private static final Map<String, AuditSeverity> SEVERITIES =
       Map.ofEntries(
           Map.entry(REGISTER, AuditSeverity.MEDIUM),
@@ -32,7 +35,8 @@ public final class AuditEvents {
           Map.entry(LOGOUT, AuditSeverity.LOW),
           Map.entry(ACCOUNT_DELETED, AuditSeverity.HIGH),
           Map.entry(FEEDBACK_CREATED, AuditSeverity.LOW),
-          Map.entry(FEEDBACK_HANDLED, AuditSeverity.MEDIUM));
+          Map.entry(FEEDBACK_HANDLED, AuditSeverity.MEDIUM),
+          Map.entry(PROFILE_UPDATED, AuditSeverity.LOW));
 
   private AuditEvents() {}
 
