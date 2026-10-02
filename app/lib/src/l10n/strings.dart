@@ -463,6 +463,43 @@ abstract final class AppStrings {
   static const reusedPasswords = '重复使用';
   static const breachedPasswords = '已泄露';
   static const twoFactorCoverage = '两步验证';
+
+  // ---------- 安全体检（§5.2）----------
+  static const healthTitle = '安全体检';
+  static const healthScore = '健康分';
+  static const healthCheckedAt = '最近检查：{time}';
+  static const healthExpired = '报告已过期，建议重新体检';
+  static const healthRerun = '重新体检';
+  static const healthDimensionTitle = '维度得分';
+  static const healthDimensionSkipped = '本次跳过';
+  static const healthStatsTitle = '扫描统计';
+  static const healthScanned = '已扫描密码';
+  static const healthPasswordFields = '密码字段';
+  static const healthUnreadable = '不可读条目';
+  static const healthBreachLabel = '泄露检测';
+  static const healthBreachNotRun = '未运行';
+  static const healthBreachOk = '正常';
+  static const healthBreachUnavailable = '不可用';
+  static const healthBreachSkipped = '已跳过';
+  static const healthFindings = '发现项';
+  static const healthNoFindings = '没有发现问题，保持下去。';
+  static const healthSnooze = '忽略 7 天';
+  static const healthSnoozed = '已忽略 {n} 项';
+  static const healthOpenItem = '打开条目';
+  static const healthActionRun = '去运行';
+  static const healthActionEnable = '去开启';
+  static const healthActionGeneral = '打开通用设置';
+  static const healthActionSystem = '打开系统设置';
+  static const healthSeverityLow = '低危';
+  static const healthSeverityMedium = '中危';
+  static const healthSeverityHigh = '高危';
+  static const healthSeverityCritical = '严重风险';
+  static const healthDimBreach = '泄露';
+  static const healthDimReuse = '密码复用';
+  static const healthDimStale = '长期未更新';
+  static const healthDimEnvironment = '设备环境';
+  static const healthDimSettings = '设置项';
+  static const healthDimScore = '扣 {used} / 上限 {cap}';
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
   static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
@@ -1236,6 +1273,41 @@ abstract final class AppStrings {
     reusedPasswords: '重複使用',
     breachedPasswords: '已洩漏',
     twoFactorCoverage: '兩步驗證',
+    healthTitle: '安全體檢',
+    healthScore: '健康分',
+    healthCheckedAt: '最近檢查：{time}',
+    healthExpired: '報告已過期，建議重新體檢',
+    healthRerun: '重新體檢',
+    healthDimensionTitle: '維度得分',
+    healthDimensionSkipped: '本次跳過',
+    healthStatsTitle: '掃描統計',
+    healthScanned: '已掃描密碼',
+    healthPasswordFields: '密碼欄位',
+    healthUnreadable: '不可讀條目',
+    healthBreachLabel: '洩露檢測',
+    healthBreachNotRun: '未執行',
+    healthBreachOk: '正常',
+    healthBreachUnavailable: '無法使用',
+    healthBreachSkipped: '已跳過',
+    healthFindings: '發現項',
+    healthNoFindings: '沒有發現問題，請保持。',
+    healthSnooze: '忽略 7 天',
+    healthSnoozed: '已忽略 {n} 項',
+    healthOpenItem: '開啟條目',
+    healthActionRun: '去執行',
+    healthActionEnable: '去開啟',
+    healthActionGeneral: '開啟一般設定',
+    healthActionSystem: '開啟系統設定',
+    healthSeverityLow: '低危',
+    healthSeverityMedium: '中危',
+    healthSeverityHigh: '高危',
+    healthSeverityCritical: '嚴重風險',
+    healthDimBreach: '洩露',
+    healthDimReuse: '密碼重用',
+    healthDimStale: '長期未更新',
+    healthDimEnvironment: '裝置環境',
+    healthDimSettings: '設定項',
+    healthDimScore: '扣 {used} / 上限 {cap}',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -1942,6 +2014,41 @@ abstract final class AppStrings {
     reusedPasswords: 'Reused',
     breachedPasswords: 'Breached',
     twoFactorCoverage: 'Two-factor',
+    healthTitle: 'Security checkup',
+    healthScore: 'Health score',
+    healthCheckedAt: 'Last checked: {time}',
+    healthExpired: 'Report expired, run the checkup again',
+    healthRerun: 'Run checkup',
+    healthDimensionTitle: 'Dimension scores',
+    healthDimensionSkipped: 'Skipped',
+    healthStatsTitle: 'Scan stats',
+    healthScanned: 'Passwords scanned',
+    healthPasswordFields: 'Password fields',
+    healthUnreadable: 'Unreadable items',
+    healthBreachLabel: 'Breach check',
+    healthBreachNotRun: 'Not run',
+    healthBreachOk: 'OK',
+    healthBreachUnavailable: 'Unavailable',
+    healthBreachSkipped: 'Skipped',
+    healthFindings: 'Findings',
+    healthNoFindings: 'No problems found. Keep it up.',
+    healthSnooze: 'Snooze 7 days',
+    healthSnoozed: '{n} snoozed',
+    healthOpenItem: 'Open item',
+    healthActionRun: 'Run now',
+    healthActionEnable: 'Turn on',
+    healthActionGeneral: 'Open general settings',
+    healthActionSystem: 'Open system settings',
+    healthSeverityLow: 'Low',
+    healthSeverityMedium: 'Medium',
+    healthSeverityHigh: 'High',
+    healthSeverityCritical: 'Critical',
+    healthDimBreach: 'Breach',
+    healthDimReuse: 'Reuse',
+    healthDimStale: 'Outdated',
+    healthDimEnvironment: 'Environment',
+    healthDimSettings: 'Settings',
+    healthDimScore: '-{used} / cap {cap}',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',

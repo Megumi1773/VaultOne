@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/api.dart';
 import '../../core/ffi.dart';
+import '../../core/health_models.dart';
 import '../../l10n/strings.dart';
 import '../../core/models.dart';
 import '../../state/app_state.dart';
@@ -320,8 +324,65 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// 侧栏选中分类节点：切到「全部」分区并筛选该分类（含子分类）。
-  /// 再次点同一节点取消筛选——否则用户没有明显的退出路径。
+  /// 忽略记录在本机设置里的键（非敏感，不同步）。
+  static const String _healthSnoozeKey = 'health_snoozes';
+
+  /// 最近一次泄露检测的结果与状态，随体检一起传入内核。
+  Map<String, int> _breaches = const {};
+  BreachStatus _breachStatus = BreachStatus.notRun;
+
+  /// 安全体检（§5.2）的输入：只取与本体检相关的设置项，由内核的「设置项」维度消费。
+  Map<String, Object?> _healthSettings(AppState state) => {
+        'autoLockMinutes': state.settings.autoLockMinutes,
+        'lockOnExit': !state.settings.lockOnMinimize,
+        'clipboardClearSeconds': state.settings.clipboardSeconds,
+        'biometricsAvailable': state.biometricsAvailable,
+        'biometricsEnabled': state.quickUnlockEnabled,
+        'verboseLogs': state.settings.verboseLogs,
+      };
+
+  /// 跑一次体检。`withBreachCheck` 为真时先做 k-匿名泄露查询（会联网）。
+  ///
+  /// 网络不可用时把状态标成 `unavailable`，内核会**跳过**泄露维度而不是当成
+  /// 「没有泄露」——没查过不能算满分，也不能算失分。
+  Future<HealthReport> _runHealthCheckup({required bool withBreachCheck}) async {
+    final state = AppScope.of(context);
+    var breaches = _breaches;
+    var status = _breachStatus == BreachStatus.skipped ? BreachStatus.skipped : BreachStatus.notRun;
+    if (withBreachCheck) {
+      final ids = [
+        for (final i in state.items)
+          if (i.data.password != null && i.data.password!.isNotEmpty) i.id,
+      ];
+      try {
+        breaches = await VaultApi.checkBreaches(ids);
+        status = BreachStatus.ok;
+      } on CoreException {
+        breaches = const {};
+        status = BreachStatus.unavailable;
+      }
+      _breaches = breaches;
+      _breachStatus = status;
+    }
+    return VaultApi.healthCheckup(
+      breaches: breaches,
+      breachStatus: status,
+      settings: _healthSettings(state),
+    );
+  }
+
+  /// 忽略记录存在本机设置里（非敏感、不同步）：换设备后重新体检即可，不必同步。
+  Future<List<Snooze>> _loadSnoozes() async {
+    final raw = await VaultApi.getSetting(_healthSnoozeKey);
+    if (raw == null || raw.isEmpty) return const [];
+    final list = jsonDecode(raw) as List;
+    return [for (final s in list) Snooze.fromJson((s as Map).cast())];
+  }
+
+  Future<void> _saveSnoozes(List<Snooze> snoozes) =>
+      VaultApi.setSetting(_healthSnoozeKey, jsonEncode([for (final s in snoozes) s.toJson()]));
+
+  /// 侧栏选中分类节点：切到「全部」分区并筛选该分类（含子分类）。  /// 再次点同一节点取消筛选——否则用户没有明显的退出路径。
   void _filterByCategory(String path) => setState(() {
         _categoryFilter = _categoryFilter == path ? null : path;
         if (_categoryFilter != null) {
@@ -446,7 +507,15 @@ class _HomeScreenState extends State<HomeScreen> {
           onSelect: openDetail,
         ),
       _MobileTab.generator => const GeneratorPage(),
-      _MobileTab.security => SecurityPage(onOpenItem: openDetail),
+      _MobileTab.security => SecurityPage(
+          items: state.items,
+          settings: _healthSettings(state),
+          runCheckup: _runHealthCheckup,
+          loadSnoozes: _loadSnoozes,
+          saveSnoozes: _saveSnoozes,
+          onOpenItem: openDetail,
+          onOpenSettings: () => _go(Section.settings),
+        ),
       _MobileTab.settings => const SettingsPage(),
     };
 
@@ -619,10 +688,18 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       content = switch (_section) {
         Section.generator => const GeneratorPage(),
-        Section.security => SecurityPage(onOpenItem: (id) => setState(() {
+        Section.security => SecurityPage(
+            items: state.items,
+            settings: _healthSettings(state),
+            runCheckup: _runHealthCheckup,
+            loadSnoozes: _loadSnoozes,
+            saveSnoozes: _saveSnoozes,
+            onOpenItem: (id) => setState(() {
               _section = Section.all;
               _selectedId = id;
-            })),
+            }),
+            onOpenSettings: () => _go(Section.settings),
+          ),
         _ => const SettingsPage(),
       };
     }
