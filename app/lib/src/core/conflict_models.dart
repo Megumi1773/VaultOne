@@ -19,6 +19,8 @@ enum ConflictField {
   identity,
   customFields,
   favorite,
+  tags,
+  category,
   deleted,
   resolution;
 
@@ -37,12 +39,16 @@ enum ConflictField {
     ConflictField.identity: AppStrings.sectionIdentity,
     ConflictField.customFields: AppStrings.customFields,
     ConflictField.favorite: AppStrings.sectionFavorites,
+    ConflictField.tags: AppStrings.tagLabel,
+    ConflictField.category: AppStrings.sidebarCategories,
     ConflictField.deleted: AppStrings.conflictFieldDeleted,
     ConflictField.resolution: AppStrings.conflictFieldResolution,
   };
 
+  /// 隐藏敏感值只对真正的机密有意义；标签与分类是用户自填的分类信息，不是机密，
+  /// 隐藏它们只会让用户在裁决时看不清差异。
   bool get sensitive => switch (this) {
-    type || title || favorite || deleted || resolution => false,
+    type || title || favorite || tags || category || deleted || resolution => false,
     _ => true,
   };
 }

@@ -189,10 +189,20 @@ class ItemDetail extends StatelessWidget {
                   children: [
                     Text(d.title, style: context.text.headlineMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 6),
-                    Row(children: [
-                      ZoTag(d.kind.title(context), icon: d.kind.icon),
-                      if (inTrash) ...[const SizedBox(width: 6), ZoTag(context.tr(AppStrings.sectionTrash), color: c.danger)],
-                    ]),
+                    // 标签与分类是用户组织的入口，放在类型标签同一行便于一眼看到归属。
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        ZoTag(d.kind.title(context), icon: d.kind.icon),
+                        if (d.category case final category?)
+                          ZoTag(category, icon: Icons.folder_outlined, color: c.accent),
+                        for (final tag in d.tags)
+                          ZoTag(tag, icon: Icons.local_offer_outlined, color: c.accent),
+                        if (inTrash) ZoTag(context.tr(AppStrings.sectionTrash), color: c.danger),
+                      ],
+                    ),
                   ],
                 ),
               ),

@@ -594,3 +594,69 @@ fn serialized_contract_is_explicit_and_roundtrips() {
     assert!(serde_json::from_str::<ConflictResolution>(r#"{"mode":"whole","side":"local","ignored":true}"#).is_err());
     assert!(serde_json::from_str::<FieldDecision>(r#"{"field":"notes","side":"local","ignored":true}"#).is_err());
 }
+
+/// 冲突字段的 wire 名是跨语言契约：Dart 侧 `ConflictField` 用 `values.byName` 解析这些
+/// 字符串，多一个少一个都会在运行期抛异常。这里把清单钉死，改枚举必须同步改 Dart
+/// （对应断言在 `app/test/conflict_field_contract_test.dart`）。
+#[test]
+fn conflict_field_wire_names_are_a_frozen_contract() {
+    const EXPECTED: [&str; 15] = [
+        "type",
+        "title",
+        "urls",
+        "username",
+        "password",
+        "totp",
+        "notes",
+        "card",
+        "identity",
+        "customFields",
+        "favorite",
+        "tags",
+        "category",
+        "deleted",
+        "resolution",
+    ];
+    let actual: Vec<String> = [
+        ConflictField::Type,
+        ConflictField::Title,
+        ConflictField::Urls,
+        ConflictField::Username,
+        ConflictField::Password,
+        ConflictField::Totp,
+        ConflictField::Notes,
+        ConflictField::Card,
+        ConflictField::Identity,
+        ConflictField::CustomFields,
+        ConflictField::Favorite,
+        ConflictField::Tags,
+        ConflictField::Category,
+        ConflictField::Deleted,
+        ConflictField::Resolution,
+    ]
+    .iter()
+    .map(|f| serde_json::to_value(f).unwrap().as_str().unwrap().to_string())
+    .collect();
+    assert_eq!(actual, EXPECTED);
+
+    // 反向：合并器会返回的标签必须都能被 `from_merge` 识别，否则会 panic 在 unreachable。
+    // `deleted` 与 `resolution` 不参与内容合并（前者由墓碑合并单独处理，后者要求整条裁决），
+    // 因此不在 `from_merge` 的可接受集合里。
+    for name in [
+        "type",
+        "title",
+        "urls",
+        "username",
+        "password",
+        "totp",
+        "notes",
+        "card",
+        "identity",
+        "customFields",
+        "favorite",
+        "tags",
+        "category",
+    ] {
+        let _ = ConflictField::from_merge(name);
+    }
+}
