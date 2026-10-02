@@ -392,6 +392,8 @@ impl Vault {
     }
 
     pub fn create_item(&mut self, mut data: ItemData) -> Result<Item> {
+        // 标签与分类在写入前规范化，保证落库与同步的内容形态一致（同一标签不因大小写重复）。
+        data.normalize_taxonomy();
         validate_item(&data)?;
         let id = Uuid::new_v4().to_string();
         let ts = now();
@@ -468,6 +470,7 @@ impl Vault {
 
     /// 更新条目。密码变化时旧密码自动进入 `passwordHistory`。
     pub fn update_item(&mut self, id: &str, mut data: ItemData) -> Result<Item> {
+        data.normalize_taxonomy();
         validate_item(&data)?;
         let row = self.store.get_item(id)?.ok_or(VaultError::ItemNotFound)?;
         if row.deleted_at.is_some() {
@@ -606,6 +609,17 @@ pub(crate) fn validate_item(data: &ItemData) -> Result<()> {
     }
     if data.kind == ItemKind::Card && data.card.is_none() {
         return Err(VaultError::InvalidInput("信用卡条目缺少卡片信息".into()));
+    }
+    if data.tags.len() > crate::item::TAG_LIMIT {
+        return Err(VaultError::InvalidInput(format!("标签数量上限 {}", crate::item::TAG_LIMIT)));
+    }
+    if data.tags.iter().any(|t| t.trim().is_empty() || t.chars().count() > 64) {
+        return Err(VaultError::InvalidInput("标签不能为空或超过 64 字符".into()));
+    }
+    if let Some(c) = &data.category {
+        if c.trim().is_empty() || c.chars().count() > crate::item::CATEGORY_LIMIT {
+            return Err(VaultError::InvalidInput(format!("分类名不能为空或超过 {} 字符", crate::item::CATEGORY_LIMIT)));
+        }
     }
     let size = serde_json::to_vec(data)?.len();
     if size > 256 * 1024 {

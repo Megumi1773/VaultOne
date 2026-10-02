@@ -1,0 +1,21 @@
+[
+  {
+    "file": "app/lib/src/core/models.dart",
+    "replace": [
+      ["    this.customFields = const [],\n    this.passwordHistory = const [],\n    this.favorite = false,\n    this.createdAt = 0,",
+       "    this.customFields = const [],\n    this.passwordHistory = const [],\n    this.favorite = false,\n    this.tags = const [],\n    this.category,\n    this.createdAt = 0,"],
+      ["  final List<PasswordHistoryEntry> passwordHistory;\n  final bool favorite;\n  final int createdAt;",
+       "  final List<PasswordHistoryEntry> passwordHistory;\n  final bool favorite;\n\n  /// 多标签（计划书 §3.6）。内核写入前已做去空白 / 大小写去重 / 限量规范化。\n  final List<String> tags;\n\n  /// 单选分类，null 表示未分类。\n  final String? category;\n  final int createdAt;"],
+      ["        favorite: j['favorite'] == true,\n        createdAt: (j['createdAt'] as num?)?.toInt() ?? 0,",
+       "        favorite: j['favorite'] == true,\n        tags: [for (final t in (j['tags'] as List? ?? const [])) t as String],\n        category: _str(j['category']),\n        createdAt: (j['createdAt'] as num?)?.toInt() ?? 0,"],
+      ["        'favorite': favorite,\n        'createdAt': createdAt,",
+       "        'favorite': favorite,\n        'tags': tags,\n        if (category != null) 'category': category,\n        'createdAt': createdAt,"],
+      ["  ItemData copyWith({bool? favorite, String? password}) => ItemData(",
+       "  ItemData copyWith({bool? favorite, String? password, List<String>? tags, String? category, bool clearCategory = false}) => ItemData("],
+      ["        favorite: favorite ?? this.favorite,\n        createdAt: createdAt,\n        updatedAt: updatedAt,\n      );",
+       "        favorite: favorite ?? this.favorite,\n        tags: tags ?? this.tags,\n        category: clearCategory ? null : (category ?? this.category),\n        createdAt: createdAt,\n        updatedAt: updatedAt,\n      );"],
+      ["        card?.cardholder ?? '',\n        for (final f in customFields)\n          if (!f.sensitive) '${f.label} ${f.value}',\n      ].join(' ').toLowerCase();",
+       "        card?.cardholder ?? '',\n        category ?? '',\n        ...tags,\n        for (final f in customFields)\n          if (!f.sensitive) '${f.label} ${f.value}',\n      ].join(' ').toLowerCase();"]
+    ]
+  }
+]

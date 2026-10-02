@@ -57,6 +57,8 @@ struct Columns {
     favorite: Option<usize>,
     kind: Option<usize>,
     fields: Option<usize>,
+    tags: Option<usize>,
+    category: Option<usize>,
 }
 
 fn find(headers: &[String], aliases: &[&str]) -> Option<usize> {
@@ -99,6 +101,8 @@ pub fn parse_csv(content: &str) -> Result<ImportResult> {
         favorite: find(&headers, &["favorite", "fav"]),
         kind: find(&headers, &["type"]),
         fields: find(&headers, &["fields"]),
+        tags: find(&headers, &["tags", "tag", "labels", "label"]),
+        category: find(&headers, &["category", "folder", "grouping", "group"]),
     };
     if cols.password.is_none() && cols.notes.is_none() {
         return Err(VaultError::InvalidInput("无法识别的 CSV：缺少 password / notes 列".into()));
@@ -142,11 +146,21 @@ pub fn parse_csv(content: &str) -> Result<ImportResult> {
         if let Some(f) = get(cols.fields) {
             data.custom_fields.extend(bitwarden_fields(f));
         }
+        // 标签与分类：与导出保持同一格式（`|` 分隔多标签），格式不一致时按单值处理。
+        if let Some(t) = get(cols.tags) {
+            data.tags = ItemData::normalize_tags(&split_multi(t));
+        }
+        data.category = ItemData::normalize_category(get(cols.category));
         let title = get(cols.title).map(str::to_string).or_else(|| url.and_then(host_of)).or_else(|| username.map(str::to_string));
         finish(&mut data, title);
         items.push(data);
     }
     Ok(ImportResult { format, items, skipped })
+}
+
+/// 拆分多值字段：兼容 `|`、`,` 与 `;` 三种常见分隔符（Bitwarden 用逗号，部分导出用分号）。
+fn split_multi(s: &str) -> Vec<String> {
+    s.split(['|', ',', ';']).map(|p| p.trim().to_string()).filter(|p| !p.is_empty()).collect()
 }
 
 /// Bitwarden 的 `fields` 列：每行 `名称: 值`。

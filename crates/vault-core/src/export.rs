@@ -51,13 +51,16 @@ pub fn restore(vault_key: &Key32, account_id: &str, data: &[u8]) -> Result<Vec<I
     Ok(payload.items)
 }
 
-/// 导出为通用 CSV（明文）。列：name,url,username,password,notes,totp,favorite,type。
+/// 导出为通用 CSV（明文）。列：name,url,username,password,notes,totp,favorite,type,tags,category。
+///
+/// `tags` 以 `|` 分隔（CSV 字段转义会处理其中的逗号场景，但用分隔符更易被电子表格识别为多值）。
 pub fn to_csv(items: &[Item]) -> String {
-    let mut out = String::from("name,url,username,password,notes,totp,favorite,type\n");
+    let mut out = String::from("name,url,username,password,notes,totp,favorite,type,tags,category\n");
     for it in items {
         let d = &it.data;
         let url = d.urls.first().map(|u| u.url.as_str()).unwrap_or("");
         let totp = d.totp.as_ref().map(|t| t.secret.as_str()).unwrap_or("");
+        let tags = d.tags.join("|");
         let row = [
             d.title.as_str(),
             url,
@@ -67,6 +70,8 @@ pub fn to_csv(items: &[Item]) -> String {
             totp,
             if d.favorite { "true" } else { "false" },
             d.kind.as_str(),
+            tags.as_str(),
+            d.category.as_deref().unwrap_or(""),
         ];
         for (i, f) in row.iter().enumerate() {
             if i > 0 {
@@ -134,12 +139,34 @@ mod tests {
         let mut d = ItemData::new(ItemKind::Login, "a,b");
         d.username = Some("quote\"x".into());
         d.notes = Some("line1\nline2".into());
+        d.tags = vec!["工作".into(), "生产".into()];
+        d.category = Some("基础设施".into());
         let item = Item { id: "1".into(), vault_id: "v".into(), revision: 1, data: d };
         let csv = to_csv(&[item]);
         let mut lines = csv.lines();
-        assert_eq!(lines.next().unwrap(), "name,url,username,password,notes,totp,favorite,type");
+        assert_eq!(lines.next().unwrap(), "name,url,username,password,notes,totp,favorite,type,tags,category");
         assert!(csv.contains("\"a,b\""));
         assert!(csv.contains("\"quote\"\"x\""));
         assert!(csv.contains("\"line1\nline2\""));
+        // 多标签以 `|` 连接，分类单独成列。
+        assert!(csv.contains("工作|生产"), "标签应作为一列导出：{csv}");
+        assert!(csv.contains("基础设施"), "分类应作为一列导出：{csv}");
+    }
+
+    /// CSV 往返：导出的标签与分类必须能被导入解析回同样的值。
+    #[test]
+    fn csv_roundtrip_keeps_tags_and_category() {
+        let mut d = ItemData::new(ItemKind::Login, "GitHub");
+        d.username = Some("alice".into());
+        d.password = Some("pw".into());
+        d.tags = vec!["工作".into(), "生产".into()];
+        d.category = Some("基础设施".into());
+        let item = Item { id: "1".into(), vault_id: "v".into(), revision: 1, data: d };
+        let csv = to_csv(&[item]);
+
+        let parsed = crate::import::parse_csv(&csv).unwrap();
+        assert_eq!(parsed.items.len(), 1);
+        assert_eq!(parsed.items[0].tags, vec!["工作", "生产"]);
+        assert_eq!(parsed.items[0].category.as_deref(), Some("基础设施"));
     }
 }

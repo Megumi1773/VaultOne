@@ -37,6 +37,8 @@ pub enum ConflictField {
     Identity,
     CustomFields,
     Favorite,
+    Tags,
+    Category,
     Deleted,
     Resolution,
 }
@@ -55,6 +57,8 @@ impl ConflictField {
             "identity" => Self::Identity,
             "customFields" => Self::CustomFields,
             "favorite" => Self::Favorite,
+            "tags" => Self::Tags,
+            "category" => Self::Category,
             _ => unreachable!("合并器只返回固定字段"),
         }
     }
@@ -332,6 +336,8 @@ impl Vault {
                         ConflictField::Identity => data.identity = source.identity.clone(),
                         ConflictField::CustomFields => data.custom_fields = source.custom_fields.clone(),
                         ConflictField::Favorite => data.favorite = source.favorite,
+                        ConflictField::Tags => data.tags = source.tags.clone(),
+                        ConflictField::Category => data.category = source.category.clone(),
                         ConflictField::Deleted => deleted = tombstone,
                         _ => return Err(VaultError::InvalidInput("该冲突要求整条裁决".into())),
                     }

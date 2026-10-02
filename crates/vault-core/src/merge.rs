@@ -73,6 +73,8 @@ pub fn merge(base: Option<&ItemData>, local: &ItemData, remote: &ItemData) -> Me
     field!(identity, "identity");
     field!(custom_fields, "customFields");
     field!(favorite, "favorite");
+    field!(tags, "tags");
+    field!(category, "category");
 
     // 密码历史：并集去重，按时间倒序截断
     let mut history: Vec<PasswordHistoryEntry> = Vec::new();
@@ -171,6 +173,38 @@ mod tests {
         assert_eq!(m.conflicts, vec!["password"]);
         assert_eq!(m.data.password.as_deref(), Some("pw-local"));
         assert!(m.data.password_history.iter().any(|h| h.p == "pw-remote"));
+    }
+
+    #[test]
+    fn tags_and_category_merge_like_other_fields() {
+        let b = base();
+
+        // 只有本地改了标签：直接采用本地，不算冲突。
+        let mut l = b.clone();
+        l.tags = vec!["工作".into()];
+        l.updated_at = 200;
+        let m = merge(Some(&b), &l, &b);
+        assert!(m.conflicts.is_empty());
+        assert_eq!(m.data.tags, vec!["工作"]);
+
+        // 两端都改标签且取值不同：记为冲突，取较新者。
+        let mut r = b.clone();
+        r.tags = vec!["个人".into()];
+        r.updated_at = 300;
+        let m = merge(Some(&b), &l, &r);
+        assert_eq!(m.conflicts, vec!["tags"]);
+        assert_eq!(m.data.tags, vec!["个人"], "远端更新，应取远端标签");
+
+        // 分类同理，且 None 与 Some 的差异也算改动。
+        let mut l2 = b.clone();
+        l2.category = Some("金融".into());
+        l2.updated_at = 400;
+        let mut r2 = b.clone();
+        r2.category = Some("工作".into());
+        r2.updated_at = 500;
+        let m = merge(Some(&b), &l2, &r2);
+        assert_eq!(m.conflicts, vec!["category"]);
+        assert_eq!(m.data.category.as_deref(), Some("工作"));
     }
 
     #[test]

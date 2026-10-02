@@ -190,6 +190,8 @@ class ItemData {
     this.customFields = const [],
     this.passwordHistory = const [],
     this.favorite = false,
+    this.tags = const [],
+    this.category,
     this.createdAt = 0,
     this.updatedAt = 0,
   });
@@ -206,6 +208,12 @@ class ItemData {
   final List<CustomField> customFields;
   final List<PasswordHistoryEntry> passwordHistory;
   final bool favorite;
+
+  /// 多标签（计划书 §3.6）。内核写入前已做去空白 / 大小写去重 / 限量规范化。
+  final List<String> tags;
+
+  /// 单选分类，null 表示未分类。
+  final String? category;
   final int createdAt;
   final int updatedAt;
 
@@ -222,6 +230,8 @@ class ItemData {
         customFields: [for (final f in (j['customFields'] as List? ?? const [])) CustomField.fromJson((f as Map).cast())],
         passwordHistory: [for (final h in (j['passwordHistory'] as List? ?? const [])) PasswordHistoryEntry.fromJson((h as Map).cast())],
         favorite: j['favorite'] == true,
+        tags: [for (final t in (j['tags'] as List? ?? const [])) t as String],
+        category: _str(j['category']),
         createdAt: (j['createdAt'] as num?)?.toInt() ?? 0,
         updatedAt: (j['updatedAt'] as num?)?.toInt() ?? 0,
       );
@@ -239,11 +249,13 @@ class ItemData {
         'customFields': [for (final f in customFields) f.toJson()],
         'passwordHistory': [for (final h in passwordHistory) h.toJson()],
         'favorite': favorite,
+        'tags': tags,
+        if (category != null) 'category': category,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
       };
 
-  ItemData copyWith({bool? favorite, String? password}) => ItemData(
+  ItemData copyWith({bool? favorite, String? password, List<String>? tags, String? category, bool clearCategory = false}) => ItemData(
         kind: kind,
         title: title,
         urls: urls,
@@ -256,6 +268,8 @@ class ItemData {
         customFields: customFields,
         passwordHistory: passwordHistory,
         favorite: favorite ?? this.favorite,
+        tags: tags ?? this.tags,
+        category: clearCategory ? null : (category ?? this.category),
         createdAt: createdAt,
         updatedAt: updatedAt,
       );
@@ -286,6 +300,8 @@ class ItemData {
         identity?.fullName ?? '',
         identity?.company ?? '',
         card?.cardholder ?? '',
+        category ?? '',
+        ...tags,
         for (final f in customFields)
           if (!f.sensitive) '${f.label} ${f.value}',
       ].join(' ').toLowerCase();
