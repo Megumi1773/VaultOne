@@ -15,3 +15,7 @@ app/android/key.properties
 # 本地工具链与编辑器/代理工作区（不入库）
 .tools/
 .claude/
+
+# 一次性扫描产物与 Python 缓存（tools/ 下的脚本与规则文件仍入库）
+__pycache__/
+tools/_scan_*.txt
