@@ -13,6 +13,7 @@ import 'api/cloud_account.dart';
 import 'api/conflicts.dart';
 import 'api/feedback.dart';
 import 'api/logging.dart';
+import 'api/screenshot.dart';
 import 'api/sync.dart';
 import 'api/tools.dart';
 import 'api/vault.dart';

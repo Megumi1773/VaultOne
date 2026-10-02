@@ -32,6 +32,9 @@ class Settings {
     this.globalHotkey = true,
     this.browserIntegration = true,
     this.sidebarLayout = '',
+    this.lockOnExit = true,
+    this.maskPasswords = true,
+    this.screenshotProtection = false,
   });
 
   final int autoLockMinutes;
@@ -58,6 +61,15 @@ class Settings {
   /// `Section`，由界面用 `resolveSidebarLayout` 解释；解析失败一律回退默认布局。
   final String sidebarLayout;
 
+  /// 关闭窗口即锁定（§5.4）。默认开：隐藏到托盘后保险库仍是解锁状态，等于把锁敞着。
+  final bool lockOnExit;
+
+  /// 详情页默认隐藏密码（§5.4）。默认开；关掉后详情页直接显示明文。
+  final bool maskPasswords;
+
+  /// 截图保护（§8.3）：阻止本应用窗口被截屏 / 录屏捕获。平台不支持时该项无效。
+  final bool screenshotProtection;
+
   Settings copyWith({
     int? autoLockMinutes,
     int? clipboardSeconds,
@@ -70,6 +82,9 @@ class Settings {
     bool? globalHotkey,
     bool? browserIntegration,
     String? sidebarLayout,
+    bool? lockOnExit,
+    bool? maskPasswords,
+    bool? screenshotProtection,
   }) =>
       Settings(
         autoLockMinutes: autoLockMinutes ?? this.autoLockMinutes,
@@ -83,6 +98,9 @@ class Settings {
         globalHotkey: globalHotkey ?? this.globalHotkey,
         browserIntegration: browserIntegration ?? this.browserIntegration,
         sidebarLayout: sidebarLayout ?? this.sidebarLayout,
+        lockOnExit: lockOnExit ?? this.lockOnExit,
+        maskPasswords: maskPasswords ?? this.maskPasswords,
+        screenshotProtection: screenshotProtection ?? this.screenshotProtection,
       );
 }
 
@@ -140,6 +158,17 @@ class AppState extends ChangeNotifier {
   bool hasStoredSecretKey = false;
   bool quickUnlockEnabled = false;
   bool biometricsAvailable = false;
+
+  /// 当前平台是否支持截图保护（§8.3）。启动时探测一次；不支持时设置页禁用该开关。
+  bool screenshotProtectionSupported = false;
+
+  static bool _screenshotSupported() {
+    try {
+      return VaultApi.screenshotProtectionSupported();
+    } catch (_) {
+      return false;
+    }
+  }
 
   List<VaultItem> items = const [];
   List<VaultItem> trash = const [];
@@ -230,6 +259,9 @@ class AppState extends ChangeNotifier {
       await VaultApi.open(dbPath);
       await _loadSettings();
       biometricsAvailable = await _canUseBiometrics();
+      // 平台能力在启动时探测一次并存进状态：设置页在 build 里读它，
+      // 若在那里直接调同步 FFI，任何不初始化桥的测试都会在构建期炸掉。
+      screenshotProtectionSupported = _screenshotSupported();
       await _refreshStatus();
     } catch (e) {
       fatalError = e.toString();
@@ -277,6 +309,10 @@ class AppState extends ChangeNotifier {
       globalHotkey: (await VaultApi.getSetting('global_hotkey')) != '0',
       browserIntegration: (await VaultApi.getSetting('browser_integration')) != '0',
       sidebarLayout: await VaultApi.getSetting('sidebar_layout') ?? '',
+      // 默认值取 `!= '0'` 而不是 `== '1'`：老库里没有这个键时应当落到「开」。
+      lockOnExit: (await VaultApi.getSetting('lock_on_exit')) != '0',
+      maskPasswords: (await VaultApi.getSetting('mask_passwords')) != '0',
+      screenshotProtection: (await VaultApi.getSetting('screenshot_protection')) == '1',
     );
     privacyAccepted = (await VaultApi.getSetting('privacy_consent')) == privacyVersion;
     lastBackupAt = intOr(await VaultApi.getSetting('backup_last_at'), 0);
@@ -800,6 +836,9 @@ class AppState extends ChangeNotifier {
     await VaultApi.setSetting('global_hotkey', s.globalHotkey ? '1' : '0');
     await VaultApi.setSetting('browser_integration', s.browserIntegration ? '1' : '0');
     await VaultApi.setSetting('sidebar_layout', s.sidebarLayout);
+    await VaultApi.setSetting('lock_on_exit', s.lockOnExit ? '1' : '0');
+    await VaultApi.setSetting('mask_passwords', s.maskPasswords ? '1' : '0');
+    await VaultApi.setSetting('screenshot_protection', s.screenshotProtection ? '1' : '0');
   }
 
   // ---------- 浏览器扩展（由 DesktopShell 按设置启停）----------

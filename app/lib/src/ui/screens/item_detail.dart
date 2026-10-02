@@ -331,6 +331,17 @@ class FieldRow extends StatefulWidget {
 
 class _FieldRowState extends State<FieldRow> {
   bool _reveal = false;
+  bool _initialized = false;
+
+  /// 默认是否打码由设置决定（§5.4「隐藏密码（默认开）」）。只在首帧取一次快照：
+  /// 之后跟随用户的点击，中途改设置不应该把用户已经揭开的那一行又盖回去。
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+    _reveal = !AppScope.of(context).settings.maskPasswords;
+  }
 
   @override
   Widget build(BuildContext context) {

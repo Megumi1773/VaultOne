@@ -7,6 +7,7 @@ import '../rust/api/cloud_account.dart' as rcloud;
 import '../rust/api/conflicts.dart' as rconflicts;
 import '../rust/api/feedback.dart' as rfeedback;
 import '../rust/api/logging.dart' as rlog;
+import '../rust/api/screenshot.dart' as rscreenshot;
 import '../rust/api/sync.dart' as rsync;
 import '../rust/api/tools.dart' as rtools;
 import '../rust/api/vault.dart' as rvault;
@@ -374,4 +375,10 @@ abstract final class VaultApi {
   static bool clipboardCopySensitive(String text) => rclip.clipboardCopySensitive(text: text);
 
   static bool clipboardClearIfUnchanged() => rclip.clipboardClearIfUnchanged();
+
+  /// 桌面端：开关截图保护（§8.3）。返回 false 表示平台不支持，界面据此把开关标成不可用。
+  static bool setScreenshotProtection(bool enabled) => rscreenshot.setProtection(enabled: enabled);
+
+  /// 当前平台是否支持截图保护。
+  static bool screenshotProtectionSupported() => rscreenshot.isSupported();
 }

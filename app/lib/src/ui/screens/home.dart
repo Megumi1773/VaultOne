@@ -347,7 +347,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// 安全体检（§5.2）的输入：只取与本体检相关的设置项，由内核的「设置项」维度消费。
   Map<String, Object?> _healthSettings(AppState state) => {
         'autoLockMinutes': state.settings.autoLockMinutes,
-        'lockOnExit': !state.settings.lockOnMinimize,
+        'lockOnExit': state.settings.lockOnExit,
         'clipboardClearSeconds': state.settings.clipboardSeconds,
         'biometricsAvailable': state.biometricsAvailable,
         'biometricsEnabled': state.quickUnlockEnabled,
@@ -1022,7 +1022,8 @@ String _groupLabel(String group) => switch (group) {
       _ => group,
     };
 
-class _NavGroup extends StatelessWidget {  const _NavGroup(this.label);
+class _NavGroup extends StatelessWidget {
+  const _NavGroup(this.label);
 
   final String label;
 

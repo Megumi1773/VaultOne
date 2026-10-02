@@ -138,11 +138,14 @@ Future<String> categoryTree() =>
 Future<List<BreachResult>> checkBreaches({required List<String> itemIds}) =>
     RustLib.instance.api.crateApiVaultCheckBreaches(itemIds: itemIds);
 
-/// 运行一次安全体检，返回报告 JSON（计划书 §5.2）。
+/// 运行一次安全体检，返回 `{ "report": …, "checklist": […] }`（计划书 §5.1 / §5.2）。
 ///
 /// `breaches_json` 为 `{条目 id: 泄露次数}`；`breach_status` 取
 /// `notRun` / `ok` / `unavailable` / `skipped`；`settings_json` 为安全设置快照。
 /// 全部计算在内核完成（`vault_core::health`），界面只负责展示。
+///
+/// 报告与任务清单**一次算完一起返回**：分两次调用会各读一次设置，可能拿到不一致的快照
+/// （例如刚改完自动锁定，报告用旧值、清单用新值）。
 Future<String> healthCheckup({
   required String breachesJson,
   required String breachStatus,

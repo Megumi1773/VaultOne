@@ -34,6 +34,7 @@ class DesktopShell with TrayListener, WindowListener {
   bool? _hotKeyOn;
   bool? _closeToTray;
   bool? _browserOn;
+  bool? _screenshotProtection;
   AppPhase? _phase;
   Object? _pairing;
 
@@ -83,6 +84,16 @@ class DesktopShell with TrayListener, WindowListener {
       } catch (e) {
         // 快捷键已被其他程序占用
         VaultApi.log('hotkey register failed: ${e.runtimeType}', level: 'warn');
+      }
+    }
+    if (_screenshotProtection != s.screenshotProtection) {
+      _screenshotProtection = s.screenshotProtection;
+      try {
+        final ok = VaultApi.setScreenshotProtection(s.screenshotProtection);
+        // 平台不支持时如实记一笔，界面据此把开关标成不可用。
+        if (!ok) VaultApi.log('screenshot protection unsupported on this platform', level: 'warn');
+      } catch (e) {
+        VaultApi.log('screenshot protection failed: ${e.runtimeType}', level: 'warn');
       }
     }
     // 等设置从本地库载入后再启停，避免按默认值先启动一次
@@ -144,6 +155,8 @@ class DesktopShell with TrayListener, WindowListener {
   void onWindowClose() {
     // setPreventClose(true) 时关闭按钮只会触发本回调
     if (state.settings.closeToTray) {
+      // 隐藏到托盘后保险库仍是解锁状态，等于把锁敞着；「退出即锁定」打开时先锁再隐藏。
+      if (state.settings.lockOnExit) state.lock();
       unawaited(windowManager.hide());
     } else {
       unawaited(quit());

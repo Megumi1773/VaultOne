@@ -550,7 +550,7 @@ class _SecuritySection extends StatelessWidget {
           value: s.autoLockMinutes,
           underline: const SizedBox.shrink(),
           items: [
-            for (final m in const [1, 5, 10, 30])
+            for (final m in const [1, 3, 5, 10, 15, 30, 60])
               DropdownMenuItem(value: m, child: Text(context.trf(AppStrings.minutes, {'n': m}))),
             DropdownMenuItem(value: 0, child: Text(context.tr(AppStrings.never))),
           ],
@@ -562,16 +562,53 @@ class _SecuritySection extends StatelessWidget {
         trailing: Switch(value: s.lockOnMinimize, onChanged: (v) => state.updateSettings(s.copyWith(lockOnMinimize: v))),
       ),
       _Row(
+        title: context.tr(AppStrings.lockOnExit),
+        subtitle: context.tr(AppStrings.lockOnExitSubtitle),
+        trailing: Switch(value: s.lockOnExit, onChanged: (v) => state.updateSettings(s.copyWith(lockOnExit: v))),
+      ),
+      _Row(
+        title: context.tr(AppStrings.maskPasswords),
+        subtitle: context.tr(AppStrings.maskPasswordsSubtitle),
+        trailing: Switch(value: s.maskPasswords, onChanged: (v) => state.updateSettings(s.copyWith(maskPasswords: v))),
+      ),
+      _Row(
         title: context.tr(AppStrings.clipboardAutoClear),
-        subtitle: context.tr(AppStrings.clipboardAutoClearSubtitle),
-        trailing: DropdownButton<int>(
-          value: s.clipboardSeconds,
-          underline: const SizedBox.shrink(),
-          items: [
-            for (final n in const [15, 30, 60, 90])
-              DropdownMenuItem(value: n, child: Text(context.trf(AppStrings.seconds, {'n': n}))),
+        // 关掉时显示状态说明而不是「到期清空」，否则文案与开关状态自相矛盾。
+        subtitle: context.tr(s.clipboardSeconds > 0 ? AppStrings.clipboardAutoClearSubtitle : AppStrings.clipboardDisabled),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 开关与延时分两个控件：关掉时延时无意义，直接禁用而不是把 0 混进选项里。
+            Switch(
+              value: s.clipboardSeconds > 0,
+              onChanged: (on) => state.updateSettings(s.copyWith(clipboardSeconds: on ? 30 : 0)),
+            ),
+            const SizedBox(width: 8),
+            DropdownButton<int>(
+              value: s.clipboardSeconds > 0 ? s.clipboardSeconds : 30,
+              underline: const SizedBox.shrink(),
+              items: [
+                for (final n in const [30, 60, 300])
+                  DropdownMenuItem(value: n, child: Text(context.trf(AppStrings.seconds, {'n': n}))),
+              ],
+              onChanged: s.clipboardSeconds > 0
+                  ? (v) => state.updateSettings(s.copyWith(clipboardSeconds: v))
+                  : null,
+            ),
           ],
-          onChanged: (v) => state.updateSettings(s.copyWith(clipboardSeconds: v)),
+        ),
+      ),
+      _Row(
+        title: context.tr(AppStrings.screenshotProtection),
+        subtitle: context.tr(
+          state.screenshotProtectionSupported ? AppStrings.screenshotProtectionSubtitle : AppStrings.screenshotUnsupported,
+        ),
+        trailing: Switch(
+          value: s.screenshotProtection,
+          // 平台不支持时禁用开关，而不是让用户打开一个没有作用的选项。
+          onChanged: !state.screenshotProtectionSupported
+              ? null
+              : (v) => state.updateSettings(s.copyWith(screenshotProtection: v)),
         ),
       ),
     ]);

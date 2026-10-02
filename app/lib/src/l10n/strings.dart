@@ -516,6 +516,16 @@ abstract final class AppStrings {
   static const sidebarShow = '在侧栏显示';
   static const sidebarKeepOne = '至少保留一个分区，否则侧栏会变成空白';
   static const sidebarResetLayout = '恢复默认布局';
+
+  // ---------- 解锁与安全 / 通用设置补全（§5.4 / §8.3）----------
+  static const lockOnExit = '退出即锁定';
+  static const lockOnExitSubtitle = '关闭窗口（隐藏到托盘）时立即锁定保险库。';
+  static const maskPasswords = '默认隐藏密码';
+  static const maskPasswordsSubtitle = '详情页默认以圆点显示密码，需要时再点眼睛查看。';
+  static const screenshotProtection = '截图保护';
+  static const screenshotProtectionSubtitle = '阻止本应用窗口被截屏与录屏捕获。';
+  static const screenshotUnsupported = '当前平台不支持截图保护';
+  static const clipboardDisabled = '不自动清空';
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
   static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
@@ -1336,6 +1346,14 @@ abstract final class AppStrings {
     sidebarShow: '在側欄顯示',
     sidebarKeepOne: '至少保留一個分區，否則側欄會變成空白',
     sidebarResetLayout: '恢復預設版面',
+    lockOnExit: '結束即鎖定',
+    lockOnExitSubtitle: '關閉視窗（隱藏到系統匣）時立即鎖定保險庫。',
+    maskPasswords: '預設隱藏密碼',
+    maskPasswordsSubtitle: '詳情頁預設以圓點顯示密碼，需要時再點眼睛檢視。',
+    screenshotProtection: '截圖保護',
+    screenshotProtectionSubtitle: '阻止本應用程式視窗被截圖與錄影擷取。',
+    screenshotUnsupported: '目前平台不支援截圖保護',
+    clipboardDisabled: '不自動清空',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2089,6 +2107,14 @@ abstract final class AppStrings {
     sidebarShow: 'Show in sidebar',
     sidebarKeepOne: 'Keep at least one section, or the sidebar becomes empty',
     sidebarResetLayout: 'Reset layout',
+    lockOnExit: 'Lock on exit',
+    lockOnExitSubtitle: 'Lock the vault as soon as the window closes (hides to tray).',
+    maskPasswords: 'Hide passwords by default',
+    maskPasswordsSubtitle: 'Show passwords as dots in the detail view; reveal with the eye button.',
+    screenshotProtection: 'Screenshot protection',
+    screenshotProtectionSubtitle: 'Prevent this window from being captured by screenshots or recording.',
+    screenshotUnsupported: 'Screenshot protection is not supported on this platform',
+    clipboardDisabled: 'Never clear',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',
