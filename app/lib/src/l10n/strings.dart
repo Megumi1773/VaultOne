@@ -725,6 +725,22 @@ abstract final class AppStrings {
   static const fieldWebsite = '网址';
   static const openInBrowser = '在浏览器中打开';
   static const fieldNotes = '备注';
+
+  // ───────── 标签与分类（计划书 §3.6） ─────────
+
+  static const groupTaxonomy = '标签与分类';
+  static const tagLabel = '标签';
+  static const tagInputHint = '输入标签后回车';
+  static const tagAdd = '添加标签';
+  static const tagLimitReached = '最多 {count} 个标签';
+  static const tagRemoveTooltip = '移除标签「{tag}」';
+  static const categoryHint = '例如：工作 / 个人 / 金融';
+  static const filterByTagTitle = '按标签筛选';
+  static const filterByCategoryTitle = '按分类筛选';
+  static const clearFilter = '清除筛选';
+  static const noTagsInVault = '还没有标签';
+  static const noCategory = '未分类';
+  static const allTags = '全部标签';
   static const fieldCardholder = '持卡人';
   static const fieldCardNumber = '卡号';
   static const fieldExpiry = '有效期';
@@ -1434,6 +1450,19 @@ abstract final class AppStrings {
     fieldWebsite: '網址',
     openInBrowser: '在瀏覽器中開啟',
     fieldNotes: '備註',
+    groupTaxonomy: '標籤與分類',
+    tagLabel: '標籤',
+    tagInputHint: '輸入標籤後按 Enter',
+    tagAdd: '新增標籤',
+    tagLimitReached: '最多 {count} 個標籤',
+    tagRemoveTooltip: '移除標籤「{tag}」',
+    categoryHint: '例如：工作 / 個人 / 金融',
+    filterByTagTitle: '依標籤篩選',
+    filterByCategoryTitle: '依分類篩選',
+    clearFilter: '清除篩選',
+    noTagsInVault: '還沒有標籤',
+    noCategory: '未分類',
+    allTags: '全部標籤',
     fieldCardholder: '持卡人',
     fieldCardNumber: '卡號',
     fieldExpiry: '有效期限',
@@ -2124,6 +2153,19 @@ abstract final class AppStrings {
     fieldWebsite: 'Website',
     openInBrowser: 'Open in browser',
     fieldNotes: 'Notes',
+    groupTaxonomy: 'Tags and category',
+    tagLabel: 'Tags',
+    tagInputHint: 'Type a tag and press Enter',
+    tagAdd: 'Add tag',
+    tagLimitReached: 'At most {count} tags',
+    tagRemoveTooltip: 'Remove the tag “{tag}”',
+    categoryHint: 'For example: work / personal / finance',
+    filterByTagTitle: 'Filter by tag',
+    filterByCategoryTitle: 'Filter by category',
+    clearFilter: 'Clear filter',
+    noTagsInVault: 'No tags yet',
+    noCategory: 'Uncategorized',
+    allTags: 'All tags',
     fieldCardholder: 'Cardholder',
     fieldCardNumber: 'Card number',
     fieldExpiry: 'Expiry',

@@ -175,6 +175,10 @@ class IdentityData {
       {'fullName': fullName, 'email': email, 'phone': phone, 'idNumber': idNumber, 'address': address, 'company': company};
 }
 
+/// 单条目标签数量上限，与内核 `item::TAG_LIMIT` 保持一致；
+/// UI 据此禁用输入，避免用户填完才在后端被拒。
+const int itemTagLimit = 20;
+
 /// 条目明文（对应内核 `ItemData`）。
 class ItemData {
   const ItemData({

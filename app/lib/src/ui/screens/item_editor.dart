@@ -96,6 +96,11 @@ class _ItemEditorState extends State<ItemEditor> {
   ItemTemplate? _template;
   Set<String> _templateFieldLabels = {};
 
+  /// 已确认的标签；输入框里的未提交文本在 `_tagInput` 中。
+  late final List<String> _tags = [...?d?.tags];
+  final _tagInput = TextEditingController();
+  late final _category = TextEditingController(text: d?.category ?? '');
+
   @override
   void initState() {
     super.initState();
@@ -120,6 +125,8 @@ class _ItemEditorState extends State<ItemEditor> {
     ]) {
       c.dispose();
     }
+    _tagInput.dispose();
+    _category.dispose();
     for (final u in _urls) {
       u.controller.dispose();
     }
@@ -212,6 +219,8 @@ class _ItemEditorState extends State<ItemEditor> {
             ),
       ],
       favorite: d?.favorite ?? false,
+      tags: _tags,
+      category: _category.text.trim().isEmpty ? null : _category.text.trim(),
     );
     setState(() => _saving = true);
     try {
@@ -273,8 +282,21 @@ class _ItemEditorState extends State<ItemEditor> {
     });
   }
 
-  void _removeTemplateFields() {
-    for (var i = _fields.length - 1; i >= 0; i--) {
+  /// 确认输入框里的标签。空白忽略；与已有标签重复（忽略大小写）时只清空输入不新增，
+  /// 与内核 `normalize_tags` 的去重语义一致，避免用户看到「加了却没多出来」。
+  void _commitTag() {
+    final raw = _tagInput.text.trim();
+    if (raw.isEmpty) return;
+    setState(() {
+      final exists = _tags.any((t) => t.toLowerCase() == raw.toLowerCase());
+      if (!exists) _tags.add(raw);
+      _tagInput.clear();
+    });
+  }
+
+  void _removeTag(String tag) => setState(() => _tags.remove(tag));
+
+  void _removeTemplateFields() {    for (var i = _fields.length - 1; i >= 0; i--) {
       final field = _fields[i];
       if (_templateFieldLabels.contains(field.label.text.trim()) &&
           field.value.text.isEmpty) {
@@ -663,6 +685,30 @@ class _ItemEditorState extends State<ItemEditor> {
       ]);
     }
 
+    // 标签与分类对所有类型都适用，放在末尾（模板不控制该分区）。
+    body.addAll([
+      _gap,
+      _EditGroup(
+        title: context.tr(AppStrings.groupTaxonomy),
+        children: [
+          _TagEditor(
+            tags: _tags,
+            controller: _tagInput,
+            onCommit: _commitTag,
+            onRemove: _removeTag,
+          ),
+          const SizedBox(height: 12),
+          ZoTextField(
+            key: const Key('category-input'),
+            controller: _category,
+            label: context.tr(AppStrings.sidebarCategories),
+            hint: context.tr(AppStrings.categoryHint),
+            prefixIcon: Icons.folder_outlined,
+          ),
+        ],
+      ),
+    ]);
+
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyS, control: true): _save,
@@ -826,8 +872,75 @@ class _EditGroup extends StatelessWidget {
   }
 }
 
-class _MatchPicker extends StatelessWidget {
-  const _MatchPicker({required this.value, required this.onChanged});
+/// 标签编辑器：已确认的标签逐个可删除，输入框回车或失焦即提交。
+class _TagEditor extends StatelessWidget {
+  const _TagEditor({
+    required this.tags,
+    required this.controller,
+    required this.onCommit,
+    required this.onRemove,
+  });
+
+  final List<String> tags;
+  final TextEditingController controller;
+  final VoidCallback onCommit;
+  final ValueChanged<String> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zo;
+    final full = tags.length >= itemTagLimit;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (tags.isNotEmpty) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tag in tags)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ZoTag(tag, color: c.accent),
+                    // 删除按钮紧贴标签，避免误点相邻标签。
+                    ZoIconButton(
+                      icon: Icons.close_rounded,
+                      size: 18,
+                      tooltip: context.trf(AppStrings.tagRemoveTooltip, {'tag': tag}),
+                      onPressed: () => onRemove(tag),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
+        ZoTextField(
+          key: const Key('tag-input'),
+          controller: controller,
+          label: context.tr(AppStrings.tagLabel),
+          hint: full
+              ? context.trf(AppStrings.tagLimitReached, {'count': itemTagLimit})
+              : context.tr(AppStrings.tagInputHint),
+          prefixIcon: Icons.local_offer_outlined,
+          enabled: !full,
+          trailing: [
+            ZoIconButton(
+              icon: Icons.add_rounded,
+              size: 28,
+              tooltip: context.tr(AppStrings.tagAdd),
+              onPressed: full ? null : onCommit,
+            ),
+          ],
+          onSubmitted: (_) => onCommit(),
+        ),
+      ],
+    );
+  }
+}
+
+class _MatchPicker extends StatelessWidget {  const _MatchPicker({required this.value, required this.onChanged});
 
   final UrlMatch value;
   final ValueChanged<UrlMatch> onChanged;

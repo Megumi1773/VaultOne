@@ -114,6 +114,70 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+/// 列表筛选条件。抽成值对象是为了让筛选逻辑成为**可单测的纯函数**：
+/// 之前它埋在 `_HomeScreenState` 的私有方法里，只有启动真实保险库才能验证。
+class VaultFilter {
+  const VaultFilter({
+    this.query = '',
+    this.section = Section.all,
+    this.tag,
+    this.category,
+  });
+
+  final String query;
+  final Section section;
+
+  /// 标签筛选；大小写不敏感比较，与内核 `normalize_tags` 的去重口径一致。
+  final String? tag;
+
+  /// 分类筛选；精确匹配（分类名是用户自由输入，不做大小写折叠）。
+  final String? category;
+
+  bool get isFiltered => tag != null || category != null;
+
+  /// 分区、类型、收藏、标签、分类与搜索词全部为「与」关系；顺序即短路顺序。
+  bool matches(VaultItem item) {
+    final kind = section.kind;
+    if (kind != null && item.data.kind != kind) return false;
+    if (section == Section.favorites && !item.data.favorite) return false;
+    final t = tag;
+    if (t != null && !item.data.tags.any((x) => x.toLowerCase() == t.toLowerCase())) return false;
+    final c = category;
+    if (c != null && item.data.category != c) return false;
+    final q = query.trim().toLowerCase();
+    if (q.isNotEmpty && !item.data.searchText.contains(q)) return false;
+    return true;
+  }
+}
+
+/// 按筛选条件挑选并排序：收藏优先（回收站除外），其余按标题不区分大小写排序。
+List<VaultItem> applyVaultFilter(Iterable<VaultItem> items, VaultFilter filter) {
+  final out = items.where(filter.matches).toList();
+  out.sort((a, b) {
+    if (a.data.favorite != b.data.favorite && filter.section != Section.trash) {
+      return a.data.favorite ? -1 : 1;
+    }
+    return a.data.title.toLowerCase().compareTo(b.data.title.toLowerCase());
+  });
+  return out;
+}
+
+/// 一组条目里出现过的标签与分类（各自去重并排序），用于生成筛选菜单。
+({List<String> tags, List<String> categories}) taxonomyOf(Iterable<VaultItem> items) {
+  final tags = <String>{};
+  final categories = <String>{};
+  for (final i in items) {
+    tags.addAll(i.data.tags);
+    final c = i.data.category;
+    if (c != null) categories.add(c);
+  }
+  int byLower(String a, String b) => a.toLowerCase().compareTo(b.toLowerCase());
+  return (
+    tags: tags.toList()..sort(byLower),
+    categories: categories.toList()..sort(byLower),
+  );
+}
+
 class _HomeScreenState extends State<HomeScreen> {
   Section _section = Section.all;
   String _query = '';
@@ -122,6 +186,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final _searchFocus = FocusNode();
   final _search = TextEditingController();
   AppState? _state;
+
+  /// 标签 / 分类筛选（计划书 §3.6）。null 表示不筛选；两者可叠加，与搜索词也是与关系。
+  String? _tagFilter;
+  String? _categoryFilter;
 
   /// 手机端：记住离开保险库前的过滤条件，切回该 Tab 时恢复。
   Section _vaultSection = Section.all;
@@ -162,19 +230,71 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<VaultItem> _visible(List<VaultItem> items, List<VaultItem> trash) {
     final source = _section == Section.trash ? trash : items;
-    final q = _query.trim().toLowerCase();
-    final kind = _section.kind;
-    final out = source.where((i) {
-      if (kind != null && i.data.kind != kind) return false;
-      if (_section == Section.favorites && !i.data.favorite) return false;
-      if (q.isNotEmpty && !i.data.searchText.contains(q)) return false;
-      return true;
-    }).toList();
-    out.sort((a, b) {
-      if (a.data.favorite != b.data.favorite && _section != Section.trash) return a.data.favorite ? -1 : 1;
-      return a.data.title.toLowerCase().compareTo(b.data.title.toLowerCase());
-    });
-    return out;
+    return applyVaultFilter(
+      source,
+      VaultFilter(query: _query, section: _section, tag: _tagFilter, category: _categoryFilter),
+    );
+  }
+
+  /// 当前分区里出现过的标签与分类，用于筛选菜单。
+  ({List<String> tags, List<String> categories}) _taxonomyOf(List<VaultItem> items, List<VaultItem> trash) =>
+      taxonomyOf(_section == Section.trash ? trash : items);
+
+  /// 标签 / 分类筛选条。只在该分区确有标签或分类时出现，避免空菜单占位。
+  Widget? _taxonomyBar(List<VaultItem> visible, List<VaultItem> trash) {
+    final tax = _taxonomyOf(visible, trash);
+    if (tax.tags.isEmpty && tax.categories.isEmpty) return null;
+    final c = context.zo;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (tax.tags.isNotEmpty)
+            PopupMenuButton<String?>(
+              tooltip: context.tr(AppStrings.filterByTagTitle),
+              position: PopupMenuPosition.under,
+              onSelected: (v) => setState(() => _tagFilter = v),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: null, height: 38, child: Text(context.tr(AppStrings.allTags))),
+                for (final t in tax.tags) PopupMenuItem(value: t, height: 38, child: Text(t)),
+              ],
+              child: ZoTag(
+                _tagFilter ?? context.tr(AppStrings.tagLabel),
+                icon: Icons.local_offer_outlined,
+                color: _tagFilter == null ? c.textMuted : c.accent,
+              ),
+            ),
+          if (tax.categories.isNotEmpty)
+            PopupMenuButton<String?>(
+              tooltip: context.tr(AppStrings.filterByCategoryTitle),
+              position: PopupMenuPosition.under,
+              onSelected: (v) => setState(() => _categoryFilter = v),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: null, height: 38, child: Text(context.tr(AppStrings.sidebarCategories))),
+                for (final t in tax.categories) PopupMenuItem(value: t, height: 38, child: Text(t)),
+              ],
+              child: ZoTag(
+                _categoryFilter ?? context.tr(AppStrings.sidebarCategories),
+                icon: Icons.folder_outlined,
+                color: _categoryFilter == null ? c.textMuted : c.accent,
+              ),
+            ),
+          if (_tagFilter != null || _categoryFilter != null)
+            ZoIconButton(
+              icon: Icons.filter_alt_off_outlined,
+              tooltip: context.tr(AppStrings.clearFilter),
+              size: 24,
+              onPressed: () => setState(() {
+                _tagFilter = null;
+                _categoryFilter = null;
+              }),
+            ),
+        ],
+      ),
+    );
   }
 
   void _go(Section s) => setState(() {
@@ -182,6 +302,10 @@ class _HomeScreenState extends State<HomeScreen> {
         if (s.isVault && s != Section.trash) _vaultSection = s;
         _section = s;
         _editing = null;
+        // 换分区时清掉标签/分类筛选：旧筛选值在新分区里可能根本不存在，
+        // 留着会让列表看起来「空了」而用户不知道原因。
+        _tagFilter = null;
+        _categoryFilter = null;
         if (!s.isVault) _selectedId = null;
       });
 
@@ -269,7 +393,14 @@ class _HomeScreenState extends State<HomeScreen> {
       _MobileTab.vault => ItemListPane(
           compact: true,
           title: _section.title(context),
-          filterBar: _VaultFilters(section: _section, counts: counts, onSelect: _go),
+          // 手机端过滤条本就占用一行，标签/分类筛选接在其下。
+          filterBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _VaultFilters(section: _section, counts: counts, onSelect: _go),
+              ?_taxonomyBar(visible, state.trash),
+            ],
+          ),
           items: visible,
           selectedId: null,
           query: _query,
@@ -402,6 +533,7 @@ class _HomeScreenState extends State<HomeScreen> {
               searchFocus: _searchFocus,
               isTrash: _section == Section.trash,
               onQuery: (q) => setState(() => _query = q),
+              filterBar: _taxonomyBar(visible, state.trash),
               onSelect: (id) => setState(() {
                 _selectedId = id;
                 _editing = null;
