@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../l10n/strings.dart';
 
 /// 导入结果。`format` 为内核识别出的来源（chrome / firefox / bitwarden / lastpass / 1password / 1pif / csv）。
-typedef ImportSummary = ({String format, int added, int duplicates, int skipped});
+/// `updated` 是按「覆盖」策略改写掉的现有条目数——它改变了既有数据，必须单独展示。
+typedef ImportSummary = ({String format, int added, int updated, int duplicates, int skipped});
 
 /// 浏览器扩展配对请求。`code` 须与扩展弹窗中显示的配对码一致。
 typedef PairingRequest = ({String clientId, String name, String code});

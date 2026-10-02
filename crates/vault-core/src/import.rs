@@ -16,6 +16,7 @@
 //! 导入结果只存在于内存，由调用方逐条经 [`crate::Vault::import_items`] 加密入库。
 //! 无法识别的 TOTP 值不丢弃，降级为敏感自定义字段。
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::item::{CardData, CustomField, IdentityData, ItemData, ItemKind, ItemUrl};
@@ -34,6 +35,117 @@ pub struct ImportResult {
     pub skipped: usize,
 }
 
+/// 导入结果计数。分开记「覆盖」是因为它改变了既有数据，用户需要看到这一点。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportOutcome {
+    pub added: usize,
+    pub updated: usize,
+    pub duplicates: usize,
+    pub invalid: usize,
+}
+
+/// 同名判定的键：标题去首尾空白后不区分大小写。
+pub fn title_key(title: &str) -> String {
+    title.trim().to_lowercase()
+}
+
+/// 在「标题 (2)」「标题 (3)」……里找第一个没被占用的。`taken` 为已占用的标题键。
+pub fn unique_title(title: &str, taken: &std::collections::HashSet<String>) -> String {
+    for n in 2..1000 {
+        let candidate = format!("{title} ({n})");
+        if !taken.contains(&title_key(&candidate)) {
+            return candidate;
+        }
+    }
+    // 999 个同名的极端情况：加个不会重复的后缀，不返回一个必然冲突的名字。
+    format!("{title} ({})", uuid::Uuid::new_v4())
+}
+
+/// 界面一次预览最多展示的行数。解析仍然处理全部行，只是不把整份文件塞进预览。
+pub const PREVIEW_ROWS: usize = 20;
+
+/// 遇到同名条目时的处理策略（计划书 §3.7）。
+///
+/// `Skip` 与既有行为完全一致（只按内容去重），另外两种只在标题相同时才有区别——
+/// 这样新增策略不会悄悄改变老路径的行为。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ImportStrategy {
+    /// 保留现有的，导入的同名条目丢弃。
+    #[default]
+    Skip,
+    /// 用导入的内容覆盖同名条目（保留其 ID 与创建时间）。
+    Overwrite,
+    /// 两条都留：同名条目按「标题 (2)」递增后缀另建一条。
+    KeepBoth,
+}
+
+/// 源列 → 目标字段的映射。列下标是 CSV 表头里的位置。
+///
+/// 自动识别可能认错（尤其是自制的通用 CSV），所以这份映射要能由界面覆盖并回传：
+/// 用户改完下拉框，后端就按新映射重新解析，而不是让用户自己改名表头再试一次。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ColumnMapping {
+    pub title: Option<usize>,
+    pub url: Option<usize>,
+    pub username: Option<usize>,
+    pub password: Option<usize>,
+    pub totp: Option<usize>,
+    pub notes: Option<usize>,
+    pub favorite: Option<usize>,
+    pub kind: Option<usize>,
+    pub fields: Option<usize>,
+    pub tags: Option<usize>,
+    pub category: Option<usize>,
+}
+
+impl ColumnMapping {
+    /// 全部已映射的列下标（用于算出「哪些列没被用到」）。
+    fn mapped(&self) -> Vec<usize> {
+        [
+            self.title,
+            self.url,
+            self.username,
+            self.password,
+            self.totp,
+            self.notes,
+            self.favorite,
+            self.kind,
+            self.fields,
+            self.tags,
+            self.category,
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
+}
+
+/// 导入预览：解析结果 + 供界面核对与调整的原始信息。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportPreview {
+    pub format: &'static str,
+    /// CSV 表头（1PIF 为空，没有列可映射）。
+    pub headers: Vec<String>,
+    /// 原始数据的前 [`PREVIEW_ROWS`] 行，与 `headers` 一一对应。
+    pub sample_rows: Vec<Vec<String>>,
+    /// 数据行总数（不含表头）。
+    pub total_rows: usize,
+    /// 解析出的条目（尚未入库）。
+    pub items: Vec<ItemData>,
+    /// 被跳过的行数。
+    pub skipped: usize,
+    /// 解析警告，逐条可读；空表示没有任何异常。
+    pub warnings: Vec<String>,
+    /// 当前生效的列映射，供界面回显下拉框。
+    pub mapping: ColumnMapping,
+    /// 表头里没有任何字段用到的列名。
+    pub unused_columns: Vec<String>,
+}
+
 /// 自动识别格式并解析。
 pub fn parse(content: &str) -> Result<ImportResult> {
     let content = content.trim_start_matches('\u{feff}');
@@ -44,21 +156,44 @@ pub fn parse(content: &str) -> Result<ImportResult> {
     }
 }
 
+/// 解析并生成预览；`mapping` 非空时用调用方给的映射覆盖自动识别结果。
+pub fn preview(content: &str, mapping: Option<ColumnMapping>) -> Result<ImportPreview> {
+    let content = content.trim_start_matches('\u{feff}');
+    if content.lines().any(|l| l.trim() == PIF_SEPARATOR) || content.trim_start().starts_with('{') {
+        let result = parse_1pif(content)?;
+        // 1PIF 是结构化 JSON，没有列可映射，也没有可调整的余地。
+        let total = result.items.len() + result.skipped;
+        return Ok(ImportPreview {
+            format: result.format,
+            headers: Vec::new(),
+            sample_rows: Vec::new(),
+            total_rows: total,
+            items: result.items,
+            skipped: result.skipped,
+            warnings: Vec::new(),
+            mapping: ColumnMapping::default(),
+            unused_columns: Vec::new(),
+        });
+    }
+    parse_csv_preview(content, mapping)
+}
+
 // ───────────────────────────── CSV ─────────────────────────────
 
-#[derive(Default)]
-struct Columns {
-    title: Option<usize>,
-    url: Option<usize>,
-    username: Option<usize>,
-    password: Option<usize>,
-    totp: Option<usize>,
-    notes: Option<usize>,
-    favorite: Option<usize>,
-    kind: Option<usize>,
-    fields: Option<usize>,
-    tags: Option<usize>,
-    category: Option<usize>,
+fn detect(headers: &[String]) -> ColumnMapping {
+    ColumnMapping {
+        title: find(headers, &["name", "title"]),
+        url: find(headers, &["login_uri", "url", "website", "urls", "login url"]),
+        username: find(headers, &["login_username", "username", "user name", "login"]),
+        password: find(headers, &["login_password", "password"]),
+        totp: find(headers, &["login_totp", "totp", "otpauth", "one-time password"]),
+        notes: find(headers, &["notes", "note", "extra", "comments"]),
+        favorite: find(headers, &["favorite", "fav"]),
+        kind: find(headers, &["type"]),
+        fields: find(headers, &["fields"]),
+        tags: find(headers, &["tags", "tag", "labels", "label"]),
+        category: find(headers, &["category", "folder", "grouping", "group"]),
+    }
 }
 
 fn find(headers: &[String], aliases: &[&str]) -> Option<usize> {
@@ -83,6 +218,12 @@ fn detect_csv(headers: &[String]) -> &'static str {
 }
 
 pub fn parse_csv(content: &str) -> Result<ImportResult> {
+    let p = parse_csv_preview(content, None)?;
+    Ok(ImportResult { format: p.format, items: p.items, skipped: p.skipped })
+}
+
+/// CSV 解析 + 预览。`mapping` 非空时用它覆盖自动识别出来的列映射。
+pub fn parse_csv_preview(content: &str, mapping: Option<ColumnMapping>) -> Result<ImportPreview> {
     let mut rdr = csv::ReaderBuilder::new().flexible(true).trim(csv::Trim::Headers).from_reader(content.as_bytes());
     let headers: Vec<String> = rdr
         .headers()
@@ -91,30 +232,28 @@ pub fn parse_csv(content: &str) -> Result<ImportResult> {
         .map(|h| h.trim().to_ascii_lowercase())
         .collect();
     let format = detect_csv(&headers);
-    let cols = Columns {
-        title: find(&headers, &["name", "title"]),
-        url: find(&headers, &["login_uri", "url", "website", "urls", "login url"]),
-        username: find(&headers, &["login_username", "username", "user name", "login"]),
-        password: find(&headers, &["login_password", "password"]),
-        totp: find(&headers, &["login_totp", "totp", "otpauth", "one-time password"]),
-        notes: find(&headers, &["notes", "note", "extra", "comments"]),
-        favorite: find(&headers, &["favorite", "fav"]),
-        kind: find(&headers, &["type"]),
-        fields: find(&headers, &["fields"]),
-        tags: find(&headers, &["tags", "tag", "labels", "label"]),
-        category: find(&headers, &["category", "folder", "grouping", "group"]),
-    };
+    let cols = mapping.unwrap_or_else(|| detect(&headers));
     if cols.password.is_none() && cols.notes.is_none() {
         return Err(VaultError::InvalidInput("无法识别的 CSV：缺少 password / notes 列".into()));
     }
 
     let mut items = Vec::new();
-    let mut skipped = 0;
+    let mut skipped = 0usize;
+    let mut total_rows = 0usize;
+    let mut sample_rows: Vec<Vec<String>> = Vec::new();
+    let mut warnings: Vec<String> = Vec::new();
+    let mut totp_downgraded = 0usize;
+
     for record in rdr.records() {
+        total_rows += 1;
         let Ok(record) = record else {
             skipped += 1;
+            warnings.push(format!("第 {total_rows} 行格式错误，已跳过"));
             continue;
         };
+        if sample_rows.len() < PREVIEW_ROWS {
+            sample_rows.push(record.iter().map(|s| s.trim().to_string()).collect());
+        }
         let get = |c: Option<usize>| c.and_then(|i| record.get(i)).map(str::trim).filter(|s| !s.is_empty());
 
         let url = get(cols.url);
@@ -138,6 +277,10 @@ pub fn parse_csv(content: &str) -> Result<ImportResult> {
             data.username = username.map(Into::into);
             data.password = password.map(Into::into);
             if let Some(t) = get(cols.totp) {
+                // TOTP 认不出来时不丢数据，但要让用户知道它变成了普通字段。
+                if crate::totp::parse(t).is_err() {
+                    totp_downgraded += 1;
+                }
                 set_totp(&mut data, t);
             }
         }
@@ -155,7 +298,20 @@ pub fn parse_csv(content: &str) -> Result<ImportResult> {
         finish(&mut data, title);
         items.push(data);
     }
-    Ok(ImportResult { format, items, skipped })
+
+    if skipped > 0 {
+        warnings.push(format!("有 {skipped} 行没有可导入的内容，已跳过"));
+    }
+    if totp_downgraded > 0 {
+        warnings.push(format!("有 {totp_downgraded} 行的两步验证密钥无法识别，已保存为敏感自定义字段"));
+    }
+    let mapped = cols.mapped();
+    let unused_columns: Vec<String> = headers.iter().enumerate().filter(|(i, _)| !mapped.contains(i)).map(|(_, h)| h.clone()).collect();
+    if !unused_columns.is_empty() {
+        warnings.push(format!("有 {} 列没有被使用：{}", unused_columns.len(), unused_columns.join("、")));
+    }
+
+    Ok(ImportPreview { format, headers, sample_rows, total_rows, items, skipped, warnings, mapping: cols, unused_columns })
 }
 
 /// 拆分多值字段：兼容 `|`、`,` 与 `;` 三种常见分隔符（Bitwarden 用逗号，部分导出用分号）。
@@ -461,5 +617,117 @@ mod tests {
         assert_eq!(id.address, "1 Main St, Arlen, us");
 
         assert_eq!(r.items[3].notes.as_deref(), Some("内容"));
+    }
+
+    // ───────────── 预览与列映射（§3.7）─────────────
+
+    #[test]
+    fn preview_exposes_headers_rows_and_mapping() {
+        let csv = "name,url,username,password,note\n\
+                   GitHub,https://github.com,alice,pw1,\n\
+                   GitLab,https://gitlab.com,bob,pw2,\n";
+        let p = preview(csv, None).unwrap();
+        assert_eq!(p.format, "chrome");
+        assert_eq!(p.headers, vec!["name", "url", "username", "password", "note"]);
+        assert_eq!(p.total_rows, 2);
+        assert_eq!(p.sample_rows.len(), 2);
+        assert_eq!(p.sample_rows[0][0], "GitHub");
+        assert_eq!(p.items.len(), 2);
+        assert_eq!(p.skipped, 0);
+        assert!(p.warnings.is_empty(), "干净的 CSV 不该有警告：{:?}", p.warnings);
+        assert!(p.unused_columns.is_empty());
+        // 映射要能回传给界面回显下拉框。
+        assert_eq!(p.mapping.title, Some(0));
+        assert_eq!(p.mapping.password, Some(3));
+    }
+
+    #[test]
+    fn preview_caps_sample_rows_but_parses_everything() {
+        let mut csv = String::from("name,url,username,password,note\n");
+        for i in 0..50 {
+            csv.push_str(&format!("item{i},https://e{i}.example,u{i},pw{i},\n"));
+        }
+        let p = preview(&csv, None).unwrap();
+        assert_eq!(p.sample_rows.len(), PREVIEW_ROWS, "预览只取前 {PREVIEW_ROWS} 行");
+        assert_eq!(p.total_rows, 50);
+        assert_eq!(p.items.len(), 50, "解析仍处理全部行");
+    }
+
+    #[test]
+    fn preview_warns_about_unused_columns_and_skipped_rows() {
+        let csv = "name,url,username,password,note,mystery\n\
+                   GitHub,https://github.com,alice,pw1,,x\n\
+                   ,,,,\n";
+        let p = preview(csv, None).unwrap();
+        assert_eq!(p.unused_columns, vec!["mystery"]);
+        assert!(p.warnings.iter().any(|w| w.contains("mystery")), "{:?}", p.warnings);
+        assert!(p.warnings.iter().any(|w| w.contains("1 行")), "应报告跳过行数：{:?}", p.warnings);
+    }
+
+    #[test]
+    fn preview_warns_when_totp_is_downgraded() {
+        let csv = "name,url,username,password,totp\nGitHub,https://github.com,alice,pw,not-a-secret!\n";
+        let p = preview(csv, None).unwrap();
+        assert!(p.warnings.iter().any(|w| w.contains("两步验证")), "{:?}", p.warnings);
+        assert!(p.items[0].totp.is_none());
+        assert!(p.items[0].custom_fields[0].sensitive, "认不出来的密钥要保存成敏感字段，不能丢");
+    }
+
+    #[test]
+    fn explicit_mapping_overrides_detection() {
+        // 自制 CSV：列名认不出来，只有 password 靠别名命中，因此 title/url 都没映射上。
+        let csv = "col1,col2,col3,password\nMyBank,https://bank.example,alice,pw\n";
+        let auto = preview(csv, None).unwrap();
+        assert_eq!(auto.mapping.title, None);
+        assert_eq!(auto.mapping.username, None, "col3 不在用户名的别名表里");
+        // 只有 password 命中时推不出标题，落到兜底标题——这正是需要手动映射的理由。
+        assert_ne!(auto.items[0].title, "MyBank");
+        assert!(auto.unused_columns.contains(&"col1".to_string()));
+
+        let mapped =
+            preview(csv, Some(ColumnMapping { title: Some(0), url: Some(1), username: Some(2), password: Some(3), ..Default::default() }))
+                .unwrap();
+        assert_eq!(mapped.items[0].title, "MyBank");
+        assert_eq!(mapped.items[0].urls[0].url, "https://bank.example");
+        assert!(mapped.unused_columns.is_empty(), "全部列都用上了：{:?}", mapped.unused_columns);
+    }
+
+    #[test]
+    fn mapping_roundtrips_through_json() {
+        let mapping = ColumnMapping { title: Some(0), password: Some(2), ..Default::default() };
+        let json = serde_json::to_string(&mapping).unwrap();
+        let back: ColumnMapping = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, mapping);
+        // 缺字段的载荷按「未映射」处理，不报错。
+        let partial: ColumnMapping = serde_json::from_str(r#"{"title":1}"#).unwrap();
+        assert_eq!(partial.title, Some(1));
+        assert_eq!(partial.password, None);
+    }
+
+    #[test]
+    fn pif_preview_has_no_columns_to_map() {
+        let pif = format!(
+            "{}\n{sep}\n",
+            r#"{"typeName":"securenotes.SecureNote","title":"笔记","secureContents":{"notesPlain":"内容"}}"#,
+            sep = PIF_SEPARATOR
+        );
+        let p = preview(&pif, None).unwrap();
+        assert_eq!(p.format, "1pif");
+        assert!(p.headers.is_empty(), "1PIF 是结构化数据，没有列可映射");
+        assert_eq!(p.items.len(), 1);
+        assert!(p.warnings.is_empty());
+    }
+
+    #[test]
+    fn unique_title_skips_taken_names() {
+        let taken: std::collections::HashSet<String> = ["github", "github (2)"].iter().map(|s| title_key(s)).collect();
+        assert_eq!(unique_title("GitHub", &taken), "GitHub (3)");
+        assert_eq!(unique_title("Fresh", &std::collections::HashSet::new()), "Fresh (2)");
+    }
+
+    #[test]
+    fn title_key_ignores_case_and_surrounding_space() {
+        assert_eq!(title_key("  GitHub  "), title_key("github"));
+        assert_ne!(title_key("GitHub"), title_key("GitLab"));
     }
 }

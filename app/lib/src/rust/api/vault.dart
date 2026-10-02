@@ -156,6 +156,29 @@ Future<String> healthCheckup({
   settingsJson: settingsJson,
 );
 
+/// 导入预览（计划书 §3.7）：解析但不入库，交给界面核对与调整列映射。
+///
+/// `mapping_json` 为空时用自动识别结果；非空时按调用方给的列映射重新解析。
+/// 条目以 JSON 数组返回，schema 由内核 `ItemData` 的 serde 唯一确定。
+Future<String> importPreview({
+  required String content,
+  required String mappingJson,
+}) => RustLib.instance.api.crateApiVaultImportPreview(
+  content: content,
+  mappingJson: mappingJson,
+);
+
+/// 按覆盖策略导入（计划书 §3.7）。`strategy` 取 `skip` / `overwrite` / `keepBoth`。
+Future<ImportSummary> importItemsWith({
+  required String content,
+  required String mappingJson,
+  required String strategy,
+}) => RustLib.instance.api.crateApiVaultImportItemsWith(
+  content: content,
+  mappingJson: mappingJson,
+  strategy: strategy,
+);
+
 /// 从其他密码管理器的导出文件导入（CSV / 1PIF，自动识别）。文件内容只在内存中解析后立即加密入库。
 Future<ImportSummary> importItems({required String content}) =>
     RustLib.instance.api.crateApiVaultImportItems(content: content);
@@ -318,6 +341,9 @@ class ImportSummary {
   /// 识别出的来源：chrome / firefox / bitwarden / lastpass / 1password / 1pif / csv
   final String format;
   final int added;
+
+  /// 按「覆盖」策略改写掉的现有条目数。
+  final int updated;
   final int duplicates;
 
   /// 格式不合法被拒绝的条目数 + 文件中无法转换的记录数
@@ -326,13 +352,18 @@ class ImportSummary {
   const ImportSummary({
     required this.format,
     required this.added,
+    required this.updated,
     required this.duplicates,
     required this.skipped,
   });
 
   @override
   int get hashCode =>
-      format.hashCode ^ added.hashCode ^ duplicates.hashCode ^ skipped.hashCode;
+      format.hashCode ^
+      added.hashCode ^
+      updated.hashCode ^
+      duplicates.hashCode ^
+      skipped.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -341,6 +372,7 @@ class ImportSummary {
           runtimeType == other.runtimeType &&
           format == other.format &&
           added == other.added &&
+          updated == other.updated &&
           duplicates == other.duplicates &&
           skipped == other.skipped;
 }

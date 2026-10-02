@@ -22,6 +22,7 @@ import 'backup_dialog.dart';
 import 'conflicts_page.dart';
 import 'feedback_page.dart';
 import 'item_detail.dart' show confirmDialog;
+import 'import_dialog.dart';
 import 'sidebar_layout.dart';
 
 /// 设置页的分区。安全总览（§5.1）的宫格入口据此直接定位到对应分区，
@@ -275,15 +276,17 @@ String _fmtTime(int? unix) {
   return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
 }
 
-/// 导入结果文案。`duplicates` / `skipped` 为 0 时不显示对应片段。
+/// 导入结果文案。`updated` / `duplicates` / `skipped` 为 0 时不显示对应片段。
 String _importSummaryText(
   BuildContext context, {
   required String source,
   required int added,
+  int updated = 0,
   required int duplicates,
   required int skipped,
 }) {
-  final suffix = '${duplicates > 0 ? context.trf(AppStrings.importDuplicates, {'n': duplicates}) : ''}'
+  final suffix = '${updated > 0 ? context.trf(AppStrings.importUpdated, {'n': updated}) : ''}'
+      '${duplicates > 0 ? context.trf(AppStrings.importDuplicates, {'n': duplicates}) : ''}'
       '${skipped > 0 ? context.trf(AppStrings.importSkipped, {'n': skipped}) : ''}';
   if (source.isEmpty) {
     return context.trf(AppStrings.importBackupSummary, {'added': added, 'duplicates': suffix, 'skipped': ''});
@@ -998,13 +1001,22 @@ class _DataSectionState extends State<_DataSection> {
     try {
       final content = await file.readAsString();
       if (!mounted || !state.isCurrentSession(epoch)) return;
-      final r = await state.importItems(content);
+      // 先预览：让用户核对来源、警告与字段映射，再决定同名条目怎么处理。
+      final decision = await showImportPreview(
+        context,
+        content: content,
+        sourceName: file.name,
+        parse: (c, {mapping}) => VaultApi.importPreview(c, mapping: mapping),
+      );
+      if (decision == null || !mounted || !state.isCurrentSession(epoch)) return;
+      final r = await state.importItemsWith(content, mapping: decision.mapping, strategy: decision.strategy);
       if (!mounted || !state.isCurrentSession(epoch)) return;
       final title = context.tr(AppStrings.importDone);
       final summary = _importSummaryText(
         context,
         source: _importSources[r.format] ?? r.format,
         added: r.added,
+        updated: r.updated,
         duplicates: r.duplicates,
         skipped: r.skipped,
       );

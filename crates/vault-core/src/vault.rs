@@ -25,6 +25,7 @@ use vault_crypto::{sealed, srp6a, Key32};
 use zeroize::Zeroizing;
 
 use crate::envelope::Envelope;
+use crate::import::{title_key, unique_title, ImportOutcome, ImportStrategy};
 use crate::item::{Item, ItemData, ItemKind, PasswordHistoryEntry};
 use crate::merge::PASSWORD_HISTORY_LIMIT;
 use crate::store::{AccountRecord, ItemRow, Store};
@@ -408,8 +409,25 @@ impl Vault {
     /// 新条目生成独立 ID、版本和创建/更新时间，历史内容不变。返回 (新增数, 重复数, 校验失败数)。
     /// 校验失败逐条跳过；其他错误立即返回（之前成功新增的条目保留），不是整批事务。
     pub fn import_items(&mut self, items: Vec<ItemData>) -> Result<(usize, usize, usize)> {
-        let mut seen: std::collections::HashSet<_> = self.list_items()?.into_iter().map(|i| i.data.into_import_content()).collect();
-        let (mut added, mut duplicates, mut invalid) = (0, 0, 0);
+        let r = self.import_items_with(items, ImportStrategy::Skip)?;
+        Ok((r.added, r.duplicates, r.invalid))
+    }
+
+    /// 带覆盖策略的批量导入（计划书 §3.7）。返回各计数，便于界面如实展示。
+    ///
+    /// 同名判定用**标题不区分大小写**（去掉首尾空白）。内容完全相同的条目在任何策略下都算
+    /// 重复跳过——`Overwrite` 不该把一条一模一样的记录再写一遍。
+    pub fn import_items_with(&mut self, items: Vec<ItemData>, strategy: ImportStrategy) -> Result<ImportOutcome> {
+        let existing = self.list_items()?;
+        let mut seen: std::collections::HashSet<_> = existing.iter().map(|i| i.data.clone().into_import_content()).collect();
+        // 标题 → 现有条目 ID。同名冲突按第一次出现的为准。
+        let mut by_title: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        for item in &existing {
+            by_title.entry(title_key(&item.data.title)).or_insert_with(|| item.id.clone());
+        }
+        let mut taken_titles: std::collections::HashSet<String> = by_title.keys().cloned().collect();
+
+        let (mut added, mut updated, mut duplicates, mut invalid) = (0, 0, 0, 0);
         for data in items {
             // 先校验，避免无效条目被记为重复，或抢占后续有效条目的去重键。
             match validate_item(&data) {
@@ -426,12 +444,45 @@ impl Vault {
                 duplicates += 1;
                 continue;
             }
+            let key = title_key(&data.title);
+            match strategy {
+                ImportStrategy::Overwrite => {
+                    if let Some(id) = by_title.get(&key) {
+                        let id = id.clone();
+                        let mut replaced = data;
+                        // 覆盖的是内容，不是身份：ID 与创建时间沿用现有的。
+                        if let Some(old) = existing.iter().find(|i| i.id == id) {
+                            replaced.created_at = old.data.created_at;
+                        }
+                        self.update_item(&id, replaced)?;
+                        seen.insert(content);
+                        updated += 1;
+                        continue;
+                    }
+                }
+                ImportStrategy::KeepBoth => {
+                    if taken_titles.contains(&key) {
+                        let mut renamed = data;
+                        renamed.title = unique_title(&renamed.title, &taken_titles);
+                        let new_key = title_key(&renamed.title);
+                        taken_titles.insert(new_key.clone());
+                        by_title.insert(new_key, String::new());
+                        seen.insert(renamed.clone().into_import_content());
+                        self.create_item(renamed)?;
+                        added += 1;
+                        continue;
+                    }
+                }
+                ImportStrategy::Skip => {}
+            }
+            taken_titles.insert(key.clone());
+            by_title.insert(key, String::new());
             self.create_item(data)?;
             seen.insert(content);
             added += 1;
         }
-        tracing::info!(target: "vault", added, duplicates, invalid, "import finished");
-        Ok((added, duplicates, invalid))
+        tracing::info!(target: "vault", added, updated, duplicates, invalid, "import finished");
+        Ok(ImportOutcome { added, updated, duplicates, invalid })
     }
 
     /// 导出必须完整读取所有未删除条目，任何损坏都报错，不能像普通列表一样跳过。
@@ -831,6 +882,75 @@ mod tests {
         assert_eq!(v.import_items(batch).unwrap(), (1, 1, 2));
         assert_eq!(v.get_item(&existing.id).unwrap(), existing);
         assert_eq!(v.item_count().unwrap(), 2);
+    }
+
+    /// 同名条目在三种策略下的行为（计划书 §3.7）。
+    #[test]
+    fn import_strategies_handle_same_title_differently() {
+        // Skip：只按内容去重，不按标题去重——同名但内容不同的条目照常新增。
+        let (mut v, _) = new_vault();
+        let existing = v.create_item(login("GitHub", "old")).unwrap();
+        let r = v.import_items_with(vec![login("GitHub", "new")], ImportStrategy::Skip).unwrap();
+        assert_eq!((r.added, r.updated, r.duplicates), (1, 0, 0), "Skip 不按标题去重，只按内容");
+        assert_eq!(v.item_count().unwrap(), 2);
+        assert_eq!(v.get_item(&existing.id).unwrap(), existing, "Skip 不修改现有条目");
+
+        // Overwrite：覆盖同名条目，但保留它的 ID 与创建时间。
+        let (mut v, _) = new_vault();
+        let existing = v.create_item(login("GitHub", "old")).unwrap();
+        let r = v.import_items_with(vec![login("github", "new")], ImportStrategy::Overwrite).unwrap();
+        assert_eq!((r.added, r.updated), (0, 1));
+        let after = v.get_item(&existing.id).unwrap();
+        assert_eq!(after.data.password.as_deref(), Some("new"), "内容应被覆盖");
+        assert_eq!(after.id, existing.id, "覆盖的是内容，不是身份");
+        assert_eq!(after.data.created_at, existing.data.created_at, "创建时间要沿用");
+        assert_eq!(v.item_count().unwrap(), 1, "覆盖不应新增条目");
+
+        // KeepBoth：两条都留，同名的那条加后缀。
+        let (mut v, _) = new_vault();
+        v.create_item(login("GitHub", "old")).unwrap();
+        let r = v.import_items_with(vec![login("GitHub", "new"), login("GitHub", "third")], ImportStrategy::KeepBoth).unwrap();
+        assert_eq!(r.added, 2);
+        let mut titles: Vec<String> = v.list_items().unwrap().into_iter().map(|i| i.data.title.clone()).collect();
+        titles.sort();
+        assert_eq!(titles, vec!["GitHub", "GitHub (2)", "GitHub (3)"]);
+    }
+
+    #[test]
+    fn identical_content_is_a_duplicate_under_every_strategy() {
+        for strategy in [ImportStrategy::Skip, ImportStrategy::Overwrite, ImportStrategy::KeepBoth] {
+            let (mut v, _) = new_vault();
+            let item = login("GitHub", "pw");
+            v.create_item(item.clone()).unwrap();
+            let r = v.import_items_with(vec![item], strategy).unwrap();
+            assert_eq!(r.duplicates, 1, "{strategy:?} 下完全相同的条目仍应算重复");
+            assert_eq!((r.added, r.updated), (0, 0), "{strategy:?} 不该把一模一样的记录再写一遍");
+            assert_eq!(v.item_count().unwrap(), 1);
+        }
+    }
+
+    #[test]
+    fn overwrite_only_touches_same_title_and_counts_the_rest_as_added() {
+        let (mut v, _) = new_vault();
+        let keep = v.create_item(login("Keep", "old")).unwrap();
+        v.create_item(login("Replace", "old")).unwrap();
+        let r = v.import_items_with(vec![login("Replace", "new"), login("Brand", "pw")], ImportStrategy::Overwrite).unwrap();
+        assert_eq!((r.added, r.updated, r.duplicates, r.invalid), (1, 1, 0, 0));
+        assert_eq!(v.get_item(&keep.id).unwrap(), keep, "无关条目不能被碰");
+        let titles: std::collections::HashSet<String> = v.list_items().unwrap().into_iter().map(|i| i.data.title.clone()).collect();
+        assert_eq!(titles.len(), 3, "覆盖不应改变条目总数以外的结构");
+        assert!(titles.contains("Brand"));
+    }
+
+    #[test]
+    fn invalid_items_are_counted_not_imported_under_overwrite() {
+        let (mut v, _) = new_vault();
+        v.create_item(login("GitHub", "old")).unwrap();
+        let mut invalid = login("GitHub", "new");
+        invalid.totp = Some(TotpConfig { secret: "!!!".into(), alg: "SHA1".into(), digits: 6, period: 30 });
+        let r = v.import_items_with(vec![invalid], ImportStrategy::Overwrite).unwrap();
+        assert_eq!((r.added, r.updated, r.invalid), (0, 0, 1));
+        assert_eq!(v.list_items().unwrap()[0].data.password.as_deref(), Some("old"), "无效条目不该覆盖有效数据");
     }
 
     #[test]

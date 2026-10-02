@@ -330,9 +330,43 @@ pub struct ImportSummary {
     /// 识别出的来源：chrome / firefox / bitwarden / lastpass / 1password / 1pif / csv
     pub format: String,
     pub added: u32,
+    /// 按「覆盖」策略改写掉的现有条目数。
+    pub updated: u32,
     pub duplicates: u32,
     /// 格式不合法被拒绝的条目数 + 文件中无法转换的记录数
     pub skipped: u32,
+}
+
+/// 导入预览（计划书 §3.7）：解析但不入库，交给界面核对与调整列映射。
+///
+/// `mapping_json` 为空时用自动识别结果；非空时按调用方给的列映射重新解析。
+/// 条目以 JSON 数组返回，schema 由内核 `ItemData` 的 serde 唯一确定。
+pub fn import_preview(content: String, mapping_json: String) -> BridgeResult<String> {
+    let mapping: Option<vault_core::import::ColumnMapping> =
+        if mapping_json.trim().is_empty() { None } else { Some(serde_json::from_str(&mapping_json)?) };
+    let p = vault_core::import::preview(&content, mapping)?;
+    Ok(serde_json::to_string(&p)?)
+}
+
+/// 按覆盖策略导入（计划书 §3.7）。`strategy` 取 `skip` / `overwrite` / `keepBoth`。
+pub fn import_items_with(content: String, mapping_json: String, strategy: String) -> BridgeResult<ImportSummary> {
+    use vault_core::import::ImportStrategy;
+    let mapping: Option<vault_core::import::ColumnMapping> =
+        if mapping_json.trim().is_empty() { None } else { Some(serde_json::from_str(&mapping_json)?) };
+    let parsed = vault_core::import::preview(&content, mapping)?;
+    let strategy = match strategy.as_str() {
+        "overwrite" => ImportStrategy::Overwrite,
+        "keepBoth" => ImportStrategy::KeepBoth,
+        _ => ImportStrategy::Skip,
+    };
+    let outcome = with_vault(|v| v.import_items_with(parsed.items, strategy))?;
+    Ok(ImportSummary {
+        format: parsed.format.into(),
+        added: outcome.added as u32,
+        updated: outcome.updated as u32,
+        duplicates: outcome.duplicates as u32,
+        skipped: (outcome.invalid + parsed.skipped) as u32,
+    })
 }
 
 /// 从其他密码管理器的导出文件导入（CSV / 1PIF，自动识别）。文件内容只在内存中解析后立即加密入库。
@@ -342,6 +376,7 @@ pub fn import_items(content: String) -> BridgeResult<ImportSummary> {
     Ok(ImportSummary {
         format: parsed.format.into(),
         added: added as u32,
+        updated: 0,
         duplicates: duplicates as u32,
         skipped: (invalid + parsed.skipped) as u32,
     })
@@ -355,7 +390,7 @@ pub fn export_backup() -> BridgeResult<Vec<u8>> {
 /// 从加密备份包导入。返回 (新增, 跳过, 失败)。
 pub fn import_backup(data: Vec<u8>) -> BridgeResult<ImportSummary> {
     let (added, duplicates, invalid) = with_vault(|v| v.import_backup(&data))?;
-    Ok(ImportSummary { format: "wljbak".into(), added: added as u32, duplicates: duplicates as u32, skipped: invalid as u32 })
+    Ok(ImportSummary { format: "wljbak".into(), added: added as u32, updated: 0, duplicates: duplicates as u32, skipped: invalid as u32 })
 }
 
 /// 导出为明文 CSV（迁移用，调用方须提示用户妥善保管）。

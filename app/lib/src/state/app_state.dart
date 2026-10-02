@@ -10,6 +10,7 @@ import '../core/api.dart';
 import '../core/config.dart';
 import '../core/ffi.dart';
 import '../core/feedback_models.dart';
+import '../core/import_models.dart';
 import '../core/models.dart';
 import '../l10n/strings.dart';
 import 'clipboard.dart';
@@ -807,6 +808,18 @@ class AppState extends ChangeNotifier {
     await refresh();
     return summary;
   });
+
+  /// 按预览确认的字段映射与覆盖策略导入（§3.7），导入后刷新。
+  Future<ImportSummary> importItemsWith(
+    String content, {
+    ColumnMapping? mapping,
+    ImportStrategy strategy = ImportStrategy.skip,
+  }) =>
+      _withSession(() async {
+        final summary = await VaultApi.importItemsWith(content, mapping: mapping, strategy: strategy);
+        await refresh();
+        return summary;
+      });
 
   /// 从加密备份包（`.wljbak`）导入，导入后刷新。
   Future<ImportSummary> importBackup(Uint8List data) => _withSession(() async {

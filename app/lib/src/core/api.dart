@@ -16,6 +16,7 @@ import 'config.dart';
 import 'feedback_models.dart';
 import 'ffi.dart';
 import 'health_models.dart';
+import 'import_models.dart';
 import 'models.dart';
 
 export '../rust/api/sync.dart' show DeviceDto, AuditEventDto, RemoteStatusDto, SyncReportDto;
@@ -210,7 +211,32 @@ abstract final class VaultApi {
   /// 导入其他密码管理器的导出文件（CSV / 1PIF，格式由内核自动识别）。
   static Future<ImportSummary> importItems(String content) => _session(() async {
         final s = await rvault.importItems(content: content);
-        return (format: s.format, added: s.added, duplicates: s.duplicates, skipped: s.skipped);
+        return (format: s.format, added: s.added, updated: s.updated, duplicates: s.duplicates, skipped: s.skipped);
+      });
+
+  /// 导入预览（计划书 §3.7）：解析但不入库，供界面核对与调整列映射。
+  static Future<ImportPreview> importPreview(String content, {ColumnMapping? mapping}) =>
+      _session(() async {
+        final raw = await rvault.importPreview(
+          content: content,
+          mappingJson: mapping == null ? '' : jsonEncode(mapping.toJson()),
+        );
+        return ImportPreview.fromJson((jsonDecode(raw) as Map).cast());
+      });
+
+  /// 按覆盖策略导入。
+  static Future<ImportSummary> importItemsWith(
+    String content, {
+    ColumnMapping? mapping,
+    ImportStrategy strategy = ImportStrategy.skip,
+  }) =>
+      _session(() async {
+        final s = await rvault.importItemsWith(
+          content: content,
+          mappingJson: mapping == null ? '' : jsonEncode(mapping.toJson()),
+          strategy: strategy.wire,
+        );
+        return (format: s.format, added: s.added, updated: s.updated, duplicates: s.duplicates, skipped: s.skipped);
       });
 
   /// 导出加密备份包（`.wljbak`）字节流。
@@ -219,7 +245,7 @@ abstract final class VaultApi {
   /// 从加密备份包导入。
   static Future<ImportSummary> importBackup(Uint8List data) => _session(() async {
         final s = await rvault.importBackup(data: data);
-        return (format: s.format, added: s.added, duplicates: s.duplicates, skipped: s.skipped);
+        return (format: s.format, added: s.added, updated: s.updated, duplicates: s.duplicates, skipped: s.skipped);
       });
 
   /// 导出为明文 CSV（迁移用）。

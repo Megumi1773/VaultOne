@@ -526,6 +526,23 @@ abstract final class AppStrings {
   static const screenshotProtectionSubtitle = '阻止本应用窗口被截屏与录屏捕获。';
   static const screenshotUnsupported = '当前平台不支持截图保护';
   static const clipboardDisabled = '不自动清空';
+
+  // ---------- 导入预览与字段映射（§3.7）----------
+  static const importPreviewTitle = '导入预览';
+  static const importPreviewSource = '识别来源：{source}';
+  static const importPreviewCounts = '共 {rows} 行，可导入 {items} 条，跳过 {skipped} 行';
+  static const importPreviewTruncated = '只显示前 {n} 行';
+  static const importPreviewWarnings = '解析警告';
+  static const importPreviewMapping = '字段映射';
+  static const importPreviewUnmapped = '不导入';
+  static const importPreviewColumn = '第 {n} 列';
+  static const importPreviewStrategy = '同名条目';
+  static const importStrategySkip = '保留现有的';
+  static const importStrategyOverwrite = '用导入的内容覆盖';
+  static const importStrategyKeepBoth = '两条都保留';
+  static const importPreviewConfirm = '开始导入';
+  static const importPreviewEmpty = '这份文件里没有可导入的条目';
+  static const importUpdated = '，覆盖 {n} 条';
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
   static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
@@ -1354,6 +1371,21 @@ abstract final class AppStrings {
     screenshotProtectionSubtitle: '阻止本應用程式視窗被截圖與錄影擷取。',
     screenshotUnsupported: '目前平台不支援截圖保護',
     clipboardDisabled: '不自動清空',
+    importPreviewTitle: '匯入預覽',
+    importPreviewSource: '識別來源：{source}',
+    importPreviewCounts: '共 {rows} 列，可匯入 {items} 筆，跳過 {skipped} 列',
+    importPreviewTruncated: '只顯示前 {n} 列',
+    importPreviewWarnings: '解析警告',
+    importPreviewMapping: '欄位對應',
+    importPreviewUnmapped: '不匯入',
+    importPreviewColumn: '第 {n} 欄',
+    importPreviewStrategy: '同名項目',
+    importStrategySkip: '保留現有的',
+    importStrategyOverwrite: '用匯入的內容覆寫',
+    importStrategyKeepBoth: '兩筆都保留',
+    importPreviewConfirm: '開始匯入',
+    importPreviewEmpty: '這份檔案裡沒有可匯入的項目',
+    importUpdated: '，覆寫 {n} 筆',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2115,6 +2147,21 @@ abstract final class AppStrings {
     screenshotProtectionSubtitle: 'Prevent this window from being captured by screenshots or recording.',
     screenshotUnsupported: 'Screenshot protection is not supported on this platform',
     clipboardDisabled: 'Never clear',
+    importPreviewTitle: 'Import preview',
+    importPreviewSource: 'Detected source: {source}',
+    importPreviewCounts: '{rows} rows, {items} importable, {skipped} skipped',
+    importPreviewTruncated: 'Showing the first {n} rows',
+    importPreviewWarnings: 'Parse warnings',
+    importPreviewMapping: 'Field mapping',
+    importPreviewUnmapped: 'Do not import',
+    importPreviewColumn: 'Column {n}',
+    importPreviewStrategy: 'Same-name items',
+    importStrategySkip: 'Keep existing',
+    importStrategyOverwrite: 'Overwrite with imported',
+    importStrategyKeepBoth: 'Keep both',
+    importPreviewConfirm: 'Start import',
+    importPreviewEmpty: 'No importable items in this file',
+    importUpdated: ', {n} overwritten',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',
