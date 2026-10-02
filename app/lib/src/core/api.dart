@@ -167,6 +167,12 @@ abstract final class VaultApi {
         return (purged: r.purged.toInt(), kept: r.kept.toInt());
       });
 
+  /// 分类树。聚合规则在内核实现一处，界面直接消费，避免两处各写一份计数逻辑。
+  static Future<List<CategoryNode>> categoryTree() => _session(() async {
+        final raw = jsonDecode(await rvault.categoryTree()) as List;
+        return [for (final node in raw) CategoryNode.fromJson((node as Map).cast())];
+      });
+
   static Future<List<AuditFinding>> audit() => _session(() async => [
         for (final f in await rvault.auditLocal())
           AuditFinding(itemId: f.itemId, weak: f.weak, score: f.score, reusedWith: f.reusedWith),

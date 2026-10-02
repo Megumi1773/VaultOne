@@ -127,6 +127,13 @@ Future<EmptyTrashResult> emptyTrash() =>
 Future<List<AuditFindingDto>> auditLocal() =>
     RustLib.instance.api.crateApiVaultAuditLocal();
 
+/// 分类树（JSON 数组，节点含 `name` / `path` / `direct` / `total` / `children`）。
+///
+/// 分类是层级路径，树**从条目派生**而不是独立存储，因此聚合规则只在内核实现一处，
+/// 界面直接消费；`total` 含后代汇总（计划书 §3.11）。
+Future<String> categoryTree() =>
+    RustLib.instance.api.crateApiVaultCategoryTree();
+
 /// 对指定条目做 HIBP 泄露检测（k-匿名：只发送 SHA-1 前 5 位），返回 (条目 ID, 泄露次数)。
 Future<List<BreachResult>> checkBreaches({required List<String> itemIds}) =>
     RustLib.instance.api.crateApiVaultCheckBreaches(itemIds: itemIds);

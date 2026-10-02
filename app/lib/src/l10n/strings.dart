@@ -741,6 +741,10 @@ abstract final class AppStrings {
   static const noTagsInVault = '还没有标签';
   static const noCategory = '未分类';
   static const allTags = '全部标签';
+  static const groupCategories = '分组';
+  static const noCategoriesYet = '暂无分类';
+  static const categoryPathHint = '用 / 分隔层级，例如：工作/生产';
+  static const categoryTreeTooltip = '层级分类，选中后连同子分类一起显示';
   static const fieldCardholder = '持卡人';
   static const fieldCardNumber = '卡号';
   static const fieldExpiry = '有效期';
@@ -1463,6 +1467,10 @@ abstract final class AppStrings {
     noTagsInVault: '還沒有標籤',
     noCategory: '未分類',
     allTags: '全部標籤',
+    groupCategories: '分組',
+    noCategoriesYet: '暫無分類',
+    categoryPathHint: '用 / 分隔層級，例如：工作/生產',
+    categoryTreeTooltip: '層級分類，選取後連同子分類一起顯示',
     fieldCardholder: '持卡人',
     fieldCardNumber: '卡號',
     fieldExpiry: '有效期限',
@@ -2166,6 +2174,10 @@ abstract final class AppStrings {
     noTagsInVault: 'No tags yet',
     noCategory: 'Uncategorized',
     allTags: 'All tags',
+    groupCategories: 'Groups',
+    noCategoriesYet: 'No categories yet',
+    categoryPathHint: 'Separate levels with /, for example: work/production',
+    categoryTreeTooltip: 'Hierarchical categories; selecting one includes its subcategories',
     fieldCardholder: 'Cardholder',
     fieldCardNumber: 'Card number',
     fieldExpiry: 'Expiry',

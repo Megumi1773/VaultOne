@@ -94,6 +94,8 @@ class _CloudBridge implements RustLibApi {
   @override
   Future<String> crateApiVaultListTrash() async => '[]';
   @override
+  Future<String> crateApiVaultCategoryTree() async => '[]';
+  @override
   Future<void> crateApiVaultUnlock({
     required String password,
     required String secretKey,

@@ -702,7 +702,7 @@ class _ItemEditorState extends State<ItemEditor> {
             key: const Key('category-input'),
             controller: _category,
             label: context.tr(AppStrings.sidebarCategories),
-            hint: context.tr(AppStrings.categoryHint),
+            hint: context.tr(AppStrings.categoryPathHint),
             prefixIcon: Icons.folder_outlined,
           ),
         ],

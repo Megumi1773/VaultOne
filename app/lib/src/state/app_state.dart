@@ -136,6 +136,9 @@ class AppState extends ChangeNotifier {
 
   List<VaultItem> items = const [];
   List<VaultItem> trash = const [];
+
+  /// 分类树（层级分组）。由内核从条目派生，含后代汇总计数。
+  List<CategoryNode> categoryTree = const [];
   Settings settings = const Settings();
 
   /// 注册 / 恢复完成、尚未确认保存 Recovery Kit 时持有；确认后立即丢弃。
@@ -696,9 +699,13 @@ class AppState extends ChangeNotifier {
       if (!isCurrentSession(epoch)) return;
       final nextAccount = await VaultApi.account();
       if (!isCurrentSession(epoch)) return;
+      // 分类树由内核派生（聚合计数只实现一处），随条目一起刷新。
+      final nextTree = await VaultApi.categoryTree();
+      if (!isCurrentSession(epoch)) return;
       items = nextItems;
       trash = nextTrash;
       account = nextAccount;
+      categoryTree = nextTree;
       notifyListeners();
       if (sync) scheduleSync();
     } on CoreException {

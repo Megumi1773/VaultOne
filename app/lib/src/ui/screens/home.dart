@@ -121,7 +121,7 @@ class VaultFilter {
     this.query = '',
     this.section = Section.all,
     this.tag,
-    this.category,
+    this.categoryPath,
   });
 
   final String query;
@@ -130,10 +130,11 @@ class VaultFilter {
   /// 标签筛选；大小写不敏感比较，与内核 `normalize_tags` 的去重口径一致。
   final String? tag;
 
-  /// 分类筛选；精确匹配（分类名是用户自由输入，不做大小写折叠）。
-  final String? category;
+  /// 分类路径筛选。**含后代**：选中 `工作/生产` 会连同 `工作/生产/服务器` 一起显示，
+  /// 与内核 `ItemData::category_matches` 同一规则（两侧各有测试钉住）。
+  final String? categoryPath;
 
-  bool get isFiltered => tag != null || category != null;
+  bool get isFiltered => tag != null || categoryPath != null;
 
   /// 分区、类型、收藏、标签、分类与搜索词全部为「与」关系；顺序即短路顺序。
   bool matches(VaultItem item) {
@@ -142,12 +143,19 @@ class VaultFilter {
     if (section == Section.favorites && !item.data.favorite) return false;
     final t = tag;
     if (t != null && !item.data.tags.any((x) => x.toLowerCase() == t.toLowerCase())) return false;
-    final c = category;
-    if (c != null && item.data.category != c) return false;
+    final path = categoryPath;
+    if (path != null && !categoryMatches(item.data.category, path)) return false;
     final q = query.trim().toLowerCase();
     if (q.isNotEmpty && !item.data.searchText.contains(q)) return false;
     return true;
   }
+}
+
+/// 分类路径匹配：自身或后代。`prefix` 必须匹配**完整段名**，因此 `工作/生` 不会命中
+/// `工作/生产`。与内核 `ItemData::category_matches` 保持同一规则。
+bool categoryMatches(String? category, String prefix) {
+  if (category == null) return false;
+  return category == prefix || category.startsWith('$prefix/');
 }
 
 /// 按筛选条件挑选并排序：收藏优先（回收站除外），其余按标题不区分大小写排序。
@@ -162,20 +170,16 @@ List<VaultItem> applyVaultFilter(Iterable<VaultItem> items, VaultFilter filter) 
   return out;
 }
 
-/// 一组条目里出现过的标签与分类（各自去重并排序），用于生成筛选菜单。
-({List<String> tags, List<String> categories}) taxonomyOf(Iterable<VaultItem> items) {
+/// 一组条目里出现过的标签（去重、按不区分大小写排序），用于生成标签筛选菜单。
+///
+/// 分类不走这里：分类是层级路径，「有哪些分类」由内核派生的分类树负责，
+/// 两处都算会得到不一致的答案（扁平列表也表达不出层级）。
+List<String> tagsOf(Iterable<VaultItem> items) {
   final tags = <String>{};
-  final categories = <String>{};
   for (final i in items) {
     tags.addAll(i.data.tags);
-    final c = i.data.category;
-    if (c != null) categories.add(c);
   }
-  int byLower(String a, String b) => a.toLowerCase().compareTo(b.toLowerCase());
-  return (
-    tags: tags.toList()..sort(byLower),
-    categories: categories.toList()..sort(byLower),
-  );
+  return tags.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 }
 
 class _HomeScreenState extends State<HomeScreen> {
@@ -232,19 +236,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final source = _section == Section.trash ? trash : items;
     return applyVaultFilter(
       source,
-      VaultFilter(query: _query, section: _section, tag: _tagFilter, category: _categoryFilter),
+      VaultFilter(query: _query, section: _section, tag: _tagFilter, categoryPath: _categoryFilter),
     );
   }
 
-  /// 当前分区里出现过的标签与分类，用于筛选菜单。
-  ({List<String> tags, List<String> categories}) _taxonomyOf(List<VaultItem> items, List<VaultItem> trash) =>
-      taxonomyOf(_section == Section.trash ? trash : items);
-
   /// 标签 / 分类筛选条。只在该分区确有标签或分类时出现，避免空菜单占位。
-  Widget? _taxonomyBar(List<VaultItem> visible, List<VaultItem> trash) {
-    final tax = _taxonomyOf(visible, trash);
-    if (tax.tags.isEmpty && tax.categories.isEmpty) return null;
+  ///
+  /// 分类用**层级菜单**（缩进 + 全路径），与侧栏的树是同一份数据：手机端没有侧栏，
+  /// 若这里退回扁平列表，用户就看不出 `工作/生产` 与 `工作` 的父子关系。
+  Widget? _taxonomyBar(List<VaultItem> visible, List<VaultItem> trash, List<CategoryNode> tree) {
+    final tags = tagsOf(_section == Section.trash ? trash : visible);
+    if (tags.isEmpty && tree.isEmpty) return null;
     final c = context.zo;
+    final flat = [for (final root in tree) ...root.flatten()];
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
       child: Wrap(
@@ -252,14 +256,14 @@ class _HomeScreenState extends State<HomeScreen> {
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          if (tax.tags.isNotEmpty)
+          if (tags.isNotEmpty)
             PopupMenuButton<String?>(
               tooltip: context.tr(AppStrings.filterByTagTitle),
               position: PopupMenuPosition.under,
               onSelected: (v) => setState(() => _tagFilter = v),
               itemBuilder: (_) => [
                 PopupMenuItem(value: null, height: 38, child: Text(context.tr(AppStrings.allTags))),
-                for (final t in tax.tags) PopupMenuItem(value: t, height: 38, child: Text(t)),
+                for (final t in tags) PopupMenuItem(value: t, height: 38, child: Text(t)),
               ],
               child: ZoTag(
                 _tagFilter ?? context.tr(AppStrings.tagLabel),
@@ -267,14 +271,33 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: _tagFilter == null ? c.textMuted : c.accent,
               ),
             ),
-          if (tax.categories.isNotEmpty)
+          if (flat.isNotEmpty)
             PopupMenuButton<String?>(
               tooltip: context.tr(AppStrings.filterByCategoryTitle),
               position: PopupMenuPosition.under,
               onSelected: (v) => setState(() => _categoryFilter = v),
               itemBuilder: (_) => [
                 PopupMenuItem(value: null, height: 38, child: Text(context.tr(AppStrings.sidebarCategories))),
-                for (final t in tax.categories) PopupMenuItem(value: t, height: 38, child: Text(t)),
+                for (final entry in flat)
+                  PopupMenuItem(
+                    value: entry.node.path,
+                    height: 38,
+                    child: Padding(
+                      padding: EdgeInsets.only(left: entry.depth * 14.0),
+                      child: Row(
+                        children: [
+                          Icon(
+                            entry.node.children.isEmpty ? Icons.label_outline_rounded : Icons.folder_outlined,
+                            size: 14,
+                            color: c.textMuted,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(entry.node.name, overflow: TextOverflow.ellipsis)),
+                          Text('${entry.node.total}', style: monoStyle(context, size: 11, color: c.textFaint)),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
               child: ZoTag(
                 _categoryFilter ?? context.tr(AppStrings.sidebarCategories),
@@ -296,6 +319,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  /// 侧栏选中分类节点：切到「全部」分区并筛选该分类（含子分类）。
+  /// 再次点同一节点取消筛选——否则用户没有明显的退出路径。
+  void _filterByCategory(String path) => setState(() {
+        _categoryFilter = _categoryFilter == path ? null : path;
+        if (_categoryFilter != null) {
+          _section = Section.all;
+          _vaultSection = Section.all;
+        }
+        _editing = null;
+        _selectedId = null;
+      });
 
   void _go(Section s) => setState(() {
         // 回收站是临时去处，不作为「保险库」Tab 的恢复目标。
@@ -398,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _VaultFilters(section: _section, counts: counts, onSelect: _go),
-              ?_taxonomyBar(visible, state.trash),
+              ?_taxonomyBar(visible, state.trash, state.categoryTree),
             ],
           ),
           items: visible,
@@ -533,7 +568,7 @@ class _HomeScreenState extends State<HomeScreen> {
               searchFocus: _searchFocus,
               isTrash: _section == Section.trash,
               onQuery: (q) => setState(() => _query = q),
-              filterBar: _taxonomyBar(visible, state.trash),
+              filterBar: _taxonomyBar(visible, state.trash, state.categoryTree),
               onSelect: (id) => setState(() {
                 _selectedId = id;
                 _editing = null;
@@ -606,7 +641,16 @@ class _HomeScreenState extends State<HomeScreen> {
         autofocus: true,
         child: Row(
           children: [
-            _Sidebar(section: _section, counts: counts, onSelect: _go, onNew: () => _newItem(), onLock: state.lock),
+            _Sidebar(
+              section: _section,
+              counts: counts,
+              onSelect: _go,
+              onNew: () => _newItem(),
+              onLock: state.lock,
+              categoryTree: state.categoryTree,
+              selectedCategory: _categoryFilter,
+              onSelectCategory: _filterByCategory,
+            ),
             VerticalDivider(width: 1, color: c.border),
             Expanded(child: ColoredBox(color: c.bg, child: content)),
           ],
@@ -749,13 +793,25 @@ class _MobileNavBar extends StatelessWidget {
 }
 
 class _Sidebar extends StatelessWidget {
-  const _Sidebar({required this.section, required this.counts, required this.onSelect, required this.onNew, required this.onLock});
+  const _Sidebar({
+    required this.section,
+    required this.counts,
+    required this.onSelect,
+    required this.onNew,
+    required this.onLock,
+    required this.categoryTree,
+    required this.selectedCategory,
+    required this.onSelectCategory,
+  });
 
   final Section section;
   final Map<Section, int> counts;
   final ValueChanged<Section> onSelect;
   final VoidCallback onNew;
   final VoidCallback onLock;
+  final List<CategoryNode> categoryTree;
+  final String? selectedCategory;
+  final ValueChanged<String> onSelectCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -791,6 +847,13 @@ class _Sidebar extends StatelessWidget {
                 item(Section.card),
                 item(Section.note),
                 item(Section.identity),
+                // 分组树接在类型分区之后：类型是固定四类，分组是用户自己的层级。
+                _NavGroup(AppStrings.groupCategories),
+                _CategoryTree(
+                  nodes: categoryTree,
+                  selected: selectedCategory,
+                  onSelect: onSelectCategory,
+                ),
                 const _NavGroup(AppStrings.sidebarTools),
                 item(Section.generator),
                 item(Section.security),
@@ -867,6 +930,109 @@ class _NavGroup extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 20, 12, 8),
         child: Text(label.toUpperCase(), style: context.text.labelSmall),
       );
+}
+
+/// 侧栏里的分类树。节点按层级缩进，计数用含后代的汇总值。
+///
+/// 树由内核从条目派生（`VaultApi.categoryTree`），因此不会出现空分类，
+/// 也不存在「建了分组但没条目」这种状态。
+class _CategoryTree extends StatelessWidget {
+  const _CategoryTree({
+    required this.nodes,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<CategoryNode> nodes;
+  final String? selected;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    if (nodes.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+        child: Text(
+          context.tr(AppStrings.noCategoriesYet),
+          style: context.text.bodySmall?.copyWith(color: context.zo.textFaint),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final root in nodes)
+          for (final entry in root.flatten())
+            _CategoryRow(
+              node: entry.node,
+              depth: entry.depth,
+              active: selected == entry.node.path,
+              onTap: () => onSelect(entry.node.path),
+            ),
+      ],
+    );
+  }
+}
+
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({
+    required this.node,
+    required this.depth,
+    required this.active,
+    required this.onTap,
+  });
+
+  final CategoryNode node;
+  final int depth;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zo;
+    return Hover(
+      onTap: onTap,
+      builder: (context, hover) => AnimatedContainer(
+        duration: Zo.fast,
+        height: 32,
+        margin: const EdgeInsets.only(bottom: 2),
+        padding: EdgeInsets.only(left: 10 + depth * 14, right: 10),
+        decoration: BoxDecoration(
+          color: active ? c.surfaceHover : (hover ? c.surfaceHover.withValues(alpha: 0.6) : Colors.transparent),
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Row(
+          children: [
+            AnimatedContainer(
+              duration: Zo.fast,
+              width: 2,
+              height: active ? 14 : 0,
+              margin: const EdgeInsets.only(right: 8),
+              color: c.accent,
+            ),
+            Icon(
+              node.children.isEmpty ? Icons.label_outline_rounded : Icons.folder_outlined,
+              size: 15,
+              color: active ? c.accent : c.textMuted,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                node.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.text.bodyMedium?.copyWith(
+                  color: active ? c.text : c.textMuted,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+            if (node.total > 0) Text('${node.total}', style: monoStyle(context, size: 11, color: c.textFaint)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _NavItem extends StatelessWidget {

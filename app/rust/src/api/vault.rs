@@ -228,6 +228,16 @@ pub fn audit_local() -> BridgeResult<Vec<AuditFindingDto>> {
         .collect())
 }
 
+/// 分类树（JSON 数组，节点含 `name` / `path` / `direct` / `total` / `children`）。
+///
+/// 分类是层级路径，树**从条目派生**而不是独立存储，因此聚合规则只在内核实现一处，
+/// 界面直接消费；`total` 含后代汇总（计划书 §3.11）。
+pub fn category_tree() -> BridgeResult<String> {
+    let items = with_vault(|v| v.list_items())?;
+    let tree = vault_core::item::build_category_tree(items.iter().map(|i| i.data.category.as_deref()));
+    Ok(serde_json::to_string(&tree)?)
+}
+
 /// 对指定条目做 HIBP 泄露检测（k-匿名：只发送 SHA-1 前 5 位），返回 (条目 ID, 泄露次数)。
 pub fn check_breaches(item_ids: Vec<String>) -> BridgeResult<Vec<BreachResult>> {
     let items = with_vault(|v| v.list_items())?;

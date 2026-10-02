@@ -79,6 +79,8 @@ class _Bridge implements RustLibApi {
   @override
   Future<String> crateApiVaultListTrash() async => '[]';
   @override
+  Future<String> crateApiVaultCategoryTree() async => '[]';
+  @override
   Future<rv.AccountInfo> crateApiVaultAccountInfo() async => rv.AccountInfo(accountId: 'existing', email: 'test@example.com', kdfSummary: 'test', pendingChanges: BigInt.zero, itemCount: BigInt.zero);
   @override
   Future<RemoteStatusDto?> crateApiSyncRemoteStatus() async => RemoteStatusDto(serverUrl: AppConfig.defaultServerUrl, deviceId: 'device', deviceName: 'test', pending: BigInt.zero);

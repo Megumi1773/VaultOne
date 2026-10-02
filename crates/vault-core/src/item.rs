@@ -123,8 +123,14 @@ pub struct IdentityData {
 /// 单个条目的标签数量上限；超出的标签被丢弃而不是报错，避免导入的脏数据让整次导入失败。
 pub const TAG_LIMIT: usize = 20;
 
-/// 分类名长度上限（字符数）。
+/// 分类名长度上限（字符数，含层级分隔符）。
 pub const CATEGORY_LIMIT: usize = 64;
+
+/// 分类层级深度上限（段数）。超过的部分被截断。
+pub const CATEGORY_DEPTH_LIMIT: usize = 6;
+
+/// 分类单段名称长度上限（字符数）。
+pub const CATEGORY_SEGMENT_LIMIT: usize = 32;
 
 /// 条目明文。所有字符串字段在 drop 时清零。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
@@ -223,8 +229,63 @@ impl ItemData {
     }
 
     /// 规范化分类：去首尾空白，空串等价于「未分类」。
+    ///
+    /// 分类是**层级路径**（`工作/生产/服务器`）：按 `/` 切段后逐段去空白、丢弃空段，
+    /// 再重新拼装。因此 `工作//生产/`、`工作 / 生产` 与 `工作/生产` 是同一个分类，
+    /// 树形分组可以直接从条目派生，不需要单独的分组表与新的同步实体。
+    ///
+    /// 超过 `CATEGORY_DEPTH_LIMIT` 的层级被截断（保留前缀）而不是报错——
+    /// 导入的脏数据不应让整次导入失败。
     pub fn normalize_category(category: Option<&str>) -> Option<String> {
-        category.map(str::trim).filter(|c| !c.is_empty()).map(|c| c.chars().take(CATEGORY_LIMIT).collect())
+        let raw = category?;
+        let mut segments: Vec<String> = Vec::new();
+        for part in raw.split('/') {
+            let trimmed = part.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            // 单段过长时按字符截断，避免一个异常长的名字撑大条目体积。
+            segments.push(trimmed.chars().take(CATEGORY_SEGMENT_LIMIT).collect());
+            if segments.len() >= CATEGORY_DEPTH_LIMIT {
+                break;
+            }
+        }
+        if segments.is_empty() {
+            return None;
+        }
+        let path: String = segments.join("/");
+        // 整条路径也受长度约束，并在截断后去掉可能残留的结尾分隔符。
+        let clipped: String = path.chars().take(CATEGORY_LIMIT).collect();
+        let clipped = clipped.trim_end_matches('/').to_string();
+        (!clipped.is_empty()).then_some(clipped)
+    }
+
+    /// 分类路径的全部祖先，由浅到深；`工作/生产/服务器` → `["工作", "工作/生产"]`。
+    /// 用于树形展示与「选中某节点时连同后代一起筛选」。
+    pub fn category_ancestors(path: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        let mut acc = String::new();
+        for part in path.split('/') {
+            let trimmed = part.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            if !acc.is_empty() {
+                acc.push('/');
+            }
+            acc.push_str(trimmed);
+            out.push(acc.clone());
+        }
+        // 最后一个元素是自身；祖先不含自身。
+        out.pop();
+        out
+    }
+
+    /// 该条目的分类是否落在 `prefix` 子树内（含自身）。`prefix` 为 None 表示不过滤。
+    pub fn category_matches(&self, prefix: Option<&str>) -> bool {
+        let Some(prefix) = prefix else { return true };
+        let Some(path) = self.category.as_deref() else { return false };
+        path == prefix || path.starts_with(&format!("{prefix}/"))
     }
 
     /// 就地规范化标签与分类；新建与更新都走这里，保证落库与同步的内容形态一致。
@@ -232,6 +293,71 @@ impl ItemData {
         self.tags = Self::normalize_tags(&self.tags);
         self.category = Self::normalize_category(self.category.as_deref());
     }
+}
+
+/// 分类树节点。树从条目本身派生（不存独立的分组表），因此**空分类不会出现在树里**。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CategoryNode {
+    /// 段名（不含父路径）。
+    pub name: String,
+    /// 完整路径，作为筛选与重命名的标识。
+    pub path: String,
+    /// 直属该分类的条目数（不含后代）。
+    pub direct: usize,
+    /// 含后代汇总的条目数（计划书 §3.11「分组条目数含后代汇总」）。
+    pub total: usize,
+    pub children: Vec<CategoryNode>,
+}
+
+/// 从条目集合派生分类树。`None` 分类的条目被忽略（它们不属于任何分类）。
+///
+/// 排序：同层按段名不区分大小写升序。计划书 §3.11 的自定义 `sortOrder` 需要分组级
+/// 元数据，当前设计没有该载体，因此这里固定按名称排序（已在 docs/11 记为未覆盖）。
+pub fn build_category_tree<'a>(categories: impl IntoIterator<Item = Option<&'a str>>) -> Vec<CategoryNode> {
+    // 先按路径累计直属数量，再据此搭树，避免在树上做插入时反复查找。
+    let mut direct: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for path in categories.into_iter().flatten() {
+        if let Some(normalized) = ItemData::normalize_category(Some(path)) {
+            *direct.entry(normalized).or_insert(0) += 1;
+        }
+    }
+
+    // 收集所有出现过的路径（含中间层，即使中间层本身没有直属条目）。
+    let mut all_paths: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for path in direct.keys() {
+        all_paths.insert(path.clone());
+        for ancestor in ItemData::category_ancestors(path) {
+            all_paths.insert(ancestor);
+        }
+    }
+
+    fn children_of(path: Option<&str>, all: &std::collections::BTreeSet<String>) -> Vec<String> {
+        let prefix = path.map(|p| format!("{p}/"));
+        let depth = path.map_or(1, |p| p.split('/').count() + 1);
+        all.iter()
+            .filter(|candidate| {
+                candidate.split('/').count() == depth
+                    && match &prefix {
+                        Some(prefix) => candidate.starts_with(prefix.as_str()),
+                        None => true,
+                    }
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn build(path: &str, all: &std::collections::BTreeSet<String>, direct: &std::collections::HashMap<String, usize>) -> CategoryNode {
+        let name = path.rsplit('/').next().unwrap_or(path).to_string();
+        let mut children: Vec<CategoryNode> = children_of(Some(path), all).iter().map(|child| build(child, all, direct)).collect();
+        children.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then_with(|| a.name.cmp(&b.name)));
+        let own = direct.get(path).copied().unwrap_or(0);
+        let total = own + children.iter().map(|c| c.total).sum::<usize>();
+        CategoryNode { name, path: path.to_string(), direct: own, total, children }
+    }
+
+    let mut roots: Vec<CategoryNode> = children_of(None, &all_paths).iter().map(|root| build(root, &all_paths, &direct)).collect();
+    roots.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then_with(|| a.name.cmp(&b.name)));
+    roots
 }
 
 /// 解密后的完整条目（含存储元数据）。
@@ -289,7 +415,12 @@ mod tests {
         assert_eq!(ItemData::normalize_category(Some("  银行  ")), Some("银行".to_string()));
         assert_eq!(ItemData::normalize_category(Some("   ")), None);
         assert_eq!(ItemData::normalize_category(None), None);
-        assert_eq!(ItemData::normalize_category(Some(&"长".repeat(CATEGORY_LIMIT + 10))).unwrap().chars().count(), CATEGORY_LIMIT);
+        // 单段过长按 `CATEGORY_SEGMENT_LIMIT` 截断（整条路径另有 `CATEGORY_LIMIT` 上限，
+        // 由 `category_path_is_capped_in_depth_and_segment_length` 覆盖）。
+        assert_eq!(
+            ItemData::normalize_category(Some(&"长".repeat(CATEGORY_SEGMENT_LIMIT + 10))).unwrap().chars().count(),
+            CATEGORY_SEGMENT_LIMIT
+        );
     }
 
     #[test]
@@ -303,5 +434,105 @@ mod tests {
         assert_eq!(data, once, "重复规范化不应继续改变内容");
         assert_eq!(once.tags, vec!["工作", "WORK"]);
         assert_eq!(once.category.as_deref(), Some("金融"));
+    }
+
+    #[test]
+    fn category_path_normalization_folds_whitespace_and_empty_segments() {
+        for raw in ["工作/生产/服务器", "工作 / 生产 / 服务器", "工作//生产/服务器", "/工作/生产/服务器/"] {
+            assert_eq!(ItemData::normalize_category(Some(raw)).as_deref(), Some("工作/生产/服务器"), "「{raw}」应规范化成同一个层级路径");
+        }
+        // 只有分隔符或空白 → 未分类。
+        assert_eq!(ItemData::normalize_category(Some("/")), None);
+        assert_eq!(ItemData::normalize_category(Some(" / / ")), None);
+    }
+
+    #[test]
+    fn category_path_is_capped_in_depth_and_segment_length() {
+        let deep = (1..=CATEGORY_DEPTH_LIMIT + 3).map(|i| format!("L{i}")).collect::<Vec<_>>().join("/");
+        let normalized = ItemData::normalize_category(Some(&deep)).unwrap();
+        assert_eq!(normalized.split('/').count(), CATEGORY_DEPTH_LIMIT, "超出深度的层级应被截断");
+
+        let long = "长".repeat(CATEGORY_SEGMENT_LIMIT + 10);
+        assert_eq!(ItemData::normalize_category(Some(&long)).unwrap().chars().count(), CATEGORY_SEGMENT_LIMIT);
+
+        // 截断后的路径仍可再次规范化而不改变（幂等），且不会残留结尾分隔符。
+        let again = ItemData::normalize_category(Some(&normalized)).unwrap();
+        assert_eq!(again, normalized);
+        assert!(!again.ends_with('/'));
+    }
+
+    #[test]
+    fn category_ancestors_excludes_self_and_is_shallow_to_deep() {
+        assert_eq!(ItemData::category_ancestors("工作/生产/服务器"), vec!["工作", "工作/生产"]);
+        assert_eq!(ItemData::category_ancestors("工作"), Vec::<String>::new());
+        assert_eq!(ItemData::category_ancestors(""), Vec::<String>::new());
+    }
+
+    #[test]
+    fn category_matches_includes_descendants_only() {
+        let mut item = ItemData::new(ItemKind::Login, "服务器");
+        item.category = Some("工作/生产/服务器".into());
+
+        assert!(item.category_matches(None), "不过滤时全部匹配");
+        assert!(item.category_matches(Some("工作")), "祖先应匹配");
+        assert!(item.category_matches(Some("工作/生产")), "祖先应匹配");
+        assert!(item.category_matches(Some("工作/生产/服务器")), "自身应匹配");
+        assert!(!item.category_matches(Some("工作/生")), "前缀但不是完整段名，不应匹配");
+        assert!(!item.category_matches(Some("个人")), "无关分类不应匹配");
+
+        // 未分类条目只在不过滤时匹配。
+        let uncategorized = ItemData::new(ItemKind::Login, "未分类");
+        assert!(uncategorized.category_matches(None));
+        assert!(!uncategorized.category_matches(Some("工作")));
+    }
+
+    #[test]
+    fn category_tree_aggregates_descendant_counts() {
+        let categories = [
+            Some("工作/生产/服务器"),
+            Some("工作/生产/数据库"),
+            Some("工作/生产"),
+            Some("工作/个人"),
+            Some("个人"),
+            None, // 未分类条目不出现在树里
+        ];
+        let tree = build_category_tree(categories);
+        assert_eq!(tree.len(), 2, "根节点应只有「工作」与「个人」");
+
+        let work = tree.iter().find(|n| n.path == "工作").unwrap();
+        assert_eq!(work.name, "工作");
+        assert_eq!(work.direct, 0, "「工作」本身没有直属条目");
+        assert_eq!(work.total, 4, "含后代汇总：生产(3) + 个人(1)");
+
+        let production = work.children.iter().find(|n| n.path == "工作/生产").unwrap();
+        assert_eq!(production.direct, 1);
+        assert_eq!(production.total, 3, "直属 1 + 两个子分类各 1");
+        assert_eq!(production.children.len(), 2);
+
+        let personal = tree.iter().find(|n| n.path == "个人").unwrap();
+        assert_eq!(personal.direct, 1);
+        assert_eq!(personal.total, 1);
+        assert!(personal.children.is_empty());
+    }
+
+    #[test]
+    fn category_tree_sorts_siblings_by_name_ignoring_case() {
+        let tree = build_category_tree([Some("beta"), Some("Alpha"), Some("gamma")]);
+        let names: Vec<&str> = tree.iter().map(|n| n.name.as_str()).collect();
+        assert_eq!(names, vec!["Alpha", "beta", "gamma"]);
+    }
+
+    #[test]
+    fn category_tree_ignores_raw_paths_that_normalize_away() {
+        // 只有分隔符的脏数据不应产生一个空名节点。
+        let tree = build_category_tree([Some("/"), Some(" / / "), Some("工作")]);
+        assert_eq!(tree.len(), 1);
+        assert_eq!(tree[0].path, "工作");
+    }
+
+    #[test]
+    fn category_tree_is_empty_without_categories() {
+        assert!(build_category_tree([None, None]).is_empty());
+        assert!(build_category_tree(std::iter::empty::<Option<&str>>()).is_empty());
     }
 }

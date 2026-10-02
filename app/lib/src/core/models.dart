@@ -179,6 +179,51 @@ class IdentityData {
 /// UI 据此禁用输入，避免用户填完才在后端被拒。
 const int itemTagLimit = 20;
 
+/// 分类树节点（对应内核 `item::CategoryNode`）。
+///
+/// 分类是层级路径，树从条目派生而非独立存储，因此树里不会有空分类。
+/// `total` 含后代汇总，与计划书 §3.11 的「分组条目数含后代汇总」一致。
+class CategoryNode {
+  const CategoryNode({
+    required this.name,
+    required this.path,
+    required this.direct,
+    required this.total,
+    this.children = const [],
+  });
+
+  factory CategoryNode.fromJson(Map<String, dynamic> j) => CategoryNode(
+        name: j['name'] as String? ?? '',
+        path: j['path'] as String? ?? '',
+        direct: (j['direct'] as num?)?.toInt() ?? 0,
+        total: (j['total'] as num?)?.toInt() ?? 0,
+        children: [
+          for (final c in (j['children'] as List? ?? const []))
+            CategoryNode.fromJson((c as Map).cast()),
+        ],
+      );
+
+  /// 段名（不含父路径）。
+  final String name;
+
+  /// 完整路径，作为筛选与重命名的标识。
+  final String path;
+
+  /// 直属该分类的条目数（不含后代）。
+  final int direct;
+
+  /// 含后代汇总的条目数。
+  final int total;
+
+  final List<CategoryNode> children;
+
+  /// 按深度优先展开成「节点 + 缩进层级」列表，供侧栏渲染。
+  List<({CategoryNode node, int depth})> flatten({int depth = 0}) => [
+        (node: this, depth: depth),
+        for (final child in children) ...child.flatten(depth: depth + 1),
+      ];
+}
+
 /// 条目明文（对应内核 `ItemData`）。
 class ItemData {
   const ItemData({

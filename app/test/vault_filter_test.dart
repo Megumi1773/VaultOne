@@ -55,23 +55,63 @@ void main() {
   });
 
   test('分类筛选精确匹配，并与类型分区叠加', () {
-    expect(titles(applyVaultFilter(all, const VaultFilter(category: '开发'))), ['GitHub']);
-    expect(applyVaultFilter(all, const VaultFilter(category: '开发不存在')), isEmpty);
+    expect(titles(applyVaultFilter(all, const VaultFilter(categoryPath: '开发'))), ['GitHub']);
+    expect(applyVaultFilter(all, const VaultFilter(categoryPath: '开发不存在')), isEmpty);
 
     // 类型分区 + 分类：笔记分区下没有「开发」分类的条目。
     expect(
-      applyVaultFilter(all, const VaultFilter(section: Section.note, category: '开发')),
+      applyVaultFilter(all, const VaultFilter(section: Section.note, categoryPath: '开发')),
       isEmpty,
     );
     expect(
-      titles(applyVaultFilter(all, const VaultFilter(section: Section.note, category: '个人'))),
+      titles(applyVaultFilter(all, const VaultFilter(section: Section.note, categoryPath: '个人'))),
       ['家里 Wi-Fi'],
     );
   });
 
+  // 分类是层级路径（`工作/生产/服务器`），选中父节点要连同后代一起显示，
+  // 否则用户点「工作」看不到任何条目会以为数据丢了。
+  test('分类筛选含后代，且只匹配完整段名', () {
+    final tree = [
+      _item('10', '服务器', category: '工作/生产/服务器'),
+      _item('11', '数据库', category: '工作/生产/数据库'),
+      _item('12', '生产总览', category: '工作/生产'),
+      _item('13', '私事', category: '工作/个人'),
+      _item('14', '无关', category: '工作台'), // 前缀相似但段名不同
+    ];
+
+    // 无收藏项时按标题排序，因此这里的顺序是标题序而非层级序。
+    expect(
+      titles(applyVaultFilter(tree, const VaultFilter(categoryPath: '工作'))),
+      ['数据库', '服务器', '生产总览', '私事'],
+      reason: '选中祖先应包含全部后代',
+    );
+    expect(
+      titles(applyVaultFilter(tree, const VaultFilter(categoryPath: '工作/生产'))),
+      ['数据库', '服务器', '生产总览'],
+    );
+    expect(
+      titles(applyVaultFilter(tree, const VaultFilter(categoryPath: '工作/生产/服务器'))),
+      ['服务器'],
+    );
+    // `工作台` 与 `工作` 是不同的段名，不应被 `工作` 命中。
+    expect(
+      titles(applyVaultFilter(tree, const VaultFilter(categoryPath: '工作'))),
+      isNot(contains('无关')),
+    );
+  });
+
+  test('categoryMatches 的规则：自身或后代，段名必须完整', () {
+    expect(categoryMatches('工作/生产', '工作'), isTrue);
+    expect(categoryMatches('工作', '工作'), isTrue);
+    expect(categoryMatches('工作台', '工作'), isFalse, reason: '段名必须完整匹配');
+    expect(categoryMatches('工作/生产', '工作/生'), isFalse);
+    expect(categoryMatches(null, '工作'), isFalse);
+  });
+
   test('标签与分类同时给出时是与关系', () {
-    expect(titles(applyVaultFilter(all, const VaultFilter(tag: '工作', category: '开发'))), ['GitHub']);
-    expect(applyVaultFilter(all, const VaultFilter(tag: '工作', category: '个人')), isEmpty);
+    expect(titles(applyVaultFilter(all, const VaultFilter(tag: '工作', categoryPath: '开发'))), ['GitHub']);
+    expect(applyVaultFilter(all, const VaultFilter(tag: '工作', categoryPath: '个人')), isEmpty);
   });
 
   test('收藏分区只保留收藏项', () {
@@ -81,21 +121,50 @@ void main() {
     expect(titles(applyVaultFilter([...all, fav], const VaultFilter(section: Section.favorites))), ['AAA']);
   });
 
-  test('taxonomyOf 去重并按不区分大小写排序', () {
-    final tax = taxonomyOf([...all, _item('5', '重复', tags: ['工作', 'Zed'], category: '金融')]);
-    expect(tax.tags, ['Zed', '工作', '金融'], reason: '工作应去重，排序不区分大小写');
-    expect(tax.categories, ['个人', '开发', '金融']);
+  test('tagsOf 去重并按不区分大小写排序', () {
+    final tags = tagsOf([...all, _item('5', '重复', tags: ['工作', 'Zed'], category: '金融')]);
+    expect(tags, ['Zed', '工作', '金融'], reason: '工作应去重，排序不区分大小写');
   });
 
-  test('taxonomyOf 对无标签无分类的条目返回空', () {
-    final tax = taxonomyOf([_item('9', '裸条目')]);
-    expect(tax.tags, isEmpty);
-    expect(tax.categories, isEmpty);
+  test('tagsOf 对无标签的条目返回空', () {
+    expect(tagsOf([_item('9', '裸条目')]), isEmpty);
   });
 
   test('isFiltered 只在标签或分类生效时为真，搜索词不算', () {
     expect(const VaultFilter(query: 'x').isFiltered, isFalse);
     expect(const VaultFilter(tag: 't').isFiltered, isTrue);
-    expect(const VaultFilter(category: 'c').isFiltered, isTrue);
+    expect(const VaultFilter(categoryPath: 'c').isFiltered, isTrue);
+  });
+
+  test('CategoryNode 按深度优先展开，层级用于缩进', () {
+    const tree = CategoryNode(
+      name: '工作',
+      path: '工作',
+      direct: 1,
+      total: 3,
+      children: [
+        CategoryNode(
+          name: '生产',
+          path: '工作/生产',
+          direct: 1,
+          total: 2,
+          children: [CategoryNode(name: '服务器', path: '工作/生产/服务器', direct: 1, total: 1)],
+        ),
+      ],
+    );
+    final flat = tree.flatten();
+    expect([for (final e in flat) (e.node.name, e.depth)], [
+      ('工作', 0),
+      ('生产', 1),
+      ('服务器', 2),
+    ]);
+  });
+
+  test('CategoryNode.fromJson 容错：缺字段按空值与 0 处理', () {
+    final node = CategoryNode.fromJson(const {'path': '工作'});
+    expect(node.name, '');
+    expect(node.direct, 0);
+    expect(node.total, 0);
+    expect(node.children, isEmpty);
   });
 }
