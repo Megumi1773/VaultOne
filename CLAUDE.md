@@ -46,6 +46,11 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 - Windows 构建会经 CMake 调 `cargo build --release -p vault-nmhost` 并把宿主放到 exe 旁；桌面端启动时自动在 HKCU 登记 Native Messaging 宿主（指向当前构建目录）。
 - 桌面端启动后可能**隐藏到托盘**（`desktop_shell.dart` 关闭时 `windowManager.hide()`），窗口可见但 `MainWindowHandle` 为 0 属正常，托盘图标可唤出。
 
+## 文档与文本编辑（易踩）
+
+- **不要用 `Set-Content -Raw` / `Out-File` 重写含中文的文件**：本机 PowerShell 5.1 以默认 ANSI 读取原始文件再以 UTF-8 写出，会静默丢字（曾把 `应用商店` 写成 `用用商店`、`删除会话` 写成 `删 会话`）。改文档一律用 `edit` 工具做定点替换；确需脚本改写时用 Python 且显式 `encoding="utf-8"`，改完 `git diff` 复核。
+- 同理，`git checkout -- <file>` 可用来恢复被写坏的工作区文件（未提交内容会丢失），恢复后务必核对关键词是否复原。
+
 ## 代码生成（易踩）
 
 - `app/lib/src/rust/**`（`frb_generated*.dart`、`api/*.dart`）由 flutter_rust_bridge 从 `app/rust/src/api/**` 生成，**不要手改**。改 Rust API 后在 `app/` 运行 `flutter_rust_bridge_codegen generate`（配置见 `app/flutter_rust_bridge.yaml`）。
