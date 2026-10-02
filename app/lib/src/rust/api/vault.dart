@@ -8,7 +8,7 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `item_value`, `items_json`, `probe_environment`, `slot`, `with_vault`
+// These functions are ignored because they are not marked as `pub`: `item_value`, `items_json`, `probe_environment`, `record_transfer`, `slot`, `with_vault`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
 
 /// 打开（不存在则创建）本地保险库文件。
@@ -190,30 +190,49 @@ Future<String> importPreview({
 );
 
 /// 按覆盖策略导入（计划书 §3.7）。`strategy` 取 `skip` / `overwrite` / `keepBoth`。
+///
+/// `source` 是给历史用的来源说明（一般是文件名），可为空。
 Future<ImportSummary> importItemsWith({
   required String content,
   required String mappingJson,
   required String strategy,
+  required String source,
 }) => RustLib.instance.api.crateApiVaultImportItemsWith(
   content: content,
   mappingJson: mappingJson,
   strategy: strategy,
+  source: source,
 );
 
 /// 从其他密码管理器的导出文件导入（CSV / 1PIF，自动识别）。文件内容只在内存中解析后立即加密入库。
-Future<ImportSummary> importItems({required String content}) =>
-    RustLib.instance.api.crateApiVaultImportItems(content: content);
+Future<ImportSummary> importItems({
+  required String content,
+  required String source,
+}) => RustLib.instance.api.crateApiVaultImportItems(
+  content: content,
+  source: source,
+);
 
 /// 导出加密备份包（`.wljbak`）字节流，由 Dart 侧写盘。
 Future<Uint8List> exportBackup() =>
     RustLib.instance.api.crateApiVaultExportBackup();
 
 /// 从加密备份包导入。返回 (新增, 跳过, 失败)。
-Future<ImportSummary> importBackup({required List<int> data}) =>
-    RustLib.instance.api.crateApiVaultImportBackup(data: data);
+Future<ImportSummary> importBackup({
+  required List<int> data,
+  required String source,
+}) =>
+    RustLib.instance.api.crateApiVaultImportBackup(data: data, source: source);
 
 /// 导出为明文 CSV（迁移用，调用方须提示用户妥善保管）。
 Future<String> exportCsv() => RustLib.instance.api.crateApiVaultExportCsv();
+
+/// 导入 / 导出历史（计划书 §3.7）。本机记录、以 Vault Key 密封、不参与同步。
+Future<String> transferHistory() =>
+    RustLib.instance.api.crateApiVaultTransferHistory();
+
+Future<void> clearTransferHistory() =>
+    RustLib.instance.api.crateApiVaultClearTransferHistory();
 
 /// 对页面 URL 做防钓鱼匹配，返回按匹配质量排序的条目 ID。
 Future<List<String>> matchItems({required String pageUrl}) =>

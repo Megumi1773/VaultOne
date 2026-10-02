@@ -369,7 +369,9 @@ pub fn import_preview(content: String, mapping_json: String) -> BridgeResult<Str
 }
 
 /// 按覆盖策略导入（计划书 §3.7）。`strategy` 取 `skip` / `overwrite` / `keepBoth`。
-pub fn import_items_with(content: String, mapping_json: String, strategy: String) -> BridgeResult<ImportSummary> {
+///
+/// `source` 是给历史用的来源说明（一般是文件名），可为空。
+pub fn import_items_with(content: String, mapping_json: String, strategy: String, source: String) -> BridgeResult<ImportSummary> {
     use vault_core::import::ImportStrategy;
     let mapping: Option<vault_core::import::ColumnMapping> =
         if mapping_json.trim().is_empty() { None } else { Some(serde_json::from_str(&mapping_json)?) };
@@ -379,43 +381,89 @@ pub fn import_items_with(content: String, mapping_json: String, strategy: String
         "keepBoth" => ImportStrategy::KeepBoth,
         _ => ImportStrategy::Skip,
     };
+    let bytes = content.len() as u64;
     let outcome = with_vault(|v| v.import_items_with(parsed.items, strategy))?;
-    Ok(ImportSummary {
+    let summary = ImportSummary {
         format: parsed.format.into(),
         added: outcome.added as u32,
         updated: outcome.updated as u32,
         duplicates: outcome.duplicates as u32,
         skipped: (outcome.invalid + parsed.skipped) as u32,
-    })
+    };
+    // 记录失败不影响导入本身的结果——历史是辅助信息，不该让一次成功导入看起来失败。
+    record_transfer(&summary, vault_core::history::TransferDirection::Import, &source, bytes);
+    Ok(summary)
 }
 
 /// 从其他密码管理器的导出文件导入（CSV / 1PIF，自动识别）。文件内容只在内存中解析后立即加密入库。
-pub fn import_items(content: String) -> BridgeResult<ImportSummary> {
+pub fn import_items(content: String, source: String) -> BridgeResult<ImportSummary> {
     let parsed = vault_core::import::parse(&content)?;
+    let bytes = content.len() as u64;
     let (added, duplicates, invalid) = with_vault(|v| v.import_items(parsed.items))?;
-    Ok(ImportSummary {
+    let summary = ImportSummary {
         format: parsed.format.into(),
         added: added as u32,
         updated: 0,
         duplicates: duplicates as u32,
         skipped: (invalid + parsed.skipped) as u32,
-    })
+    };
+    record_transfer(&summary, vault_core::history::TransferDirection::Import, &source, bytes);
+    Ok(summary)
 }
 
 /// 导出加密备份包（`.wljbak`）字节流，由 Dart 侧写盘。
 pub fn export_backup() -> BridgeResult<Vec<u8>> {
-    with_vault(|v| v.export_backup())
+    let bytes = with_vault(|v| v.export_backup())?;
+    let summary = ImportSummary { format: "wljbak".into(), added: 0, updated: 0, duplicates: 0, skipped: 0 };
+    // 导出时内核不知道最终写到哪，来源留空；界面只展示格式与体积。
+    record_transfer(&summary, vault_core::history::TransferDirection::Export, "", bytes.len() as u64);
+    Ok(bytes)
 }
 
 /// 从加密备份包导入。返回 (新增, 跳过, 失败)。
-pub fn import_backup(data: Vec<u8>) -> BridgeResult<ImportSummary> {
+pub fn import_backup(data: Vec<u8>, source: String) -> BridgeResult<ImportSummary> {
+    let bytes = data.len() as u64;
     let (added, duplicates, invalid) = with_vault(|v| v.import_backup(&data))?;
-    Ok(ImportSummary { format: "wljbak".into(), added: added as u32, updated: 0, duplicates: duplicates as u32, skipped: invalid as u32 })
+    let summary =
+        ImportSummary { format: "wljbak".into(), added: added as u32, updated: 0, duplicates: duplicates as u32, skipped: invalid as u32 };
+    record_transfer(&summary, vault_core::history::TransferDirection::Import, &source, bytes);
+    Ok(summary)
 }
 
 /// 导出为明文 CSV（迁移用，调用方须提示用户妥善保管）。
 pub fn export_csv() -> BridgeResult<String> {
-    with_vault(|v| v.export_csv())
+    let csv = with_vault(|v| v.export_csv())?;
+    let summary = ImportSummary { format: "csv".into(), added: 0, updated: 0, duplicates: 0, skipped: 0 };
+    record_transfer(&summary, vault_core::history::TransferDirection::Export, "", csv.len() as u64);
+    Ok(csv)
+}
+
+/// 导入 / 导出历史（计划书 §3.7）。本机记录、以 Vault Key 密封、不参与同步。
+pub fn transfer_history() -> BridgeResult<String> {
+    let history = with_vault(|v| v.transfer_history())?;
+    Ok(serde_json::to_string(&history)?)
+}
+
+pub fn clear_transfer_history() -> BridgeResult<()> {
+    with_vault(|v| v.clear_transfer_history())
+}
+
+/// 记录一次传输。**失败只记日志**：历史是辅助信息，不该让一次成功导入看起来失败。
+fn record_transfer(summary: &ImportSummary, direction: vault_core::history::TransferDirection, source: &str, bytes: u64) {
+    let record = vault_core::history::TransferRecord {
+        at: vault_core::vault::now(),
+        direction,
+        format: summary.format.clone(),
+        source: vault_core::history::normalize_source(source),
+        added: summary.added,
+        updated: summary.updated,
+        duplicates: summary.duplicates,
+        skipped: summary.skipped,
+        bytes,
+    };
+    if let Err(e) = with_vault(|v| v.record_transfer(record.clone())) {
+        tracing::warn!(target: "bridge", error = %e, "record_transfer failed");
+    }
 }
 
 /// 对页面 URL 做防钓鱼匹配，返回按匹配质量排序的条目 ID。

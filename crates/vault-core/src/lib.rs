@@ -23,6 +23,7 @@ pub mod export;
 pub mod feedback;
 pub mod generator;
 pub mod health;
+pub mod history;
 pub mod import;
 pub mod item;
 pub mod merge;

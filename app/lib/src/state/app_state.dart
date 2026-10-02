@@ -803,8 +803,8 @@ class AppState extends ChangeNotifier {
     return r;
   });
 
-  Future<ImportSummary> importItems(String content) => _withSession(() async {
-    final summary = await VaultApi.importItems(content);
+  Future<ImportSummary> importItems(String content, {String source = ''}) => _withSession(() async {
+    final summary = await VaultApi.importItems(content, source: source);
     await refresh();
     return summary;
   });
@@ -841,16 +841,17 @@ class AppState extends ChangeNotifier {
     String content, {
     ColumnMapping? mapping,
     ImportStrategy strategy = ImportStrategy.skip,
+    String source = '',
   }) =>
       _withSession(() async {
-        final summary = await VaultApi.importItemsWith(content, mapping: mapping, strategy: strategy);
+        final summary = await VaultApi.importItemsWith(content, mapping: mapping, strategy: strategy, source: source);
         await refresh();
         return summary;
       });
 
   /// 从加密备份包（`.wljbak`）导入，导入后刷新。
-  Future<ImportSummary> importBackup(Uint8List data) => _withSession(() async {
-    final summary = await VaultApi.importBackup(data);
+  Future<ImportSummary> importBackup(Uint8List data, {String source = ''}) => _withSession(() async {
+    final summary = await VaultApi.importBackup(data, source: source);
     await refresh();
     return summary;
   });
@@ -860,6 +861,11 @@ class AppState extends ChangeNotifier {
 
   /// 导出明文 CSV。
   Future<String> exportCsv() => _withSession(VaultApi.exportCsv);
+
+  /// 导入 / 导出历史（§3.7）。本机记录、密封存放、不参与同步。
+  Future<List<TransferRecord>> transferHistory() => _withSession(VaultApi.transferHistory);
+
+  Future<void> clearTransferHistory() => _withSession(VaultApi.clearTransferHistory);
 
   // ---------- 设置 ----------
 

@@ -6,6 +6,43 @@ import '../l10n/strings.dart';
 /// `updated` 是按「覆盖」策略改写掉的现有条目数——它改变了既有数据，必须单独展示。
 typedef ImportSummary = ({String format, int added, int updated, int duplicates, int skipped});
 
+/// 导入 / 导出历史的一条记录（计划书 §3.7）。本机记录、以 Vault Key 密封、不参与同步。
+typedef TransferRecord = ({
+  int at,
+  TransferDirection direction,
+  String format,
+  String source,
+  int added,
+  int updated,
+  int duplicates,
+  int skipped,
+  int bytes,
+});
+
+/// 一次传输的方向。wire 值与内核 `TransferDirection` 的 serde 名一致。
+enum TransferDirection {
+  import('import'),
+  export('export');
+
+  const TransferDirection(this.wire);
+
+  final String wire;
+
+  static TransferDirection parse(String? raw) => raw == 'export' ? TransferDirection.export : TransferDirection.import;
+}
+
+TransferRecord transferRecordFromJson(Map<String, dynamic> j) => (
+      at: (j['at'] as num?)?.toInt() ?? 0,
+      direction: TransferDirection.parse(j['direction'] as String?),
+      format: j['format'] as String? ?? '',
+      source: j['source'] as String? ?? '',
+      added: (j['added'] as num?)?.toInt() ?? 0,
+      updated: (j['updated'] as num?)?.toInt() ?? 0,
+      duplicates: (j['duplicates'] as num?)?.toInt() ?? 0,
+      skipped: (j['skipped'] as num?)?.toInt() ?? 0,
+      bytes: (j['bytes'] as num?)?.toInt() ?? 0,
+    );
+
 /// 浏览器扩展配对请求。`code` 须与扩展弹窗中显示的配对码一致。
 typedef PairingRequest = ({String clientId, String name, String code});
 

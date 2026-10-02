@@ -25,11 +25,15 @@ use vault_crypto::{sealed, srp6a, Key32};
 use zeroize::Zeroizing;
 
 use crate::envelope::Envelope;
+use crate::history::TransferRecord;
 use crate::import::{title_key, unique_title, ImportOutcome, ImportStrategy};
 use crate::item::{Item, ItemData, ItemKind, PasswordHistoryEntry};
 use crate::merge::PASSWORD_HISTORY_LIMIT;
 use crate::store::{AccountRecord, ItemRow, Store};
 use crate::{Result, VaultError};
+
+/// 导入导出历史在本机设置里的键（以 Vault Key 密封存放，锁定时读不到）。
+const TRANSFER_HISTORY_KEY: &str = "transfer_history";
 
 /// 注册 / 恢复后需要展示给用户、写入 Recovery Kit 的信息。仅在此刻出现一次。
 pub struct Enrollment {
@@ -739,6 +743,30 @@ impl Vault {
         self.store.set_setting(&format!("sealed:{key}"), &B64.encode(ct))
     }
 
+    // ---------- 导入 / 导出历史（§3.7）----------
+
+    /// 本机导入导出历史，最新的在最前。
+    ///
+    /// 历史以 Vault Key 密封存放，因此**锁定时返回 `Err(Locked)`**——不是空列表：
+    /// 「读不出来」和「确实没有记录」是两件事，界面要能区分。
+    pub fn transfer_history(&self) -> Result<Vec<TransferRecord>> {
+        let Some(raw) = self.get_sealed_setting(TRANSFER_HISTORY_KEY)? else { return Ok(Vec::new()) };
+        Ok(crate::history::decode(&raw))
+    }
+
+    /// 追加一条历史记录。需要解锁——历史以 Vault Key 密封，明文不落盘。
+    pub fn record_transfer(&self, record: TransferRecord) -> Result<()> {
+        let mut history = self.transfer_history()?;
+        history = crate::history::push(&history, record);
+        self.set_sealed_setting(TRANSFER_HISTORY_KEY, &crate::history::encode(&history)?)
+    }
+
+    pub fn clear_transfer_history(&self) -> Result<()> {
+        // 覆盖成一个空的密封值而不是删键：密封存储里删键没有对应语义，
+        // 而空数组本身就读作「没有历史」。
+        self.set_sealed_setting(TRANSFER_HISTORY_KEY, &crate::history::encode(&[])?)
+    }
+
     /// 清空本机保险库（不影响服务端数据）。
     pub fn wipe_local(&mut self) -> Result<()> {
         self.lock();
@@ -1134,6 +1162,67 @@ mod tests {
         assert!(matches!(v.delete_tag("a"), Err(VaultError::Locked)));
         assert!(matches!(v.rename_category("a", "b"), Err(VaultError::Locked)));
         assert!(matches!(v.clear_category("a"), Err(VaultError::Locked)));
+    }
+
+    /// 导入导出历史（计划书 §3.7）。
+    #[test]
+    fn transfer_history_records_newest_first_and_is_sealed() {
+        use crate::history::{TransferDirection, TransferRecord, TRANSFER_HISTORY_LIMIT};
+        let (v, _) = new_vault();
+        assert!(v.transfer_history().unwrap().is_empty(), "一开始没有历史");
+
+        let rec = |at: i64| TransferRecord {
+            at,
+            direction: TransferDirection::Import,
+            format: "chrome".into(),
+            source: "export.csv".into(),
+            added: 3,
+            updated: 0,
+            duplicates: 1,
+            skipped: 0,
+            bytes: 128,
+        };
+        v.record_transfer(rec(10)).unwrap();
+        v.record_transfer(rec(20)).unwrap();
+        let history = v.transfer_history().unwrap();
+        assert_eq!(history.len(), 2);
+        assert_eq!(history[0].at, 20, "最新的在最前");
+        assert_eq!(history[1].at, 10);
+
+        // 明文不能落在设置表里：文件名本身就是线索。
+        let stored = v.get_setting("sealed:transfer_history").unwrap().unwrap();
+        assert!(!stored.contains("export.csv"), "历史必须以 Vault Key 密封存放");
+        assert!(v.get_setting("transfer_history").unwrap().is_none(), "不该有明文键");
+
+        // 上限：超出丢弃最旧的。
+        for i in 0..TRANSFER_HISTORY_LIMIT as i64 + 3 {
+            v.record_transfer(rec(100 + i)).unwrap();
+        }
+        assert_eq!(v.transfer_history().unwrap().len(), TRANSFER_HISTORY_LIMIT);
+
+        v.clear_transfer_history().unwrap();
+        assert!(v.transfer_history().unwrap().is_empty());
+    }
+
+    #[test]
+    fn transfer_history_needs_an_unlocked_vault() {
+        let (mut v, _) = new_vault();
+        v.lock();
+        // 锁定时读不出来（密封），也写不进去；「读不出」不等于「没有记录」。
+        assert!(matches!(v.transfer_history(), Err(VaultError::Locked)));
+        let rec = crate::history::TransferRecord {
+            at: 1,
+            direction: crate::history::TransferDirection::Export,
+            format: "csv".into(),
+            source: String::new(),
+            added: 0,
+            updated: 0,
+            duplicates: 0,
+            skipped: 0,
+            bytes: 10,
+        };
+        assert!(matches!(v.record_transfer(rec), Err(VaultError::Locked)));
+        assert!(matches!(v.clear_transfer_history(), Err(VaultError::Locked)));
     }
 
     /// 动态字段类型在保存路径上的行为（计划书 §3.1）。

@@ -580,6 +580,19 @@ abstract final class AppStrings {
   static const fieldDateInvalid = '日期格式应为 年-月-日';
   static const fieldImageMissing = '请填写图片地址';
   static const imageLoadFailed = '图片无法加载';
+
+  // ---------- 导入导出历史（§3.7）----------
+  static const transferHistory = '导入导出历史';
+  static const transferHistorySubtitle = '只记在这台设备上，以保险库密钥加密存放，不参与同步。';
+  static const transferImport = '导入';
+  static const transferNoHistory = '还没有导入导出记录';
+  static const transferClear = '清空历史';
+  static const transferClearConfirm = '清空本机导入导出历史？条目数据不受影响。';
+  static const transferSource = '来源：{name}';
+  static const transferNoSource = '未记录来源';
+  static const transferBytes = '{n} 字节';
+  static const transferCounts = '新增 {added}，覆盖 {updated}，重复 {duplicates}，跳过 {skipped}';
+
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
   static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
@@ -1454,6 +1467,16 @@ abstract final class AppStrings {
     fieldDateInvalid: '日期格式應為 年-月-日',
     fieldImageMissing: '請填寫圖片網址',
     imageLoadFailed: '圖片無法載入',
+    transferHistory: '匯入匯出歷史',
+    transferHistorySubtitle: '只記在這台裝置上，以保險庫金鑰加密存放，不參與同步。',
+    transferImport: '匯入',
+    transferNoHistory: '還沒有匯入匯出紀錄',
+    transferClear: '清空歷史',
+    transferClearConfirm: '清空本機匯入匯出歷史？項目資料不受影響。',
+    transferSource: '來源：{name}',
+    transferNoSource: '未記錄來源',
+    transferBytes: '{n} 位元組',
+    transferCounts: '新增 {added}，覆寫 {updated}，重複 {duplicates}，跳過 {skipped}',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2261,6 +2284,16 @@ abstract final class AppStrings {
     fieldDateInvalid: 'Date must look like YYYY-MM-DD',
     fieldImageMissing: 'Enter an image location',
     imageLoadFailed: 'Image failed to load',
+    transferHistory: 'Import and export history',
+    transferHistorySubtitle: 'Recorded on this device only, sealed with the vault key, never synced.',
+    transferImport: 'Import',
+    transferNoHistory: 'No imports or exports yet',
+    transferClear: 'Clear history',
+    transferClearConfirm: 'Clear the local import and export history? Item data is unaffected.',
+    transferSource: 'Source: {name}',
+    transferNoSource: 'No source recorded',
+    transferBytes: '{n} bytes',
+    transferCounts: '{added} added, {updated} overwritten, {duplicates} duplicates, {skipped} skipped',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',

@@ -227,8 +227,9 @@ abstract final class VaultApi {
   static Future<void> setSetting(String key, String value) => guard(() => rvault.setSetting(key: key, value: value));
 
   /// 导入其他密码管理器的导出文件（CSV / 1PIF，格式由内核自动识别）。
-  static Future<ImportSummary> importItems(String content) => _session(() async {
-        final s = await rvault.importItems(content: content);
+  /// `source` 只用于历史记录（一般是文件名）。
+  static Future<ImportSummary> importItems(String content, {String source = ''}) => _session(() async {
+        final s = await rvault.importItems(content: content, source: source);
         return (format: s.format, added: s.added, updated: s.updated, duplicates: s.duplicates, skipped: s.skipped);
       });
 
@@ -247,12 +248,14 @@ abstract final class VaultApi {
     String content, {
     ColumnMapping? mapping,
     ImportStrategy strategy = ImportStrategy.skip,
+    String source = '',
   }) =>
       _session(() async {
         final s = await rvault.importItemsWith(
           content: content,
           mappingJson: mapping == null ? '' : jsonEncode(mapping.toJson()),
           strategy: strategy.wire,
+          source: source,
         );
         return (format: s.format, added: s.added, updated: s.updated, duplicates: s.duplicates, skipped: s.skipped);
       });
@@ -261,13 +264,21 @@ abstract final class VaultApi {
   static Future<Uint8List> exportBackup() => _session(rvault.exportBackup);
 
   /// 从加密备份包导入。
-  static Future<ImportSummary> importBackup(Uint8List data) => _session(() async {
-        final s = await rvault.importBackup(data: data);
+  static Future<ImportSummary> importBackup(Uint8List data, {String source = ''}) => _session(() async {
+        final s = await rvault.importBackup(data: data, source: source);
         return (format: s.format, added: s.added, updated: s.updated, duplicates: s.duplicates, skipped: s.skipped);
       });
 
   /// 导出为明文 CSV（迁移用）。
   static Future<String> exportCsv() => _session(rvault.exportCsv);
+
+  /// 导入 / 导出历史（§3.7）。本机记录、密封存放、不参与同步。
+  static Future<List<TransferRecord>> transferHistory() => _session(() async {
+        final raw = jsonDecode(await rvault.transferHistory()) as List;
+        return [for (final r in raw) transferRecordFromJson((r as Map).cast())];
+      });
+
+  static Future<void> clearTransferHistory() => _session(rvault.clearTransferHistory);
 
   // ---------- 本机冲突裁决 ----------
 

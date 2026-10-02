@@ -25,6 +25,7 @@ import 'item_detail.dart' show confirmDialog;
 import 'import_dialog.dart';
 import 'sidebar_layout.dart';
 import 'taxonomy_dialog.dart';
+import 'transfer_history_dialog.dart';
 
 /// 设置页的分区。安全总览（§5.1）的宫格入口据此直接定位到对应分区，
 /// 而不是把用户丢在设置页顶部自己找。
@@ -1010,7 +1011,12 @@ class _DataSectionState extends State<_DataSection> {
         parse: (c, {mapping}) => VaultApi.importPreview(c, mapping: mapping),
       );
       if (decision == null || !mounted || !state.isCurrentSession(epoch)) return;
-      final r = await state.importItemsWith(content, mapping: decision.mapping, strategy: decision.strategy);
+      final r = await state.importItemsWith(
+        content,
+        mapping: decision.mapping,
+        strategy: decision.strategy,
+        source: file.name,
+      );
       if (!mounted || !state.isCurrentSession(epoch)) return;
       final title = context.tr(AppStrings.importDone);
       final summary = _importSummaryText(
@@ -1116,7 +1122,7 @@ class _DataSectionState extends State<_DataSection> {
     try {
       final content = await file.readAsBytes();
       if (!mounted || !state.isCurrentSession(epoch)) return;
-      final r = await state.importBackup(content);
+      final r = await state.importBackup(content, source: file.name);
       if (!mounted || !state.isCurrentSession(epoch)) return;
       final title = context.tr(AppStrings.importDone);
       final summary = _importSummaryText(
@@ -1160,6 +1166,17 @@ class _DataSectionState extends State<_DataSection> {
     );
   }
 
+  /// 导入导出历史（§3.7）。记录由内核在每次传输完成时写入，这里只读与清空。
+  Future<void> _showHistory() async {
+    final state = AppScope.of(context);
+    if (!state.isCurrentSession(state.sessionEpoch)) return;
+    await showTransferHistory(
+      context,
+      load: state.transferHistory,
+      clear: state.clearTransferHistory,
+    );
+  }
+
   @override
   Widget build(BuildContext context) => _Section(title: context.tr(AppStrings.sectionData), children: [
         _Row(
@@ -1191,6 +1208,16 @@ class _DataSectionState extends State<_DataSection> {
           title: context.tr(AppStrings.taxonomyManage),
           subtitle: context.tr(AppStrings.taxonomyManageSubtitle),
           trailing: ZoButton(label: context.tr(AppStrings.taxonomyManage), dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _manageTaxonomy),
+        ),
+        _Row(
+          title: context.tr(AppStrings.transferHistory),
+          subtitle: context.tr(AppStrings.transferHistorySubtitle),
+          trailing: ZoButton(
+            label: context.tr(AppStrings.transferHistory),
+            dense: true,
+            variant: ZoButtonVariant.secondary,
+            onPressed: _busy ? null : _showHistory,
+          ),
         ),
       ]);
 }
