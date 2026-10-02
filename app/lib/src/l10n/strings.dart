@@ -603,6 +603,15 @@ abstract final class AppStrings {
   static const profileNicknameHint = '最多 32 个字符，可留空';
   static const profileAvatarHint = 'http 或 https 链接，可留空';
   static const profileCreatedAt = '注册时间：{time}';
+  static const inviteMine = '我的邀请码';
+  static const inviteNone = '尚未生成';
+  static const inviteCopy = '复制邀请码';
+  static const inviteCopied = '邀请码已复制';
+  static const inviteBind = '填写邀请码';
+  static const inviteBindTitle = '填写邀请人的邀请码';
+  static const inviteBindHint = '12 位字母数字，可带空格或连字符';
+  static const inviteBindDone = '已绑定邀请人';
+  static const inviteBindNote = '一次性绑定，绑定后不可更改。';
 
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
@@ -1497,6 +1506,15 @@ abstract final class AppStrings {
     profileNicknameHint: '最多 32 個字元，可留空',
     profileAvatarHint: 'http 或 https 連結，可留空',
     profileCreatedAt: '註冊時間：{time}',
+    inviteMine: '我的邀請碼',
+    inviteNone: '尚未產生',
+    inviteCopy: '複製邀請碼',
+    inviteCopied: '邀請碼已複製',
+    inviteBind: '填寫邀請碼',
+    inviteBindTitle: '填寫邀請人的邀請碼',
+    inviteBindHint: '12 位字母數字，可帶空格或連字元',
+    inviteBindDone: '已綁定邀請人',
+    inviteBindNote: '一次性綁定，綁定後不可更改。',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2323,6 +2341,15 @@ abstract final class AppStrings {
     profileNicknameHint: 'Up to 32 characters; may be empty',
     profileAvatarHint: 'http or https link; may be empty',
     profileCreatedAt: 'Registered {time}',
+    inviteMine: 'My invite code',
+    inviteNone: 'Not generated yet',
+    inviteCopy: 'Copy invite code',
+    inviteCopied: 'Invite code copied',
+    inviteBind: 'Enter an invite code',
+    inviteBindTitle: 'Enter the invite code you received',
+    inviteBindHint: '12 letters or digits; spaces and hyphens are fine',
+    inviteBindDone: 'Inviter bound',
+    inviteBindNote: 'This binds once and cannot be changed.',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',

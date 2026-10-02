@@ -160,7 +160,14 @@ pub struct AccountProfileDto {
     pub nickname: String,
     pub avatar: String,
     pub created_at: i64,
+    /// 我的邀请码（§8.1 / §9）。旧服务端不返回时为空。
+    pub invite_code: String,
     pub online: bool,
+}
+
+/// 从内核的资料结构构造 DTO，避免三处各写一遍字段映射。
+fn profile_dto(p: vault_proto::AccountProfile, online: bool) -> AccountProfileDto {
+    AccountProfileDto { nickname: p.nickname, avatar: p.avatar, created_at: p.created_at, invite_code: p.invite_code, online }
 }
 
 /// 读取账户资料（§8.1）。**联网失败不报错**，回退到本机缓存并置 `online=false` ——
@@ -169,11 +176,10 @@ pub fn account_profile() -> BridgeResult<AccountProfileDto> {
     with_vault(|v| {
         let cached = v.cached_profile()?;
         match v.fetch_profile() {
-            Ok(p) => Ok(AccountProfileDto { nickname: p.nickname, avatar: p.avatar, created_at: p.created_at, online: true }),
+            Ok(p) => Ok(profile_dto(p, true)),
             Err(e) => {
                 tracing::debug!(target: "bridge", error = %e, "account profile fetch failed; serving cache");
-                let p = cached.unwrap_or_default();
-                Ok(AccountProfileDto { nickname: p.nickname, avatar: p.avatar, created_at: p.created_at, online: false })
+                Ok(profile_dto(cached.unwrap_or_default(), false))
             }
         }
     })
@@ -181,8 +187,10 @@ pub fn account_profile() -> BridgeResult<AccountProfileDto> {
 
 /// 更新账户资料（§8.2）。需要联网；成功后服务端返回的值即为新值。
 pub fn update_account_profile(nickname: String, avatar: String) -> BridgeResult<AccountProfileDto> {
-    with_vault(|v| {
-        let p = v.update_profile(&nickname, &avatar)?;
-        Ok(AccountProfileDto { nickname: p.nickname, avatar: p.avatar, created_at: p.created_at, online: true })
-    })
+    with_vault(|v| Ok(profile_dto(v.update_profile(&nickname, &avatar)?, true)))
+}
+
+/// 补填邀请人邀请码（§9）。一次性绑定，绑定后不可更改；需要联网。
+pub fn bind_invite(code: String) -> BridgeResult<AccountProfileDto> {
+    with_vault(|v| Ok(profile_dto(v.bind_invite(&code)?, true)))
 }

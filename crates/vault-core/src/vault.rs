@@ -1232,7 +1232,12 @@ mod tests {
         let (mut v, _) = new_vault();
         assert!(v.cached_profile().unwrap().is_none(), "一开始没有缓存");
 
-        let profile = AccountProfile { nickname: "阿澈".into(), avatar: "https://e.com/a.png".into(), created_at: 1700000000 };
+        let profile = AccountProfile {
+            nickname: "阿澈".into(),
+            avatar: "https://e.com/a.png".into(),
+            created_at: 1700000000,
+            invite_code: "ABCD2345EFGH".into(),
+        };
         v.cache_profile(&profile).unwrap();
         assert_eq!(v.cached_profile().unwrap(), Some(profile.clone()));
 

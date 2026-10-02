@@ -203,6 +203,15 @@ pub struct AccountResponse {
     /// 注册时间（Unix 秒，§8.1）。恢复流程复用本类型时不返回该字段，缺省为 0。
     #[serde(default)]
     pub created_at: i64,
+    /// 我的邀请码（§8.1 / §9）。旧服务端不返回，缺省为空。
+    #[serde(default)]
+    pub invite_code: String,
+}
+
+/// 补填邀请人邀请码（§9）。**方向不能混用**：这是别人给我的码，与我自己的邀请码是两回事。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BindInviteRequest {
+    pub code: String,
 }
 
 /// 更新账户资料（§8.2）。两个字段都是全量替换。
@@ -222,12 +231,20 @@ pub struct AccountProfile {
     pub avatar: String,
     /// 注册时间（Unix 秒）。旧服务端不返回时为 0。
     pub created_at: i64,
+    /// 我的邀请码（§8.1 / §9）。旧服务端不返回时为空。
+    #[serde(default)]
+    pub invite_code: String,
 }
 
 impl AccountResponse {
     /// 取出资料部分。
     pub fn profile(&self) -> AccountProfile {
-        AccountProfile { nickname: self.nickname.clone(), avatar: self.avatar.clone(), created_at: self.created_at }
+        AccountProfile {
+            nickname: self.nickname.clone(),
+            avatar: self.avatar.clone(),
+            created_at: self.created_at,
+            invite_code: self.invite_code.clone(),
+        }
     }
 }
 

@@ -586,8 +586,18 @@ impl Vault {
         Ok(profile)
     }
 
-    /// 本机缓存的资料。**离线时账户总览仍要有东西可显示**，因此缓存不是可选项。
+    /// 补填邀请人邀请码（§9）。一次性绑定，服务端绑定后不可更改。
     ///
+    /// 成功后服务端返回刷新过的账户信息，一并用来更新本机缓存。
+    pub fn bind_invite(&mut self, code: &str) -> Result<AccountProfile> {
+        let req = BindInviteRequest { code: code.to_string() };
+        let acc: AccountResponse = self.remote_api()?.0.post("/v1/account/invite", &req)?;
+        let profile = acc.profile();
+        self.cache_profile(&profile)?;
+        Ok(profile)
+    }
+
+    /// 本机缓存的资料。**离线时账户总览仍要有东西可显示**，因此缓存不是可选项。    ///
     /// 以 Vault Key 密封存放（复用 `set_sealed_setting`）：昵称与头像地址是用户自选的展示信息，
     /// 但不该明文躺在磁盘上。锁定时读不到——账户总览本来也只在解锁后可见。
     pub fn cached_profile(&self) -> Result<Option<AccountProfile>> {

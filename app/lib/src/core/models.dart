@@ -7,12 +7,19 @@ import '../l10n/strings.dart';
 typedef ImportSummary = ({String format, int added, int updated, int duplicates, int skipped});
 
 /// 账户资料（§8.1）。`online` 为 false 表示本次没连上服务端，展示的是本机缓存。
-typedef AccountProfile = ({String nickname, String avatar, int createdAt, bool online});
+typedef AccountProfile = ({
+  String nickname,
+  String avatar,
+  int createdAt,
+  String inviteCode,
+  bool online,
+});
 
 AccountProfile accountProfileFromJson(Map<String, dynamic> j) => (
       nickname: j['nickname'] as String? ?? '',
       avatar: j['avatar'] as String? ?? '',
       createdAt: (j['createdAt'] as num?)?.toInt() ?? 0,
+      inviteCode: j['inviteCode'] as String? ?? '',
       online: j['online'] == true,
     );
 

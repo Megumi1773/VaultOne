@@ -86,6 +86,24 @@ public class UserEntity implements Persistable<String> {
   @NotAudited
   private String avatar = "";
 
+  /**
+   * 我的邀请码（计划书 §8.1 / §9）：一人一码、可多人使用。注册时生成，之后不变。
+   *
+   * <p>唯一性由**部分唯一索引**兜底（`invite_code <> ''`），不依赖服务层检查——并发注册时两边都查到「没人用过」是可能的。
+   */
+  @Column(name = "invite_code", nullable = false)
+  @NotAudited
+  private String inviteCode = "";
+
+  /**
+   * 我补填的邀请人账户 id（计划书 §9）。**一次性、绑定后不可更改**，由 CHECK 约束 + 服务层双重兜底。
+   *
+   * <p>null 表示没填过。删除邀请人账户时置 null（外键 ON DELETE SET NULL），而不是级联删掉被邀请人。
+   */
+  @Column(name = "invited_by")
+  @NotAudited
+  private String invitedBy;
+
   @Column(name = "created_at", nullable = false)
   @NotAudited
   private String createdAt;
@@ -139,6 +157,8 @@ public class UserEntity implements Persistable<String> {
     user.recoveryWrap = recoveryWrap;
     user.recoveryAuthHash = recoveryAuthHash;
     user.sessionEpoch = 1;
+    // 注册即分配邀请码：一人一码是账户的属性，不该等到用户第一次打开「我的」才生成。
+    user.inviteCode = app.vaultone.server.identity.service.InviteCodes.generate();
     user.createdAt = InstantText.format(now);
     user.updatedAt = InstantText.format(now);
     return user;
@@ -234,6 +254,30 @@ public class UserEntity implements Persistable<String> {
 
   public String getNickname() {
     return nickname;
+  }
+
+  public String getInviteCode() {
+    return inviteCode;
+  }
+
+  public String getInvitedBy() {
+    return invitedBy;
+  }
+
+  /**
+   * 绑定邀请人（计划书 §9）。**只允许一次**：已绑定过直接抛冲突，不做「覆盖」。
+   *
+   * <p>这里再判一次是因为服务层的判断与这次写入之间隔着一次查询；真正的最终兜底是 CHECK 约束 与唯一索引，但让它在实体层就失败，错误信息更贴近调用方。
+   */
+  public void bindInviter(String inviterId, Instant now) {
+    if (invitedBy != null) {
+      throw app.vaultone.server.common.ApiException.conflict("已经绑定过邀请人，不可更改");
+    }
+    if (inviterId.equals(id)) {
+      throw app.vaultone.server.common.ApiException.badRequest("不能填写自己的邀请码");
+    }
+    this.invitedBy = inviterId;
+    this.updatedAt = InstantText.format(now);
   }
 
   public String getAvatar() {

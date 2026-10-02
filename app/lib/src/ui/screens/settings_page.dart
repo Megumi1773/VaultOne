@@ -14,6 +14,7 @@ import '../../core/ffi.dart';
 import '../../core/models.dart';
 import '../../l10n/strings.dart';
 import '../../state/app_state.dart';
+import '../../state/clipboard.dart';
 import '../../state/desktop_shell.dart';
 import '../../state/scope.dart';
 import '../theme.dart';
@@ -435,6 +436,27 @@ class _AccountSectionState extends State<_AccountSection> {
       ),
       if (p != null && p.avatar.isNotEmpty)
         _Row(title: context.tr(AppStrings.profileAvatar), subtitle: p.avatar),
+      // 我的邀请码（§8.1 / §9）：一人一码、可多人使用。与「填写邀请码」是两个方向，不混用。
+      _Row(
+        title: context.tr(AppStrings.inviteMine),
+        subtitle: (p?.inviteCode.isNotEmpty ?? false) ? p!.inviteCode : context.tr(AppStrings.inviteNone),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ZoIconButton(
+              icon: Icons.copy_rounded,
+              tooltip: context.tr(AppStrings.inviteCopy),
+              onPressed: (p?.inviteCode.isNotEmpty ?? false) ? () => _copyInvite(context, p!.inviteCode) : null,
+            ),
+            ZoButton(
+              label: context.tr(AppStrings.inviteBind),
+              dense: true,
+              variant: ZoButtonVariant.secondary,
+              onPressed: () => _bindInvite(context),
+            ),
+          ],
+        ),
+      ),
       _Row(title: a?.email ?? AppStrings.placeholder, subtitle: context.trf(AppStrings.accountIdLabel, {'id': a?.accountId ?? AppStrings.placeholder})),
       _Row(
         title: context.tr(AppStrings.keyDerivation),
@@ -470,6 +492,85 @@ class _AccountSectionState extends State<_AccountSection> {
       showZoMessage(context, context.tr(AppStrings.profileSaved));
     }
   }
+
+  /// 复制邀请码。
+  ///
+  /// **不按敏感内容处理**：邀请码本来就是要发给别人的，用户复制后紧接着就要粘贴到聊天窗口；
+  /// 按密码那套（排除剪贴板历史 + 到期清空）反而添乱。
+  Future<void> _copyInvite(BuildContext context, String code) async {
+    await ClipboardService.copy(code, label: context.tr(AppStrings.inviteMine), sensitive: false, clearAfterSeconds: 0);
+    if (context.mounted) showZoMessage(context, context.tr(AppStrings.inviteCopied));
+  }
+
+  /// 填写邀请人的邀请码（§9）。一次性绑定，服务端绑定后不可更改。
+  Future<void> _bindInvite(BuildContext context) async {
+    final state = AppScope.of(context);
+    final epoch = state.sessionEpoch;
+    final done = await showDialog<bool>(
+      context: context,
+      builder: (_) => _InviteBindDialog(bind: state.bindInvite),
+    );
+    if (done == true && context.mounted && state.isCurrentSession(epoch)) {
+      showZoMessage(context, context.tr(AppStrings.inviteBindDone));
+    }
+  }
+}
+
+/// 填写邀请人邀请码。格式规范化与「是否有效」的判断都在服务端
+/// （`InviteCodes.normalize`），这里只收集输入。
+class _InviteBindDialog extends StatefulWidget {
+  const _InviteBindDialog({required this.bind});
+
+  final Future<AccountProfile> Function(String code) bind;
+
+  @override
+  State<_InviteBindDialog> createState() => _InviteBindDialogState();
+}
+
+class _InviteBindDialogState extends State<_InviteBindDialog> {
+  final _code = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() => _busy = true);
+    try {
+      await widget.bind(_code.text);
+      if (mounted) Navigator.pop(context, true);
+    } on CoreException catch (e) {
+      if (mounted) showZoMessage(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(context.tr(AppStrings.inviteBindTitle)),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ZoTextField(controller: _code, hint: context.tr(AppStrings.inviteBindHint)),
+              const SizedBox(height: 6),
+              Text(context.tr(AppStrings.inviteBindHint), style: context.text.labelSmall),
+              const SizedBox(height: 10),
+              Text(context.tr(AppStrings.inviteBindNote), style: context.text.bodySmall),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: _busy ? null : () => Navigator.pop(context), child: Text(context.tr(AppStrings.cancel))),
+          FilledButton(onPressed: _busy ? null : _submit, child: Text(context.tr(AppStrings.save))),
+        ],
+      );
 }
 
 /// 资料编辑对话框。校验规则**只在服务端**（`WireValidation.profile`）：这里只做长度提示，

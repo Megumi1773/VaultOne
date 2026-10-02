@@ -323,24 +323,44 @@ class WireJsonTest {
   @Test
   void accountResponseCarriesProfileFieldsInSnakeCase() {
     AccountResponse r =
-        new AccountResponse("a@b.c", keys(), "阿澈", "https://example.com/a.png", 1700000000L);
+        new AccountResponse(
+            "a@b.c", keys(), "阿澈", "https://example.com/a.png", 1700000000L, "ABCD2345EFGH");
     String json = MAPPER.writeValueAsString(r);
     assertThat(json)
         .contains("\"nickname\":\"阿澈\"")
         .contains("\"avatar\":\"https://example.com/a.png\"")
-        .contains("\"created_at\":1700000000");
-    // 昵称与头像不进日志整行输出。
-    assertThat(r.toString()).doesNotContain("阿澈").doesNotContain("example.com");
+        .contains("\"created_at\":1700000000")
+        .contains("\"invite_code\":\"ABCD2345EFGH\"");
+    // 昵称、头像与邀请码都不进日志整行输出。
+    assertThat(r.toString())
+        .doesNotContain("阿澈")
+        .doesNotContain("example.com")
+        .doesNotContain("ABCD2345EFGH");
   }
 
   @Test
   void accountResponseToleratesMissingProfileFields() {
-    // 恢复流程用 keysOnly：资料字段为空、created_at 为 0，客户端必须能接受。
+    // 恢复流程用 keysOnly：资料与邀请码为空、created_at 为 0，客户端必须能接受。
     String json = MAPPER.writeValueAsString(AccountResponse.keysOnly("a@b.c", keys()));
-    assertThat(json).contains("\"nickname\":\"\"").contains("\"avatar\":\"\"");
+    assertThat(json)
+        .contains("\"nickname\":\"\"")
+        .contains("\"avatar\":\"\"")
+        .contains("\"invite_code\":\"\"");
     AccountResponse back = MAPPER.readValue(json, AccountResponse.class);
     assertThat(back.createdAt()).isZero();
     assertThat(back.nickname()).isEmpty();
+    assertThat(back.inviteCode()).isEmpty();
+  }
+
+  @Test
+  void bindInviteRequestRequiresCodeAndRedactsIt() {
+    BindInviteRequest req =
+        MAPPER.readValue("{\"code\":\"ABCD2345EFGH\"}", BindInviteRequest.class);
+    assertThat(req.code()).isEqualTo("ABCD2345EFGH");
+    assertThat(req.toString()).contains("<redacted>").doesNotContain("ABCD2345EFGH");
+    // 缺字段直接拒绝。
+    assertThatThrownBy(() -> MAPPER.readValue("{}", BindInviteRequest.class))
+        .isInstanceOf(RuntimeException.class);
   }
 
   @Test

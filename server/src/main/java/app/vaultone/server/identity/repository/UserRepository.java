@@ -16,4 +16,7 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select u from UserEntity u where u.id = :id")
   Optional<UserEntity> lockById(@Param("id") String id);
+
+  /** 按邀请码查邀请人（计划书 §9）。只读，不需要锁——被邀请人绑定的是别人的账户， 锁自己的行就够了；邀请码本身不可变，读到之后不会突然变成另一个人。 */
+  Optional<UserEntity> findByInviteCode(String inviteCode);
 }

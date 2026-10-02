@@ -24,7 +24,7 @@ class _Bridge implements RustLibApi {
   // 设置页进入账户分区时会后台拉一次资料；这两个方法在生产路径上会被调用，测试里给出空实现。
   @override
   Future<AccountProfileDto> crateApiSyncAccountProfile() async =>
-      const AccountProfileDto(nickname: '', avatar: '', createdAt: 0, online: false);
+      const AccountProfileDto(nickname: '', avatar: '', createdAt: 0, inviteCode: '', online: false);
 
   @override
   Future<void> crateApiLoggingLogEvent({required String level, required String message}) async {}

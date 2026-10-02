@@ -3,6 +3,7 @@ package app.vaultone.server.account.web;
 import app.vaultone.server.account.service.AccountService;
 import app.vaultone.server.crypto.ServerKeys;
 import app.vaultone.server.proto.AccountResponse;
+import app.vaultone.server.proto.BindInviteRequest;
 import app.vaultone.server.proto.ChangeCredentialsRequest;
 import app.vaultone.server.proto.ChangeCredentialsResponse;
 import app.vaultone.server.proto.UpdateProfileRequest;
@@ -12,6 +13,7 @@ import app.vaultone.server.web.RequestIds;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,6 +48,14 @@ public class AccountController {
   public AccountResponse updateProfile(
       Approved approved, @RequestBody UpdateProfileRequest req, HttpServletRequest request) {
     return account.updateProfile(
+        approved, req, RequestIds.clientIpHash(keys, request), RequestIds.currentRequestId());
+  }
+
+  /** 补填邀请人邀请码（计划书 §9）。一次性绑定，绑定后不可更改。 */
+  @PostMapping("/invite")
+  public AccountResponse bindInvite(
+      Approved approved, @RequestBody BindInviteRequest req, HttpServletRequest request) {
+    return account.bindInvite(
         approved, req, RequestIds.clientIpHash(keys, request), RequestIds.currentRequestId());
   }
 

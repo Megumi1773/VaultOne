@@ -9,6 +9,7 @@ import app.vaultone.server.config.VaultOneProperties;
 import app.vaultone.server.crypto.ServerKeys;
 import app.vaultone.server.identity.model.UserEntity;
 import app.vaultone.server.proto.AccountResponse;
+import app.vaultone.server.proto.BindInviteRequest;
 import app.vaultone.server.proto.ChangeCredentialsRequest;
 import app.vaultone.server.proto.ChangeCredentialsResponse;
 import app.vaultone.server.proto.UpdateProfileRequest;
@@ -73,13 +74,33 @@ public class AccountService {
     return toResponse(view);
   }
 
+  /**
+   * 补填邀请人邀请码（计划书 §9）。一次性绑定，成功审计同事务。
+   *
+   * <p>审计记 MEDIUM：它建立了一条账户之间的关联，撤销不了，比改昵称重。
+   */
+  @Transactional
+  public AccountResponse bindInvite(
+      Approved approved, BindInviteRequest req, byte[] ipHash, String requestId) {
+    var view = persistence.bindInviter(approved, req.code());
+    audit.record(
+        approved.userId(),
+        approved.deviceId(),
+        AuditEvents.INVITE_BOUND,
+        AuditService.SUCCESS,
+        requestId,
+        ipHash);
+    return toResponse(view);
+  }
+
   private AccountResponse toResponse(AccountPersistence.AccountView view) {
     return new AccountResponse(
         serverKeys.decryptEmail(view.user().getEmailEnc()),
         view.keys(),
         view.user().getNickname(),
         view.user().getAvatar(),
-        view.user().getCreatedAt().getEpochSecond());
+        view.user().getCreatedAt().getEpochSecond(),
+        view.user().getInviteCode());
   }
 
   /** 变更主密码：账户行悲观锁 + vk_gen 条件更新；成功审计同事务。 */

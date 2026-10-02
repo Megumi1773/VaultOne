@@ -293,16 +293,25 @@ abstract final class VaultApi {
   // ---------- 账户资料（§8.1 / §8.2）----------
 
   /// 读取账户资料。**离线不报错**：返回本机缓存并置 `online=false`。
-  static Future<AccountProfile> accountProfile() => _session(() async {
-        final p = await rsync.accountProfile();
-        return (nickname: p.nickname, avatar: p.avatar, createdAt: p.createdAt, online: p.online);
-      });
+  static Future<AccountProfile> accountProfile() =>
+      _session(() async => _profile(await rsync.accountProfile()));
 
   /// 更新账户资料（昵称 / 头像地址）。需要联网。
-  static Future<AccountProfile> updateAccountProfile(String nickname, String avatar) => _session(() async {
-        final p = await rsync.updateAccountProfile(nickname: nickname, avatar: avatar);
-        return (nickname: p.nickname, avatar: p.avatar, createdAt: p.createdAt, online: p.online);
-      });
+  static Future<AccountProfile> updateAccountProfile(String nickname, String avatar) =>
+      _session(() async => _profile(await rsync.updateAccountProfile(nickname: nickname, avatar: avatar)));
+
+  /// 补填邀请人邀请码（§9）。一次性绑定，绑定后不可更改；需要联网。
+  static Future<AccountProfile> bindInvite(String code) =>
+      _session(() async => _profile(await rsync.bindInvite(code: code)));
+
+  /// 桥 DTO → 领域模型。字段映射只写这一处，免得三处各写一遍漏一个。
+  static AccountProfile _profile(rsync.AccountProfileDto p) => (
+        nickname: p.nickname,
+        avatar: p.avatar,
+        createdAt: p.createdAt,
+        inviteCode: p.inviteCode,
+        online: p.online,
+      );
 
   // ---------- 本机冲突裁决 ----------
 

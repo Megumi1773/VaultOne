@@ -21,6 +21,9 @@ public final class AuditEvents {
   /** 账户资料变更（昵称 / 头像）。低敏感：不涉及密钥、设备或凭据。 */
   public static final String PROFILE_UPDATED = "profile_updated";
 
+  /** 补填邀请人邀请码（§9）。中敏感：建立了一条撤销不了的账户间关联。 */
+  public static final String INVITE_BOUND = "invite_bound";
+
   private static final Map<String, AuditSeverity> SEVERITIES =
       Map.ofEntries(
           Map.entry(REGISTER, AuditSeverity.MEDIUM),
@@ -36,7 +39,8 @@ public final class AuditEvents {
           Map.entry(ACCOUNT_DELETED, AuditSeverity.HIGH),
           Map.entry(FEEDBACK_CREATED, AuditSeverity.LOW),
           Map.entry(FEEDBACK_HANDLED, AuditSeverity.MEDIUM),
-          Map.entry(PROFILE_UPDATED, AuditSeverity.LOW));
+          Map.entry(PROFILE_UPDATED, AuditSeverity.LOW),
+          Map.entry(INVITE_BOUND, AuditSeverity.MEDIUM));
 
   private AuditEvents() {}
 

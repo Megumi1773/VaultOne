@@ -4,6 +4,8 @@ import app.vaultone.server.common.ApiException;
 import app.vaultone.server.identity.model.DeviceEntity;
 import app.vaultone.server.identity.model.UserEntity;
 import app.vaultone.server.identity.repository.DeviceRepository;
+import app.vaultone.server.identity.repository.UserRepository;
+import app.vaultone.server.identity.service.InviteCodes;
 import app.vaultone.server.identity.service.KeysMapper;
 import app.vaultone.server.proto.AccountKeys;
 import app.vaultone.server.security.AccountGuard;
@@ -24,11 +26,14 @@ public class AccountPersistence {
   private final AccountGuard guard;
   private final KeysMapper keysMapper;
   private final DeviceRepository devices;
+  private final UserRepository users;
 
-  public AccountPersistence(AccountGuard guard, KeysMapper keysMapper, DeviceRepository devices) {
+  public AccountPersistence(
+      AccountGuard guard, KeysMapper keysMapper, DeviceRepository devices, UserRepository users) {
     this.guard = guard;
     this.keysMapper = keysMapper;
     this.devices = devices;
+    this.users = users;
   }
 
   /** 账户实体 + 其线协议密钥材料（同一授权事务内取得，不跨事务重读机密）。 */
@@ -90,6 +95,25 @@ public class AccountPersistence {
     WireValidation.profile(nickname, avatar);
     user.updateProfile(nickname.trim(), avatar.trim(), Instant.now());
     // 与 view() 同一形状：调用方要回完整的账户响应，不该再去读一次密钥材料。
+    return new AccountView(
+        user, keysMapper.toKeys(user), new DeviceEpoch(principal.device().getEpoch()));
+  }
+
+  /**
+   * 补填邀请人邀请码（计划书 §9）。锁自己的账户行 → 规范化并解析邀请码 → 一次性绑定。
+   *
+   * <p>**只锁自己的行**：被绑定的是别人的账户，但我们只写自己这一行的 `invited_by`， 不需要锁邀请人。邀请码不可变，读到之后不会突然变成另一个人。
+   *
+   * <p>「已经绑定过」与「不能填自己的码」的判断在实体层（{@code UserEntity#bindInviter}）； 最终兜底是 CHECK 约束与唯一索引。
+   */
+  @Transactional
+  public AccountView bindInviter(Approved approved, String rawCode) {
+    AccountGuard.Principal principal = guard.lock(approved.ref());
+    UserEntity user = principal.user();
+    String code = InviteCodes.normalize(rawCode);
+    UserEntity inviter =
+        users.findByInviteCode(code).orElseThrow(() -> ApiException.badRequest("邀请码无效"));
+    user.bindInviter(inviter.getId(), Instant.now());
     return new AccountView(
         user, keysMapper.toKeys(user), new DeviceEpoch(principal.device().getEpoch()));
   }

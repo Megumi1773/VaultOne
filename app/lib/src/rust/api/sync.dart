@@ -10,6 +10,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 import 'vault.dart';
 
+// These functions are ignored because they are not marked as `pub`: `profile_dto`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
 
 Future<RemoteStatusDto?> remoteStatus() =>
@@ -117,17 +118,25 @@ Future<AccountProfileDto> updateAccountProfile({
   avatar: avatar,
 );
 
+/// 补填邀请人邀请码（§9）。一次性绑定，绑定后不可更改；需要联网。
+Future<AccountProfileDto> bindInvite({required String code}) =>
+    RustLib.instance.api.crateApiSyncBindInvite(code: code);
+
 /// 账户资料。`online` 表示本次是否成功从服务端刷新；失败时返回的是本机缓存。
 class AccountProfileDto {
   final String nickname;
   final String avatar;
   final PlatformInt64 createdAt;
+
+  /// 我的邀请码（§8.1 / §9）。旧服务端不返回时为空。
+  final String inviteCode;
   final bool online;
 
   const AccountProfileDto({
     required this.nickname,
     required this.avatar,
     required this.createdAt,
+    required this.inviteCode,
     required this.online,
   });
 
@@ -136,6 +145,7 @@ class AccountProfileDto {
       nickname.hashCode ^
       avatar.hashCode ^
       createdAt.hashCode ^
+      inviteCode.hashCode ^
       online.hashCode;
 
   @override
@@ -146,6 +156,7 @@ class AccountProfileDto {
           nickname == other.nickname &&
           avatar == other.avatar &&
           createdAt == other.createdAt &&
+          inviteCode == other.inviteCode &&
           online == other.online;
 }
 

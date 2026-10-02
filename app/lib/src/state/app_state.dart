@@ -891,6 +891,14 @@ class AppState extends ChangeNotifier {
         return p;
       });
 
+  /// 补填邀请人邀请码（§9）。一次性绑定，失败时抛 `CoreException` 由界面展示。
+  Future<AccountProfile> bindInvite(String code) => _withSession(() async {
+        final p = await VaultApi.bindInvite(code);
+        profile = p;
+        notifyListeners();
+        return p;
+      });
+
   // ---------- 设置 ----------
 
   Future<void> updateSettings(Settings s) async {
