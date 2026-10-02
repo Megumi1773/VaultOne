@@ -669,6 +669,15 @@ class _KeyBackupSection extends StatelessWidget {
         subtitle: context.tr(AppStrings.recoveryKitAndCardSubtitle),
         trailing: ZoButton(label: context.tr(AppStrings.manageAction), dense: true, variant: ZoButtonVariant.secondary, onPressed: () => showBackupManager(context)),
       ),
+      // 备份提醒开关（§8.3）。关掉后体检清单里不再出现备份项。
+      _Row(
+        title: context.tr(AppStrings.backupReminder),
+        subtitle: context.tr(AppStrings.backupReminderHint),
+        trailing: Switch(
+          value: state.settings.backupReminder,
+          onChanged: (v) => state.updateSettings(state.settings.copyWith(backupReminder: v)),
+        ),
+      ),
     ]);
   }
 }

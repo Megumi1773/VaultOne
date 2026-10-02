@@ -36,6 +36,7 @@ class Settings {
     this.lockOnExit = true,
     this.maskPasswords = true,
     this.screenshotProtection = false,
+    this.backupReminder = true,
   });
 
   final int autoLockMinutes;
@@ -71,6 +72,9 @@ class Settings {
   /// 截图保护（§8.3）：阻止本应用窗口被截屏 / 录屏捕获。平台不支持时该项无效。
   final bool screenshotProtection;
 
+  /// 备份提醒（§8.3）。默认开：关掉之后体检清单里不再出现备份项。
+  final bool backupReminder;
+
   Settings copyWith({
     int? autoLockMinutes,
     int? clipboardSeconds,
@@ -86,6 +90,7 @@ class Settings {
     bool? lockOnExit,
     bool? maskPasswords,
     bool? screenshotProtection,
+    bool? backupReminder,
   }) =>
       Settings(
         autoLockMinutes: autoLockMinutes ?? this.autoLockMinutes,
@@ -102,6 +107,7 @@ class Settings {
         lockOnExit: lockOnExit ?? this.lockOnExit,
         maskPasswords: maskPasswords ?? this.maskPasswords,
         screenshotProtection: screenshotProtection ?? this.screenshotProtection,
+        backupReminder: backupReminder ?? this.backupReminder,
       );
 }
 
@@ -319,6 +325,8 @@ class AppState extends ChangeNotifier {
       lockOnExit: (await VaultApi.getSetting('lock_on_exit')) != '0',
       maskPasswords: (await VaultApi.getSetting('mask_passwords')) != '0',
       screenshotProtection: (await VaultApi.getSetting('screenshot_protection')) == '1',
+      // 同 lockOnExit：老库里没这个键时应当落到「开」，所以判 `!= '0'`。
+      backupReminder: (await VaultApi.getSetting('backup_reminder')) != '0',
     );
     privacyAccepted = (await VaultApi.getSetting('privacy_consent')) == privacyVersion;
     lastBackupAt = intOr(await VaultApi.getSetting('backup_last_at'), 0);
@@ -917,6 +925,7 @@ class AppState extends ChangeNotifier {
     await VaultApi.setSetting('lock_on_exit', s.lockOnExit ? '1' : '0');
     await VaultApi.setSetting('mask_passwords', s.maskPasswords ? '1' : '0');
     await VaultApi.setSetting('screenshot_protection', s.screenshotProtection ? '1' : '0');
+    await VaultApi.setSetting('backup_reminder', s.backupReminder ? '1' : '0');
   }
 
   // ---------- 浏览器扩展（由 DesktopShell 按设置启停）----------

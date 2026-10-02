@@ -95,6 +95,8 @@ pub enum FindingAction {
     PrivateKey,
     GeneralSettings,
     SystemSettings,
+    /// 打开备份管理（§8.3 备份提醒）。
+    OpenBackup,
 }
 
 /// 泄露检测状态（计划书 §5.2）。
@@ -181,7 +183,26 @@ pub struct SecuritySettings {
     pub biometrics_enabled: bool,
     /// 是否开启了详细诊断日志。
     pub verbose_logs: bool,
+    /// 是否开启备份提醒（计划书 §8.3）。默认开。
+    ///
+    /// 关掉之后任务清单里**不再出现**备份项——清单项本身就是一种提醒，开关必须真的能关掉它。
+    /// 但也**不能记成「已完成」**：那等于用关开关冒充做完了备份。
+    #[serde(default = "default_true")]
+    pub backup_reminder: bool,
+    /// 最近一次成功备份的时间（Unix 秒）；0 表示从未备份。
+    #[serde(default)]
+    pub last_backup_at: i64,
 }
+
+fn default_true() -> bool {
+    true
+}
+
+/// 备份提醒的过期阈值（天）。
+///
+/// 30 天是个折中：太短会变成噪音，太长等于没有提醒。基线没给具体天数，这里定一个并
+/// 把理由写下来，免得以后有人问「为什么是 30」。
+pub const BACKUP_REMINDER_DAYS: i64 = 30;
 
 impl SecuritySettings {
     /// 测试与默认场景：一切都已妥善配置。
@@ -192,7 +213,25 @@ impl SecuritySettings {
         biometrics_available: false,
         biometrics_enabled: false,
         verbose_logs: false,
+        backup_reminder: true,
+        // 「一切都已妥善配置」包含「刚备份过」——否则 SECURE_DEFAULTS 会带出一条备份待办，
+        // 所有以它为基准的用例都会莫名其妙多一项。
+        // 用「很远的将来」当哨兵：backup_overdue 走 saturating_sub，任何现实的 now 都算出 0 天。
+        last_backup_at: i64::MAX / 2,
     };
+
+    /// 备份是否已过期（或从未备份）。仅在开启提醒时有意义。
+    pub fn backup_overdue(&self, now: i64) -> bool {
+        backup_overdue(self.last_backup_at, now)
+    }
+}
+
+/// 备份是否已过期（或从未备份）。
+pub fn backup_overdue(last_backup_at: i64, now: i64) -> bool {
+    if last_backup_at <= 0 {
+        return true;
+    }
+    now.saturating_sub(last_backup_at) > BACKUP_REMINDER_DAYS * 86_400
 }
 
 /// 忽略一条发现项直到某个时刻。
@@ -315,6 +354,24 @@ pub fn checklist(settings: &SecuritySettings, report: &HealthReport) -> Vec<Chec
                 action: FindingAction::Biometrics,
             },
         );
+    }
+
+    // 备份提醒（§8.3）。关掉开关就整项不出现——清单项本身就是一种提醒，开关必须真的能关掉它。
+    // 注意不是记成 done：那等于用「关掉提醒」冒充「做完备份」。
+    if settings.backup_reminder {
+        let overdue = settings.backup_overdue(report.checked_at);
+        let never = settings.last_backup_at <= 0;
+        items.push(ChecklistItem {
+            id: "task.backup".into(),
+            title: "备份保险库".into(),
+            description: if never {
+                "还没有导出过备份。导出一份恢复套件或 .wljbak，设备丢失时才找得回来。".into()
+            } else {
+                format!("上次备份已超过 {BACKUP_REMINDER_DAYS} 天，重新导出一份。")
+            },
+            done: !overdue,
+            action: FindingAction::OpenBackup,
+        });
     }
     items
 }
@@ -714,6 +771,9 @@ mod tests {
             biometrics_available: true,
             biometrics_enabled: false,
             verbose_logs: true,
+            // 从不备份：与「一切都处于不安全状态」一致。
+            backup_reminder: true,
+            last_backup_at: 0,
         };
         let r = report(&items, &breaches, BreachStatus::Ok, env, settings, 1_000);
         for d in Dimension::ALL {
@@ -818,6 +878,8 @@ mod tests {
             biometrics_available: true,
             biometrics_enabled: false,
             verbose_logs: false,
+            backup_reminder: true,
+            last_backup_at: 0,
         };
         let r = report(&items, &HashMap::new(), BreachStatus::Ok, EnvironmentReport::UNSUPPORTED, settings, 1_000);
         let action = |id: &str| r.findings.iter().find(|f| f.id == id).unwrap().action;
@@ -944,9 +1006,12 @@ mod tests {
             biometrics_available: true,
             biometrics_enabled: false,
             verbose_logs: true,
+            // 从不备份：与「一切都处于不安全状态」一致。
+            backup_reminder: true,
+            last_backup_at: 0,
         };
         let list = checklist(&insecure, &r);
-        for id in ["task.autoLock", "task.lockOnExit", "task.clipboard", "task.verboseLogs", "task.biometrics"] {
+        for id in ["task.autoLock", "task.lockOnExit", "task.clipboard", "task.verboseLogs", "task.biometrics", "task.backup"] {
             assert!(!task(&list, id).done, "{id} 应标记为未完成");
         }
         assert!(!task(&list, "task.noWeak").done, "有弱密码时该条未完成");
@@ -972,7 +1037,49 @@ mod tests {
         // SECURE_DEFAULTS 里 biometrics_available = false
         let list = checklist(&SecuritySettings::SECURE_DEFAULTS, &r);
         assert!(list.iter().all(|t| t.id != "task.biometrics"), "设备不支持时不该出现生物识别项，否则用户永远做不完");
-        assert_eq!(list.len(), 9);
+        // 9 项基础项 + 备份项（SECURE_DEFAULTS 视为刚备份过，因此它是已完成状态而不是不出现）。
+        assert_eq!(list.len(), 10);
+        assert!(task(&list, "task.backup").done);
+    }
+
+    #[test]
+    fn checklist_reminds_about_backups_and_respects_the_switch() {
+        let items = vec![login("a", STRONG_A)];
+        // 用一个真实量级的时间戳：`report` 的 checked_at 就是它，而「N 天前」必须能减成正数。
+        let now = 1_700_000_000i64;
+        let r = report(&items, &HashMap::new(), BreachStatus::Ok, EnvironmentReport::UNSUPPORTED, SecuritySettings::SECURE_DEFAULTS, now);
+        let day = 86_400;
+
+        // 从未备份：提醒，且动作指向备份管理。
+        let never = SecuritySettings { backup_reminder: true, last_backup_at: 0, ..SecuritySettings::SECURE_DEFAULTS };
+        let list = checklist(&never, &r);
+        assert!(!task(&list, "task.backup").done, "从没备份过必须提醒");
+        assert_eq!(task(&list, "task.backup").action, FindingAction::OpenBackup);
+
+        // 刚备份过：完成。
+        let fresh = SecuritySettings { backup_reminder: true, last_backup_at: now - 3 * day, ..SecuritySettings::SECURE_DEFAULTS };
+        assert!(task(&checklist(&fresh, &r), "task.backup").done);
+
+        // 超过阈值：再次提醒。
+        let stale = SecuritySettings {
+            backup_reminder: true,
+            last_backup_at: now - (BACKUP_REMINDER_DAYS + 1) * day,
+            ..SecuritySettings::SECURE_DEFAULTS
+        };
+        assert!(!task(&checklist(&stale, &r), "task.backup").done, "超过 {BACKUP_REMINDER_DAYS} 天要提醒");
+
+        // 边界：正好等于阈值不算过期（是「>」不是「>=」，否则刚满 30 天就开始催）。
+        let edge = SecuritySettings {
+            backup_reminder: true,
+            last_backup_at: now - BACKUP_REMINDER_DAYS * day,
+            ..SecuritySettings::SECURE_DEFAULTS
+        };
+        assert!(task(&checklist(&edge, &r), "task.backup").done);
+
+        // 关掉开关：整项不出现。**不是记成 done** —— 那等于用「关掉提醒」冒充「做完备份」。
+        let off = SecuritySettings { backup_reminder: false, last_backup_at: 0, ..SecuritySettings::SECURE_DEFAULTS };
+        let list = checklist(&off, &r);
+        assert!(list.iter().all(|t| t.id != "task.backup"), "关掉提醒后不该再出现");
     }
 
     #[test]

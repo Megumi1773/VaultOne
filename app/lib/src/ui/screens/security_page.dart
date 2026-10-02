@@ -8,6 +8,7 @@ import '../../core/models.dart';
 import '../../l10n/strings.dart';
 import '../theme.dart';
 import '../widgets/controls.dart';
+import 'backup_dialog.dart' show showBackupManager;
 import 'settings_page.dart' show SettingsSection;
 
 /// 忽略时长：7 天。够长到不打扰，又短到不会把问题永久埋掉。
@@ -131,6 +132,7 @@ class _SecurityPageState extends State<SecurityPage> {
         FindingAction.biometrics => SettingsSection.security,
         FindingAction.autofill => SettingsSection.browser,
         FindingAction.privateKey => SettingsSection.keyBackup,
+        FindingAction.openBackup => SettingsSection.keyBackup,
         FindingAction.generalSettings => SettingsSection.appearance,
         FindingAction.systemSettings => null,
         FindingAction.openItem || FindingAction.openCheckup || FindingAction.none => null,
@@ -159,6 +161,9 @@ class _SecurityPageState extends State<SecurityPage> {
       case FindingAction.autofill:
       case FindingAction.systemSettings:
         _goSettings(action);
+      // 备份项直接开备份管理：跳进设置页还要用户再找一次「管理」按钮，等于没帮上忙。
+      case FindingAction.openBackup:
+        showBackupManager(context);
       // 清单项不携带条目，因此不会出现 openItem；发现项走 `_act` 单独处理。
       case FindingAction.openItem:
       case FindingAction.none:
@@ -744,6 +749,7 @@ String _actionLabel(BuildContext context, FindingAction a) => context.tr(switch 
       FindingAction.autoLock => AppStrings.autoLock,
       FindingAction.autofill => AppStrings.autofillEnable,
       FindingAction.privateKey => AppStrings.viewSecretKey,
+      FindingAction.openBackup => AppStrings.backupNow,
       FindingAction.generalSettings => AppStrings.healthActionGeneral,
       FindingAction.systemSettings => AppStrings.healthActionSystem,
       FindingAction.none => AppStrings.healthFindings,
@@ -756,6 +762,7 @@ IconData _actionIcon(FindingAction a) => switch (a) {
       FindingAction.autoLock => Icons.lock_clock_rounded,
       FindingAction.autofill => Icons.edit_note_rounded,
       FindingAction.privateKey => Icons.key_rounded,
+      FindingAction.openBackup => Icons.backup_rounded,
       FindingAction.generalSettings => Icons.tune_rounded,
       FindingAction.systemSettings => Icons.settings_rounded,
       FindingAction.none => Icons.info_outline_rounded,

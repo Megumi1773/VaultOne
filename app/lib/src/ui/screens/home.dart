@@ -393,6 +393,9 @@ class _HomeScreenState extends State<HomeScreen> {
         'biometricsAvailable': state.biometricsAvailable,
         'biometricsEnabled': state.quickUnlockEnabled,
         'verboseLogs': state.settings.verboseLogs,
+        // 备份提醒（§8.3）：开关与最近备份时间一起给内核，过期判定只在内核里写一份。
+        'backupReminder': state.settings.backupReminder,
+        'lastBackupAt': state.lastBackupAt,
       };
 
   /// 跑一次体检。`withBreachCheck` 为真时先做 k-匿名泄露查询（会联网）。

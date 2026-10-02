@@ -33,7 +33,11 @@ class _Bridge implements RustLibApi {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-Future<(AppState, _Bridge)> _mountSettings(WidgetTester tester, {AppState? state}) async {
+Future<(AppState, _Bridge)> _mountSettings(
+  WidgetTester tester, {
+  AppState? state,
+  SettingsSection section = SettingsSection.security,
+}) async {
   final bridge = _Bridge();
   RustLib.initMock(api: bridge);
   addTearDown(RustLib.dispose);
@@ -46,7 +50,7 @@ Future<(AppState, _Bridge)> _mountSettings(WidgetTester tester, {AppState? state
     state: app,
     child: MaterialApp(
       theme: buildTheme(Brightness.light),
-      home: const Scaffold(body: SettingsPage(initialSection: SettingsSection.security)),
+      home: Scaffold(body: SettingsPage(initialSection: section)),
     ),
   ));
   await tester.pumpAndSettle();
@@ -118,6 +122,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(app.settings.screenshotProtection, isTrue);
     expect(bridge.settings['screenshot_protection'], '1');
+  });
+
+  testWidgets('备份提醒默认打开，关掉后写入设置并说明后果', (tester) async {
+    final (state, bridge) = await _mountSettings(tester, section: SettingsSection.keyBackup);
+    expect(state.settings.backupReminder, isTrue, reason: '默认应提醒');
+    expect(find.text('关掉后体检清单里不再出现备份项。'), findsWidgets);
+
+    await tester.tap(_switchFor('备份提醒'));
+    await tester.pumpAndSettle();
+    expect(state.settings.backupReminder, isFalse);
+    expect(bridge.settings['backup_reminder'], '0');
+
+    await tester.tap(_switchFor('备份提醒'));
+    await tester.pumpAndSettle();
+    expect(state.settings.backupReminder, isTrue);
+    expect(bridge.settings['backup_reminder'], '1');
   });
 
   testWidgets('默认隐藏密码打开时详情页打码，关掉后直接显示明文', (tester) async {

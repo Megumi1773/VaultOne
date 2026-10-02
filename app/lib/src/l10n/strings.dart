@@ -613,6 +613,11 @@ abstract final class AppStrings {
   static const inviteBindDone = '已绑定邀请人';
   static const inviteBindNote = '一次性绑定，绑定后不可更改。';
 
+  // ---------- 备份提醒（§8.3）----------
+  static const backupNow = '立即备份';
+  static const backupReminder = '备份提醒';
+  static const backupReminderHint = '关掉后体检清单里不再出现备份项。';
+
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
   static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
@@ -1515,6 +1520,9 @@ abstract final class AppStrings {
     inviteBindHint: '12 位字母數字，可帶空格或連字元',
     inviteBindDone: '已綁定邀請人',
     inviteBindNote: '一次性綁定，綁定後不可更改。',
+    backupNow: '立即備份',
+    backupReminder: '備份提醒',
+    backupReminderHint: '關掉後體檢清單裡不再出現備份項。',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2350,6 +2358,9 @@ abstract final class AppStrings {
     inviteBindHint: '12 letters or digits; spaces and hyphens are fine',
     inviteBindDone: 'Inviter bound',
     inviteBindNote: 'This binds once and cannot be changed.',
+    backupNow: 'Back up now',
+    backupReminder: 'Backup reminder',
+    backupReminderHint: 'Turning this off removes the backup item from the checkup list.',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',

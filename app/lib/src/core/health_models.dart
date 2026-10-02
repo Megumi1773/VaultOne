@@ -61,7 +61,10 @@ enum FindingAction {
   autofill('autofill'),
   privateKey('privateKey'),
   generalSettings('generalSettings'),
-  systemSettings('systemSettings');
+  systemSettings('systemSettings'),
+
+  /// 打开备份管理（§8.3 备份提醒）。
+  openBackup('openBackup');
 
   const FindingAction(this.wire);
 
