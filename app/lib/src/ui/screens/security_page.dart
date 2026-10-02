@@ -8,12 +8,16 @@ import '../../core/models.dart';
 import '../../l10n/strings.dart';
 import '../theme.dart';
 import '../widgets/controls.dart';
+import 'settings_page.dart' show SettingsSection;
 
 /// 忽略时长：7 天。够长到不打扰，又短到不会把问题永久埋掉。
 const int _snoozeSeconds = 7 * 24 * 60 * 60;
 
-/// 跑一次体检并返回报告。`withBreachCheck` 为真时先做 k-匿名泄露查询（会联网）。
-typedef HealthRunner = Future<HealthReport> Function({required bool withBreachCheck});
+/// 跑一次体检并返回报告与任务清单。`withBreachCheck` 为真时先做 k-匿名泄露查询（会联网）。
+typedef HealthRunner = Future<HealthOverview> Function({required bool withBreachCheck});
+
+/// 跳到设置页的某个分区；为空表示停在设置页顶部（例如「系统设置」这类应用内没有的项）。
+typedef SettingsNavigator = void Function(SettingsSection? section);
 
 /// 安全体检（计划书 §5.2）。
 ///
@@ -45,15 +49,15 @@ class SecurityPage extends StatefulWidget {
   final Future<void> Function(List<Snooze> snoozes) saveSnoozes;
   final ValueChanged<String> onOpenItem;
 
-  /// 发现项需要用户去改设置时调用（打开设置页）。
-  final VoidCallback? onOpenSettings;
+  /// 发现项或任务需要用户去改设置时调用（直接定位到设置页的对应分区）。
+  final SettingsNavigator? onOpenSettings;
 
   @override
   State<SecurityPage> createState() => _SecurityPageState();
 }
 
 class _SecurityPageState extends State<SecurityPage> {
-  HealthReport? _report;
+  HealthOverview? _overview;
   List<Snooze> _snoozes = const [];
   bool _busy = false;
   String? _error;
@@ -93,8 +97,8 @@ class _SecurityPageState extends State<SecurityPage> {
       _error = null;
     });
     try {
-      final report = await widget.runCheckup(withBreachCheck: withBreachCheck);
-      if (mounted) setState(() => _report = report);
+      final overview = await widget.runCheckup(withBreachCheck: withBreachCheck);
+      if (mounted) setState(() => _overview = overview);
     } on CoreException catch (e) {
       // 页面可能在体检返回前被全局锁定销毁，不再展示旧会话结果。
       if (mounted && e.code != 'session_expired') {
@@ -121,10 +125,31 @@ class _SecurityPageState extends State<SecurityPage> {
     _persistSnoozes();
   }
 
-  void _act(Finding f) {
-    switch (f.action) {
-      case FindingAction.openItem:
-        if (f.itemIds.isNotEmpty) widget.onOpenItem(f.itemIds.first);
+  /// 动作 → 设置页分区。应用内没有对应分区的项（系统设置）返回 null，停在设置页顶部。
+  static SettingsSection? _sectionFor(FindingAction action) => switch (action) {
+        FindingAction.autoLock => SettingsSection.security,
+        FindingAction.biometrics => SettingsSection.security,
+        FindingAction.autofill => SettingsSection.browser,
+        FindingAction.privateKey => SettingsSection.keyBackup,
+        FindingAction.generalSettings => SettingsSection.appearance,
+        FindingAction.systemSettings => null,
+        FindingAction.openItem || FindingAction.openCheckup || FindingAction.none => null,
+      };
+
+  void _goSettings(FindingAction action) {
+    final go = widget.onOpenSettings;
+    if (go != null) {
+      go(_sectionFor(action));
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.tr(AppStrings.healthActionSystem))),
+    );
+  }
+
+  /// 按动作分发。任务清单与发现项共用一套规则，避免两处各写一份跳转逻辑。
+  void _actOnAction(FindingAction action) {
+    switch (action) {
       case FindingAction.openCheckup:
         _run(withBreachCheck: true);
       case FindingAction.generalSettings:
@@ -133,23 +158,26 @@ class _SecurityPageState extends State<SecurityPage> {
       case FindingAction.privateKey:
       case FindingAction.autofill:
       case FindingAction.systemSettings:
-        // 系统设置只能由用户自己在操作系统里改，这里统一跳到设置页并给出说明。
-        if (widget.onOpenSettings != null) {
-          widget.onOpenSettings!();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.tr(AppStrings.healthActionSystem))),
-          );
-        }
+        _goSettings(action);
+      // 清单项不携带条目，因此不会出现 openItem；发现项走 `_act` 单独处理。
+      case FindingAction.openItem:
       case FindingAction.none:
         break;
     }
   }
 
+  void _act(Finding f) {
+    if (f.action == FindingAction.openItem) {
+      if (f.itemIds.isNotEmpty) widget.onOpenItem(f.itemIds.first);
+      return;
+    }
+    _actOnAction(f.action);
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.zo;
-    final report = _report;
+    final report = _overview?.report;
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final active = report?.activeFindings(_snoozes, now) ?? const <Finding>[];
     final activeIds = {for (final f in active) f.id};
@@ -195,11 +223,12 @@ class _SecurityPageState extends State<SecurityPage> {
             ),
           )
         else ...[
+          // 从上到下：总览（分数、任务、入口）→ 风险项 → 体检明细。
           _ScoreCard(report: report, stale: report.isStale(now)),
           const SizedBox(height: 20),
-          _StatsRow(report: report),
-          const SizedBox(height: 20),
-          _Dimensions(report: report),
+          _Checklist(items: _overview!.checklist, onAct: _actOnAction),
+          const SizedBox(height: 24),
+          _Shortcuts(onOpenSettings: widget.onOpenSettings, onRerun: () => _run(withBreachCheck: true)),
           const SizedBox(height: 24),
           _Findings(
             findings: active,
@@ -210,7 +239,161 @@ class _SecurityPageState extends State<SecurityPage> {
             onAct: _act,
             onOpenItem: widget.onOpenItem,
           ),
+          const SizedBox(height: 24),
+          _StatsRow(report: report),
+          const SizedBox(height: 20),
+          _Dimensions(report: report),
         ],
+      ],
+    );
+  }
+}
+
+/// 安全总览（§5.1）的任务清单。完成态完全来自内核，界面不自己判断。
+class _Checklist extends StatelessWidget {
+  const _Checklist({required this.items, required this.onAct});
+
+  final List<ChecklistItem> items;
+  final void Function(FindingAction action) onAct;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zo;
+    final done = items.where((t) => t.done).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(children: [
+          Text(context.tr(AppStrings.healthChecklist), style: context.text.titleLarge),
+          const SizedBox(width: 10),
+          Text(
+            context.trf(AppStrings.healthChecklistProgress, {'done': '$done', 'total': '${items.length}'}),
+            style: monoStyle(context, size: 12, color: done == items.length ? c.success : c.textFaint),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        ZoPanel(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(children: [
+            for (final t in items)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 9, 12, 9),
+                child: Row(children: [
+                  Icon(
+                    t.done ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                    size: 18,
+                    color: t.done ? c.success : c.textFaint,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(
+                        t.title,
+                        style: context.text.titleMedium?.copyWith(
+                          fontSize: 13.5,
+                          color: t.done ? c.textMuted : c.text,
+                        ),
+                      ),
+                      Text(t.description, style: context.text.bodySmall),
+                    ]),
+                  ),
+                  // 已完成的不再给按钮：留一个「去设置」只会让人以为还有事没做。
+                  if (!t.done) ...[
+                    const SizedBox(width: 8),
+                    ZoButton(
+                      label: _actionLabel(context, t.action),
+                      icon: _actionIcon(t.action),
+                      dense: true,
+                      onPressed: () => onAct(t.action),
+                    ),
+                  ],
+                ]),
+              ),
+          ]),
+        ),
+      ],
+    );
+  }
+}
+
+/// 安全总览（§5.1）的宫格入口。每格直接定位到设置页的对应分区。
+class _Shortcuts extends StatelessWidget {
+  const _Shortcuts({required this.onOpenSettings, required this.onRerun});
+
+  final SettingsNavigator? onOpenSettings;
+  final VoidCallback onRerun;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zo;
+    final entries = <({String label, IconData icon, VoidCallback onTap})>[
+      (
+        label: context.tr(AppStrings.biometricUnlock),
+        icon: Icons.fingerprint_rounded,
+        onTap: () => onOpenSettings?.call(SettingsSection.security),
+      ),
+      (
+        label: context.tr(AppStrings.autoLock),
+        icon: Icons.lock_clock_rounded,
+        onTap: () => onOpenSettings?.call(SettingsSection.security),
+      ),
+      (
+        label: context.tr(AppStrings.sectionAutofill),
+        icon: Icons.edit_note_rounded,
+        onTap: () => onOpenSettings?.call(SettingsSection.browser),
+      ),
+      (
+        label: context.tr(AppStrings.sectionKeyBackup),
+        icon: Icons.key_rounded,
+        onTap: () => onOpenSettings?.call(SettingsSection.keyBackup),
+      ),
+      (
+        label: context.tr(AppStrings.deviceManagement),
+        icon: Icons.devices_rounded,
+        onTap: () => onOpenSettings?.call(SettingsSection.sync),
+      ),
+      (
+        label: context.tr(AppStrings.sectionAccount),
+        icon: Icons.person_outline_rounded,
+        onTap: () => onOpenSettings?.call(SettingsSection.account),
+      ),
+      (
+        label: context.tr(AppStrings.sectionSecurityCenter),
+        icon: Icons.health_and_safety_outlined,
+        onTap: onRerun,
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionTitle(title: context.tr(AppStrings.healthGrid)),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final e in entries)
+              Hover(
+                onTap: e.onTap,
+                builder: (context, hover) => Container(
+                  width: 148,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: hover ? c.surfaceHover : c.surface,
+                    border: Border.all(color: c.border),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(children: [
+                    Icon(e.icon, size: 17, color: c.textMuted),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(e.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.bodyMedium),
+                    ),
+                  ]),
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -416,12 +599,12 @@ class _Findings extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionTitle(title: context.tr(AppStrings.healthFindings), count: shown.length),
+        _SectionTitle(title: context.tr(AppStrings.healthRisks), count: shown.length),
         const SizedBox(height: 10),
         if (shown.isEmpty)
           ZoPanel(
             padding: const EdgeInsets.symmetric(vertical: 28),
-            child: Center(child: Text(context.tr(AppStrings.healthNoFindings), style: context.text.bodyMedium)),
+            child: Center(child: Text(context.tr(AppStrings.healthRiskNone), style: context.text.bodyMedium)),
           )
         else
           for (final f in shown)

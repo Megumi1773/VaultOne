@@ -151,4 +151,50 @@ void main() {
     expect(r.breachStatus, BreachStatus.notRun);
     expect(r.unreadableItems, 0);
   });
+
+  test('HealthOverview 一次解析报告与任务清单', () {
+    final o = HealthOverview.fromJson({
+      'report': _raw,
+      'checklist': [
+        {
+          'id': 'task.autoLock',
+          'title': '启用自动锁定',
+          'description': '无操作一段时间后锁定。',
+          'done': true,
+          'action': 'autoLock',
+        },
+        {
+          'id': 'task.noWeak',
+          'title': '没有弱密码',
+          'description': '容易被猜测的密码需要更换。',
+          'done': false,
+          'action': 'openCheckup',
+        },
+      ],
+    });
+    expect(o.report.score, 76);
+    expect(o.checklist, hasLength(2));
+    expect(o.doneCount, 1);
+    expect(o.allDone, isFalse);
+    expect(o.checklist.first.id, 'task.autoLock');
+    expect(o.checklist.first.done, isTrue);
+    expect(o.checklist.first.action, FindingAction.autoLock);
+    expect(o.checklist.last.action, FindingAction.openCheckup);
+  });
+
+  test('HealthOverview 全完成时 allDone 为真；缺字段时按空处理', () {
+    final done = HealthOverview.fromJson(const {
+      'report': {'score': 100},
+      'checklist': [
+        {'id': 'a', 'title': 't', 'description': 'd', 'done': true, 'action': 'none'},
+      ],
+    });
+    expect(done.doneCount, 1);
+    expect(done.allDone, isTrue);
+
+    final empty = HealthOverview.fromJson(const {});
+    expect(empty.report.score, 0);
+    expect(empty.checklist, isEmpty);
+    expect(empty.allDone, isTrue, reason: '空清单视为没有待办');
+  });
 }

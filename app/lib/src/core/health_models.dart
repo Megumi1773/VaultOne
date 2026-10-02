@@ -227,3 +227,55 @@ class Snooze {
 
   Map<String, Object?> toJson() => {'findingId': findingId, 'until': until};
 }
+
+/// 安全总览（计划书 §5.1）的任务清单项。
+class ChecklistItem {
+  const ChecklistItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.done,
+    required this.action,
+  });
+
+  factory ChecklistItem.fromJson(Map<String, dynamic> j) => ChecklistItem(
+        id: j['id'] as String? ?? '',
+        title: j['title'] as String? ?? '',
+        description: j['description'] as String? ?? '',
+        done: j['done'] == true,
+        action: FindingAction.parse(j['action'] as String?),
+      );
+
+  /// 稳定 id，界面据此做跳转与测试断言。
+  final String id;
+  final String title;
+  final String description;
+  final bool done;
+  final FindingAction action;
+}
+
+/// 一次体检的完整结果：健康报告 + 任务清单。
+///
+/// 两者由内核**同一次调用一起算出**（同一份设置快照），所以不会出现「报告用旧值、
+/// 清单用新值」的不一致。
+class HealthOverview {
+  const HealthOverview({required this.report, required this.checklist});
+
+  factory HealthOverview.fromJson(Map<String, dynamic> j) => HealthOverview(
+        report: HealthReport.fromJson(((j['report'] as Map?) ?? const {}).cast()),
+        checklist: [
+          for (final t in (j['checklist'] as List? ?? const []))
+            ChecklistItem.fromJson((t as Map).cast()),
+        ],
+      );
+
+  final HealthReport report;
+  final List<ChecklistItem> checklist;
+
+  /// 已完成的任务数。
+  int get doneCount => checklist.where((t) => t.done).length;
+
+  /// 是否全部完成。
+  bool get allDone => checklist.every((t) => t.done);
+}
+

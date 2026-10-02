@@ -3,11 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vaultone/src/core/health_models.dart';
 import 'package:vaultone/src/core/models.dart';
 import 'package:vaultone/src/ui/screens/security_page.dart';
+import 'package:vaultone/src/ui/screens/settings_page.dart' show SettingsSection;
 import 'package:vaultone/src/ui/theme.dart';
 
 /// 一份与内核输出形态一致的报告：一个被跳过的维度 + 三条发现项。
-HealthReport _report({int score = 64}) => HealthReport(
-      score: score,
+HealthReport _report({int score = 64}) => HealthReport(      score: score,
       checkedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       dimensions: const [
         DimensionScore(dimension: HealthDimension.breach, cap: 50, deduction: 0, skipped: true),
@@ -58,20 +58,39 @@ VaultItem _item(String id, String title) => VaultItem(
       data: ItemData(kind: ItemKind.login, title: title),
     );
 
-class _Harness {
-  _Harness({HealthReport? report}) : report = report ?? _report();
+/// 任务清单样例：一条已完成、一条未完成（指向解锁与安全分区）。
+List<ChecklistItem> _checklist() => const [
+      ChecklistItem(
+        id: 'task.autoLock',
+        title: '启用自动锁定',
+        description: '无操作一段时间后自动锁定保险库。',
+        done: true,
+        action: FindingAction.autoLock,
+      ),
+      ChecklistItem(
+        id: 'task.noWeak',
+        title: '没有弱密码',
+        description: '容易被猜测的密码需要更换。',
+        done: false,
+        action: FindingAction.openCheckup,
+      ),
+    ];
 
-  HealthReport report;
+class _Harness {
+  _Harness({HealthReport? report, List<ChecklistItem>? checklist})
+      : overview = HealthOverview(report: report ?? _report(), checklist: checklist ?? _checklist());
+
+  HealthOverview overview;
   int runs = 0;
   int breachRuns = 0;
   final opened = <String>[];
   final saved = <List<Snooze>>[];
   List<Snooze> snoozes = const [];
 
-  Future<HealthReport> runCheckup({required bool withBreachCheck}) async {
+  Future<HealthOverview> runCheckup({required bool withBreachCheck}) async {
     runs++;
     if (withBreachCheck) breachRuns++;
-    return report;
+    return overview;
   }
 
   Future<List<Snooze>> loadSnoozes() async => snoozes;
@@ -84,11 +103,12 @@ class _Harness {
 Future<_Harness> _mount(
   WidgetTester tester, {
   HealthReport? report,
-  VoidCallback? onOpenSettings,
+  List<ChecklistItem>? checklist,
+  void Function(SettingsSection?)? onOpenSettings,
   List<VaultItem>? items,
   _Harness? harness,
 }) async {
-  final h = harness ?? _Harness(report: report);
+  final h = harness ?? _Harness(report: report, checklist: checklist);
   // 页面是长列表，默认 800×600 视口只会构建首屏；放大视口让全部内容都进入构建，
   // 否则断言「发现项存在」会因懒构建而假失败。
   tester.view.physicalSize = const Size(1200, 3200);
@@ -191,18 +211,53 @@ void main() {
     expect(h.runs, 1, reason: '进入页面先跑一次');
     expect(h.breachRuns, 0, reason: '首次不联网');
 
-    await tester.tap(find.text('去运行'));
+    // 「去运行」同时出现在泄露提示与未完成的密码类任务上，取第一个即可。
+    await tester.tap(find.text('去运行').first);
     await tester.pumpAndSettle();
     expect(h.runs, 2);
     expect(h.breachRuns, 1, reason: '「去运行」应触发 k-匿名泄露查询');
   });
 
-  testWidgets('设置类动作跳到设置页', (tester) async {
-    var toSettings = 0;
-    await _mount(tester, onOpenSettings: () => toSettings++);
+  testWidgets('设置类动作跳到设置页的对应分区', (tester) async {
+    final targets = <SettingsSection?>[];
+    await _mount(tester, onOpenSettings: targets.add);
+    // 「检测到调试器」的动作是系统设置：应用内没有对应分区，停在设置页顶部。
     await tester.tap(find.text('打开系统设置'));
     await tester.pumpAndSettle();
-    expect(toSettings, 1);
+    expect(targets, [null]);
+
+    // 任务清单里的「启用自动锁定」已完成，没有按钮；未完成的「没有弱密码」应指向体检详情。
+    expect(find.text('已完成 1 / 2'), findsOneWidget);
+  });
+
+  testWidgets('宫格入口按分区跳转，不把用户丢在设置页顶部', (tester) async {
+    final targets = <SettingsSection?>[];
+    await _mount(tester, onOpenSettings: targets.add);
+    expect(find.text('快捷入口'), findsOneWidget);
+
+    await tester.tap(find.text('设备管理'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('密钥与备份'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('自动填充'));
+    await tester.pumpAndSettle();
+    expect(targets, [SettingsSection.sync, SettingsSection.keyBackup, SettingsSection.browser]);
+  });
+
+  testWidgets('任务清单的完成态与动作来自内核，未完成项才给按钮', (tester) async {
+    final h = await _mount(tester);
+    expect(find.text('启用自动锁定'), findsOneWidget);
+    expect(find.text('没有弱密码'), findsOneWidget);
+    expect(find.text('已完成 1 / 2'), findsOneWidget);
+    // 已完成项不给按钮：留一个「去设置」只会让人以为还有事没做。
+    // 「自动锁定」这个精确文案只出现在宫格里；任务清单里那一条的标题是「启用自动锁定」，
+    // 因此这里为 1 就说明它没渲染出动作按钮。
+    expect(find.text('自动锁定'), findsOneWidget, reason: '已完成项不出现动作按钮');
+
+    final before = h.runs;
+    await tester.tap(find.text('去运行').first);
+    await tester.pumpAndSettle();
+    expect(h.runs, before + 1, reason: '未完成的密码类任务应重新跑体检');
   });
 
   testWidgets('没有发现项时给出空态而不是空白', (tester) async {
@@ -218,7 +273,7 @@ void main() {
     );
     await _mount(tester, report: clean);
     expect(find.text('100'), findsOneWidget);
-    expect(find.text('没有发现问题，保持下去。'), findsOneWidget);
+    expect(find.text('没有风险项。'), findsOneWidget);
   });
 
   testWidgets('报告过期时给出提示', (tester) async {

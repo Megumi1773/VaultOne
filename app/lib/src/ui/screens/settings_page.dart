@@ -23,40 +23,73 @@ import 'conflicts_page.dart';
 import 'feedback_page.dart';
 import 'item_detail.dart' show confirmDialog;
 
+/// 设置页的分区。安全总览（§5.1）的宫格入口据此直接定位到对应分区，
+/// 而不是把用户丢在设置页顶部自己找。
+enum SettingsSection { account, keyBackup, security, sync, conflict, data, desktop, browser, appearance, diagnostics, about, danger }
+
 /// 设置：账户、解锁与安全、云同步与设备、数据导入、桌面托盘与快捷键、浏览器扩展、外观、诊断、关于与法律、危险操作。
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key, this.initialSection});
+
+  /// 打开时滚动到的分区；为空则停在顶部。
+  final SettingsSection? initialSection;
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  late final Map<SettingsSection, GlobalKey> _anchors = {
+    for (final s in SettingsSection.values) s: GlobalKey(debugLabel: s.name),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    final target = widget.initialSection;
+    if (target == null) return;
+    // 分区是懒构建的，必须等首帧布局完再滚动，否则拿不到 RenderObject。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _anchors[target]?.currentContext;
+      if (ctx == null || !mounted) return;
+      Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 250), alignment: 0.05);
+    });
+  }
+
+  /// 给分区挂锚点。锚点只是定位标记，不改变子树的布局与语义。
+  Widget _anchor(SettingsSection section, Widget child) => KeyedSubtree(key: _anchors[section], child: child);
 
   @override
   Widget build(BuildContext context) {
     final narrow = MediaQuery.sizeOf(context).width < 720;
-    return ListView(
+    // 用 SingleChildScrollView 而不是 ListView：ListView 的懒布局会让视口外的分区没有
+    // RenderObject，`initialSection` 定位到靠后的分区时会静默失效。设置页一共十几个分区，
+    // 一次性布局的代价可以接受，换来的是深链始终有效。
+    return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(narrow ? 16 : 40, narrow ? 16 : 36, narrow ? 16 : 40, 48),
-      children: [
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _Title(),
-                _AccountSection(),
-                _KeyBackupSection(),
-                _SecuritySection(),
-                _SyncSection(),
-                _ConflictSection(),
-                _DataSection(),
-                _DesktopSection(),
-                _BrowserSection(),
-                _AppearanceSection(),
-                _DiagnosticsSection(),
-                _AboutSection(),
-                _DangerSection(),
-              ],
-            ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _Title(),
+              _anchor(SettingsSection.account, const _AccountSection()),
+              _anchor(SettingsSection.keyBackup, const _KeyBackupSection()),
+              _anchor(SettingsSection.security, const _SecuritySection()),
+              _anchor(SettingsSection.sync, const _SyncSection()),
+              _anchor(SettingsSection.conflict, const _ConflictSection()),
+              _anchor(SettingsSection.data, const _DataSection()),
+              _anchor(SettingsSection.desktop, const _DesktopSection()),
+              _anchor(SettingsSection.browser, const _BrowserSection()),
+              _anchor(SettingsSection.appearance, const _AppearanceSection()),
+              _anchor(SettingsSection.diagnostics, const _DiagnosticsSection()),
+              _anchor(SettingsSection.about, const _AboutSection()),
+              _anchor(SettingsSection.danger, const _DangerSection()),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

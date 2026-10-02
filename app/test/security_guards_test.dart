@@ -370,4 +370,34 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('设置页支持定位到指定分区：安全总览的宫格入口不会把用户丢在顶部', (tester) async {
+    final state = AppState()..phase = AppPhase.unlocked..privacyAccepted = true;
+    addTearDown(state.dispose);
+    // 用较矮的视口，保证靠后的分区一开始确实在视口之外——否则这个测试什么也证明不了。
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    Future<double> offsetFor(SettingsSection? section) async {
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(AppScope(
+        state: state,
+        child: MaterialApp(
+          theme: buildTheme(Brightness.light),
+          home: Scaffold(body: SettingsPage(initialSection: section)),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final position = tester.widget<SingleChildScrollView>(find.byType(SingleChildScrollView).first);
+      return position.controller?.offset ?? tester.state<ScrollableState>(find.byType(Scrollable).first).position.pixels;
+    }
+
+    expect(await offsetFor(null), 0, reason: '不指定分区时停在顶部');
+    final account = await offsetFor(SettingsSection.account);
+    final danger = await offsetFor(SettingsSection.danger);
+    expect(danger, greaterThan(account), reason: '越靠后的分区滚动位置应越靠下');
+    expect(danger, greaterThan(0), reason: '定位到最后一个分区必须真的滚下去');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

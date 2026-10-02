@@ -327,6 +327,18 @@ class _HomeScreenState extends State<HomeScreen> {
   /// 忽略记录在本机设置里的键（非敏感，不同步）。
   static const String _healthSnoozeKey = 'health_snoozes';
 
+  /// 从安全总览跳到设置页时要定位到的分区；为空表示停在顶部。
+  ///
+  /// 每次跳转都重新赋值：安全总览里不同入口指向不同分区，若只在第一次赋值，
+  /// 第二次点击就会停在旧位置。
+  SettingsSection? _settingsSection;
+
+  /// 安全总览（§5.1）的动作跳转：切到设置分区并带上要定位的分区。
+  void _goSettings(SettingsSection? section) => setState(() {
+        _settingsSection = section;
+        _section = Section.settings;
+      });
+
   /// 最近一次泄露检测的结果与状态，随体检一起传入内核。
   Map<String, int> _breaches = const {};
   BreachStatus _breachStatus = BreachStatus.notRun;
@@ -345,7 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ///
   /// 网络不可用时把状态标成 `unavailable`，内核会**跳过**泄露维度而不是当成
   /// 「没有泄露」——没查过不能算满分，也不能算失分。
-  Future<HealthReport> _runHealthCheckup({required bool withBreachCheck}) async {
+  Future<HealthOverview> _runHealthCheckup({required bool withBreachCheck}) async {
     final state = AppScope.of(context);
     var breaches = _breaches;
     var status = _breachStatus == BreachStatus.skipped ? BreachStatus.skipped : BreachStatus.notRun;
@@ -514,9 +526,9 @@ class _HomeScreenState extends State<HomeScreen> {
           loadSnoozes: _loadSnoozes,
           saveSnoozes: _saveSnoozes,
           onOpenItem: openDetail,
-          onOpenSettings: () => _go(Section.settings),
+          onOpenSettings: _goSettings,
         ),
-      _MobileTab.settings => const SettingsPage(),
+      _MobileTab.settings => SettingsPage(initialSection: _settingsSection),
     };
 
     return Scaffold(
@@ -698,9 +710,9 @@ class _HomeScreenState extends State<HomeScreen> {
               _section = Section.all;
               _selectedId = id;
             }),
-            onOpenSettings: () => _go(Section.settings),
+            onOpenSettings: _goSettings,
           ),
-        _ => const SettingsPage(),
+        _ => SettingsPage(initialSection: _settingsSection),
       };
     }
 

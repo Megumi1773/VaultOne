@@ -210,6 +210,115 @@ impl Snooze {
     }
 }
 
+/// 安全总览（计划书 §5.1）的任务清单项。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChecklistItem {
+    /// 稳定 id，界面据此做跳转与测试断言。
+    pub id: String,
+    pub title: String,
+    pub description: String,
+    /// 是否已完成。
+    pub done: bool,
+    /// 未完成时建议的动作。
+    pub action: FindingAction,
+}
+
+/// 由安全设置与体检报告派生任务清单（计划书 §5.1）。
+///
+/// **不新增一套判定规则**：每一项的完成态都直接取自体检报告或设置快照，也就是
+/// `checkup` 已经用过的同一批事实。否则「设置页说已开启、总览说未完成」这种自相矛盾
+/// 迟早会出现。
+pub fn checklist(settings: &SecuritySettings, report: &HealthReport) -> Vec<ChecklistItem> {
+    let has_finding = |id: &str| report.findings.iter().any(|f| f.id == id);
+    // 泄露检测没跑过时 `breach.passwords` 不存在，但也不能据此算「没有泄露」。
+    let breach_checked = report.breach_status == BreachStatus::Ok;
+    let environment_ok = report.dimensions.iter().all(|d| d.dimension != Dimension::Environment || d.skipped || d.deduction == 0);
+
+    let mut items = vec![
+        ChecklistItem {
+            id: "task.autoLock".into(),
+            title: "启用自动锁定".into(),
+            description: "无操作一段时间后自动锁定保险库并清空内存中的密钥。".into(),
+            done: settings.auto_lock_minutes > 0,
+            action: FindingAction::AutoLock,
+        },
+        ChecklistItem {
+            id: "task.lockOnExit".into(),
+            title: "退出时锁定".into(),
+            description: "关闭窗口后要求重新验证，避免设备被他人直接打开。".into(),
+            done: settings.lock_on_exit,
+            action: FindingAction::AutoLock,
+        },
+        ChecklistItem {
+            id: "task.clipboard".into(),
+            title: "剪贴板自动清除".into(),
+            description: "复制出的密码在一段时间后从系统剪贴板移除。".into(),
+            done: settings.clipboard_clear_seconds > 0,
+            action: FindingAction::GeneralSettings,
+        },
+        ChecklistItem {
+            id: "task.verboseLogs".into(),
+            title: "关闭详细诊断日志".into(),
+            description: "详细日志会记录更多运行细节，排查完问题后应关闭。".into(),
+            done: !settings.verbose_logs,
+            action: FindingAction::GeneralSettings,
+        },
+        ChecklistItem {
+            id: "task.breachCheck".into(),
+            title: "运行泄露检测".into(),
+            description: "检查密码是否出现在公开泄露数据中；只发送 SHA-1 的前 5 位。".into(),
+            done: breach_checked,
+            action: FindingAction::OpenCheckup,
+        },
+        ChecklistItem {
+            id: "task.noBreach".into(),
+            title: "没有已泄露的密码".into(),
+            description: "已泄露的密码会被攻击者优先尝试。".into(),
+            // 没查过就不算完成，也不算失败——它只是还没做。
+            done: breach_checked && !has_finding("breach.passwords"),
+            action: FindingAction::OpenCheckup,
+        },
+        ChecklistItem {
+            id: "task.noWeak".into(),
+            title: "没有弱密码".into(),
+            description: "容易被猜测或字典攻击破解的密码需要更换。".into(),
+            done: !has_finding("vault.weak"),
+            // 清单项本身不带条目，指向体检详情；要改哪几条在那里逐条列出。
+            action: FindingAction::OpenCheckup,
+        },
+        ChecklistItem {
+            id: "task.noReuse".into(),
+            title: "没有重复使用的密码".into(),
+            description: "一个网站泄露会连带其他使用同一密码的网站失守。".into(),
+            done: !has_finding("vault.reuse"),
+            action: FindingAction::OpenCheckup,
+        },
+        ChecklistItem {
+            id: "task.environment".into(),
+            title: "设备环境无风险".into(),
+            description: "没有调试器、模拟器或已越权的迹象。".into(),
+            done: environment_ok,
+            action: FindingAction::SystemSettings,
+        },
+    ];
+
+    // 设备支持生物识别时才提这一项：不支持就不该出现在清单里，否则用户永远做不完。
+    if settings.biometrics_available {
+        items.insert(
+            3,
+            ChecklistItem {
+                id: "task.biometrics".into(),
+                title: "启用生物识别解锁".into(),
+                description: "解锁更快，且不必反复输入主密码。".into(),
+                done: settings.biometrics_enabled,
+                action: FindingAction::Biometrics,
+            },
+        );
+    }
+    items
+}
+
 /// 体检输入。字段都是借用或 Copy，避免为大保险库复制数据。
 pub struct HealthInputs<'a> {
     pub items: &'a [Item],
@@ -799,5 +908,108 @@ mod tests {
         let json = serde_json::to_string(&r).unwrap();
         let back: HealthReport = serde_json::from_str(&json).unwrap();
         assert_eq!(back, r);
+    }
+
+    fn task<'a>(items: &'a [ChecklistItem], id: &str) -> &'a ChecklistItem {
+        items.iter().find(|t| t.id == id).unwrap_or_else(|| panic!("缺少任务 {id}"))
+    }
+
+    #[test]
+    fn checklist_marks_secure_settings_as_done() {
+        let items = vec![login("a", STRONG_A), login("b", STRONG_B)];
+        let mut breaches = HashMap::new();
+        breaches.insert("a".to_string(), 1u64);
+        // 用「有泄露」的报告来验证：密码相关的项应反映报告，而不是设置。
+        let r = report(&items, &breaches, BreachStatus::Ok, EnvironmentReport::UNSUPPORTED, SecuritySettings::SECURE_DEFAULTS, 1_000);
+        let list = checklist(&SecuritySettings::SECURE_DEFAULTS, &r);
+
+        assert!(task(&list, "task.autoLock").done);
+        assert!(task(&list, "task.lockOnExit").done);
+        assert!(task(&list, "task.clipboard").done);
+        assert!(task(&list, "task.verboseLogs").done);
+        assert!(task(&list, "task.breachCheck").done, "跑过泄露检测即完成");
+        assert!(!task(&list, "task.noBreach").done, "报告里有泄露项，这一条不该完成");
+        assert!(task(&list, "task.noWeak").done);
+        assert!(task(&list, "task.environment").done, "平台不支持探测时不应算未完成");
+    }
+
+    #[test]
+    fn checklist_reflects_weak_settings() {
+        let items = vec![login("a", "123456")];
+        let r = report(&items, &HashMap::new(), BreachStatus::Ok, EnvironmentReport::UNSUPPORTED, SecuritySettings::SECURE_DEFAULTS, 1_000);
+        let insecure = SecuritySettings {
+            auto_lock_minutes: 0,
+            lock_on_exit: false,
+            clipboard_clear_seconds: 0,
+            biometrics_available: true,
+            biometrics_enabled: false,
+            verbose_logs: true,
+        };
+        let list = checklist(&insecure, &r);
+        for id in ["task.autoLock", "task.lockOnExit", "task.clipboard", "task.verboseLogs", "task.biometrics"] {
+            assert!(!task(&list, id).done, "{id} 应标记为未完成");
+        }
+        assert!(!task(&list, "task.noWeak").done, "有弱密码时该条未完成");
+        assert!(task(&list, "task.noReuse").done);
+    }
+
+    #[test]
+    fn checklist_does_not_treat_unrun_breach_check_as_pass() {
+        // 没跑过泄露检测：既不能算完成，也不能反过来算失败。
+        let items = vec![login("a", STRONG_A)];
+        let r =
+            report(&items, &HashMap::new(), BreachStatus::NotRun, EnvironmentReport::UNSUPPORTED, SecuritySettings::SECURE_DEFAULTS, 1_000);
+        let list = checklist(&SecuritySettings::SECURE_DEFAULTS, &r);
+        assert!(!task(&list, "task.breachCheck").done);
+        assert!(!task(&list, "task.noBreach").done, "没查过不能算「没有泄露」");
+        assert_eq!(task(&list, "task.noBreach").action, FindingAction::OpenCheckup);
+    }
+
+    #[test]
+    fn checklist_hides_biometrics_when_unsupported() {
+        let items = vec![login("a", STRONG_A)];
+        let r = report(&items, &HashMap::new(), BreachStatus::Ok, EnvironmentReport::UNSUPPORTED, SecuritySettings::SECURE_DEFAULTS, 1_000);
+        // SECURE_DEFAULTS 里 biometrics_available = false
+        let list = checklist(&SecuritySettings::SECURE_DEFAULTS, &r);
+        assert!(list.iter().all(|t| t.id != "task.biometrics"), "设备不支持时不该出现生物识别项，否则用户永远做不完");
+        assert_eq!(list.len(), 9);
+    }
+
+    #[test]
+    fn checklist_flags_environment_risk_from_report() {
+        let items = vec![login("a", STRONG_A)];
+        let env = EnvironmentReport { supported: true, debugger_attached: true, ..EnvironmentReport::UNSUPPORTED };
+        let r = report(&items, &HashMap::new(), BreachStatus::Ok, env, SecuritySettings::SECURE_DEFAULTS, 1_000);
+        let list = checklist(&SecuritySettings::SECURE_DEFAULTS, &r);
+        assert!(!task(&list, "task.environment").done);
+        assert_eq!(task(&list, "task.environment").action, FindingAction::SystemSettings);
+    }
+
+    #[test]
+    fn checklist_ids_are_unique_and_actions_are_specific() {
+        let items = vec![login("a", "123456")];
+        let r =
+            report(&items, &HashMap::new(), BreachStatus::NotRun, EnvironmentReport::UNSUPPORTED, SecuritySettings::SECURE_DEFAULTS, 1_000);
+        let list = checklist(&SecuritySettings { biometrics_available: true, ..SecuritySettings::SECURE_DEFAULTS }, &r);
+        let mut ids: Vec<&str> = list.iter().map(|t| t.id.as_str()).collect();
+        ids.sort_unstable();
+        let before = ids.len();
+        ids.dedup();
+        assert_eq!(ids.len(), before, "任务 id 必须唯一，界面与忽略记录都按 id 索引");
+        assert!(list.iter().all(|t| t.action != FindingAction::None), "每项都应给出可执行的动作");
+        // 清单项不携带条目，因此不能用 openItem——那会变成一个没有目标的按钮。
+        assert!(list.iter().all(|t| t.action != FindingAction::OpenItem), "清单项没有具体条目，密码类任务应指向体检详情");
+        assert!(list.iter().all(|t| !t.title.is_empty() && !t.description.is_empty()));
+    }
+
+    #[test]
+    fn checklist_roundtrips_through_json() {
+        let items = vec![login("a", "123456")];
+        let r =
+            report(&items, &HashMap::new(), BreachStatus::NotRun, EnvironmentReport::UNSUPPORTED, SecuritySettings::SECURE_DEFAULTS, 1_000);
+        let list = checklist(&SecuritySettings::SECURE_DEFAULTS, &r);
+        let json = serde_json::to_string(&list).unwrap();
+        let back: Vec<ChecklistItem> = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, list);
     }
 }

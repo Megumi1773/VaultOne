@@ -184,8 +184,9 @@ abstract final class VaultApi {
         for (final r in await rvault.checkBreaches(itemIds: itemIds)) r.itemId: r.count.toInt(),
       });
 
-  /// 安全体检（计划书 §5.2）。打分与发现项规则全在内核，这里只传输入并解析报告。
-  static Future<HealthReport> healthCheckup({
+  /// 安全体检（计划书 §5.1 / §5.2）。打分、任务清单与发现项规则全在内核，
+  /// 这里只传输入并解析结果。
+  static Future<HealthOverview> healthCheckup({
     required Map<String, int> breaches,
     required BreachStatus breachStatus,
     required Map<String, Object?> settings,
@@ -196,7 +197,7 @@ abstract final class VaultApi {
           breachStatus: breachStatus.wire,
           settingsJson: jsonEncode(settings),
         );
-        return HealthReport.fromJson((jsonDecode(raw) as Map).cast());
+        return HealthOverview.fromJson((jsonDecode(raw) as Map).cast());
       });
 
   static Future<List<String>> matchItems(String pageUrl) => _session(() => rvault.matchItems(pageUrl: pageUrl));

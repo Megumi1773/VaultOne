@@ -500,6 +500,13 @@ abstract final class AppStrings {
   static const healthDimEnvironment = '设备环境';
   static const healthDimSettings = '设置项';
   static const healthDimScore = '扣 {used} / 上限 {cap}';
+
+  // ---------- 安全总览（§5.1）----------
+  static const healthChecklist = '任务清单';
+  static const healthChecklistProgress = '已完成 {done} / {total}';
+  static const healthRisks = '风险项';
+  static const healthRiskNone = '没有风险项。';
+  static const healthGrid = '快捷入口';
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
   static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
@@ -1308,6 +1315,11 @@ abstract final class AppStrings {
     healthDimEnvironment: '裝置環境',
     healthDimSettings: '設定項',
     healthDimScore: '扣 {used} / 上限 {cap}',
+    healthChecklist: '任務清單',
+    healthChecklistProgress: '已完成 {done} / {total}',
+    healthRisks: '風險項',
+    healthRiskNone: '沒有風險項。',
+    healthGrid: '快速入口',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2049,6 +2061,11 @@ abstract final class AppStrings {
     healthDimEnvironment: 'Environment',
     healthDimSettings: 'Settings',
     healthDimScore: '-{used} / cap {cap}',
+    healthChecklist: 'Checklist',
+    healthChecklistProgress: '{done} of {total} done',
+    healthRisks: 'Risks',
+    healthRiskNone: 'No risks found.',
+    healthGrid: 'Shortcuts',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',

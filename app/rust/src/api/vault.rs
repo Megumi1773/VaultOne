@@ -291,13 +291,16 @@ extern "system" {
     fn IsDebuggerPresent() -> i32;
 }
 
-/// 运行一次安全体检，返回报告 JSON（计划书 §5.2）。
+/// 运行一次安全体检，返回 `{ "report": …, "checklist": […] }`（计划书 §5.1 / §5.2）。
 ///
 /// `breaches_json` 为 `{条目 id: 泄露次数}`；`breach_status` 取
 /// `notRun` / `ok` / `unavailable` / `skipped`；`settings_json` 为安全设置快照。
 /// 全部计算在内核完成（`vault_core::health`），界面只负责展示。
+///
+/// 报告与任务清单**一次算完一起返回**：分两次调用会各读一次设置，可能拿到不一致的快照
+/// （例如刚改完自动锁定，报告用旧值、清单用新值）。
 pub fn health_checkup(breaches_json: String, breach_status: String, settings_json: String) -> BridgeResult<String> {
-    use vault_core::health::{checkup, BreachStatus, HealthInputs, SecuritySettings};
+    use vault_core::health::{checklist, checkup, BreachStatus, HealthInputs, SecuritySettings};
 
     let breaches: std::collections::HashMap<String, u64> = serde_json::from_str(&breaches_json)?;
     let settings: SecuritySettings = serde_json::from_str(&settings_json)?;
@@ -318,7 +321,8 @@ pub fn health_checkup(breaches_json: String, breach_status: String, settings_jso
         unreadable_items: 0,
         now: vault_core::vault::now(),
     });
-    Ok(serde_json::to_string(&report)?)
+    let tasks = checklist(&settings, &report);
+    Ok(serde_json::to_string(&serde_json::json!({ "report": report, "checklist": tasks }))?)
 }
 
 #[derive(Debug, Clone)]
