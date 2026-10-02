@@ -18,16 +18,16 @@ import 'security_page.dart';
 import 'settings_page.dart';
 
 enum Section {
-  all('全部条目', Icons.grid_view_rounded, '全部'),
-  favorites('收藏', Icons.star_outline_rounded),
-  login('登录', Icons.key_rounded),
-  card('支付卡', Icons.credit_card_rounded),
-  note('安全笔记', Icons.sticky_note_2_outlined, '笔记'),
-  identity('身份信息', Icons.badge_outlined, '身份'),
-  generator('密码生成器', Icons.auto_awesome_outlined),
-  security('安全中心', Icons.shield_outlined),
-  trash('回收站', Icons.delete_outline_rounded),
-  settings('设置', Icons.tune_rounded);
+  all(AppStrings.sectionAll, Icons.grid_view_rounded, AppStrings.sectionAllShort),
+  favorites(AppStrings.sectionFavorites, Icons.star_outline_rounded),
+  login(AppStrings.sectionLogin, Icons.key_rounded),
+  card(AppStrings.sectionCard, Icons.credit_card_rounded),
+  note(AppStrings.sectionNote, Icons.sticky_note_2_outlined, AppStrings.sectionNoteShort),
+  identity(AppStrings.sectionIdentity, Icons.badge_outlined, AppStrings.sectionIdentityShort),
+  generator(AppStrings.sectionGenerator, Icons.auto_awesome_outlined),
+  security(AppStrings.sectionSecurityCenter, Icons.shield_outlined),
+  trash(AppStrings.sectionTrash, Icons.delete_outline_rounded),
+  settings(AppStrings.settings, Icons.tune_rounded);
 
   const Section(this.label, this.icon, [String? short]) : short = short ?? label;
 
@@ -76,10 +76,10 @@ enum Section {
 /// 手机端底部导航。桌面端的侧栏分区不照搬到窄屏：只保留四个一级入口，
 /// 分类 / 收藏 / 回收站下沉为保险库页内的横向过滤条。
 enum _MobileTab {
-  vault('保险库', Icons.inventory_2_outlined, Icons.inventory_2_rounded),
-  generator('生成器', Icons.auto_awesome_outlined, Icons.auto_awesome_rounded),
-  security('安全', Icons.shield_outlined, Icons.shield_rounded),
-  settings('设置', Icons.tune_outlined, Icons.tune_rounded);
+  vault(AppStrings.tabVault, Icons.inventory_2_outlined, Icons.inventory_2_rounded),
+  generator(AppStrings.tabGenerator, Icons.auto_awesome_outlined, Icons.auto_awesome_rounded),
+  security(AppStrings.tabSecurity, Icons.shield_outlined, Icons.shield_rounded),
+  settings(AppStrings.settings, Icons.tune_outlined, Icons.tune_rounded);
 
   const _MobileTab(this.label, this.icon, this.activeIcon);
 
@@ -208,19 +208,22 @@ class _HomeScreenState extends State<HomeScreen> {
     final state = AppScope.read(context);
     final ok = await confirmDialog(
       context,
-      title: '清空回收站？',
-      body: '回收站中已同步的条目将从本机永久删除，无法恢复；尚未同步的条目会保留。已同步到云端的数据不会在其他设备上被抹除。',
-      confirm: '清空',
+      title: context.tr(AppStrings.emptyTrashConfirmTitle),
+      body: context.tr(AppStrings.emptyTrashConfirmBody),
+      confirm: context.tr(AppStrings.emptyTrashConfirmAction),
       danger: true,
     );
     if (ok != true || !mounted) return;
     try {
       final r = await state.emptyTrash();
       if (!mounted) return;
-      final keptNote = r.kept == 0 ? '' : '，${r.kept} 条未同步已保留';
-      showZoMessage(context, r.purged == 0 ? '没有可清空的条目$keptNote' : '已彻底删除 ${r.purged} 条$keptNote', error: r.purged == 0 && r.kept > 0);
+      final keptNote = r.kept == 0 ? '' : context.trf(AppStrings.emptyTrashKeptNote, {'kept': r.kept});
+      final message = r.purged == 0
+          ? context.trf(AppStrings.emptyTrashNone, {'kept': keptNote})
+          : context.trf(AppStrings.emptyTrashDone, {'purged': r.purged, 'kept': keptNote});
+      showZoMessage(context, message, error: r.purged == 0 && r.kept > 0);
     } on CoreException catch (e) {
-      if (mounted) showZoMessage(context, purgeErrorMessage(e), error: true);
+      if (mounted) showZoMessage(context, purgeErrorMessage(context, e), error: true);
     }
   }
 
@@ -289,22 +292,22 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const ZoWordmark(size: 14),
         actions: [
           if (isTrash && state.trash.isNotEmpty)
-            IconButton(tooltip: '清空回收站', onPressed: _emptyTrash, icon: const Icon(Icons.delete_sweep_outlined)),
+            IconButton(tooltip: context.tr(AppStrings.emptyTrashTooltip), onPressed: _emptyTrash, icon: const Icon(Icons.delete_sweep_outlined)),
           if (state.remote != null)
             IconButton(
-              tooltip: '立即同步',
+              tooltip: context.tr(AppStrings.syncNow),
               onPressed: state.syncNow,
               icon: state.syncState == SyncState.syncing
                   ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
                   : Icon(state.syncState == SyncState.error ? Icons.sync_problem_rounded : Icons.sync_rounded),
             ),
-          IconButton(tooltip: '立即锁定', onPressed: state.lock, icon: const Icon(Icons.lock_outline_rounded)),
+          IconButton(tooltip: context.tr(AppStrings.lockNow), onPressed: state.lock, icon: const Icon(Icons.lock_outline_rounded)),
         ],
       ),
       body: SafeArea(bottom: false, child: body),
       floatingActionButton: tab == _MobileTab.vault && !isTrash
           ? FloatingActionButton(
-              tooltip: '新建条目',
+              tooltip: context.tr(AppStrings.newItemTooltip),
               backgroundColor: c.accent,
               foregroundColor: c.onAccent,
               onPressed: () => newItem(),
@@ -335,7 +338,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(color: c.borderStrong, borderRadius: BorderRadius.circular(2)),
               ),
             ),
-            Padding(padding: const EdgeInsets.fromLTRB(22, 16, 22, 6), child: Text('新建条目', style: ctx.text.titleLarge)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 16, 22, 6),
+              child: Text(ctx.tr(AppStrings.newItemTooltip), style: ctx.text.titleLarge),
+            ),
             for (final k in ItemKind.values)
               Hover(
                 onTap: () => Navigator.pop(ctx, k),
@@ -629,7 +635,13 @@ class _Sidebar extends StatelessWidget {
           const Padding(padding: EdgeInsets.fromLTRB(20, 18, 20, 22), child: Align(alignment: Alignment.centerLeft, child: ZoWordmark(size: 15))),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: ZoButton(label: '新建条目', icon: Icons.add_rounded, expand: true, dense: true, onPressed: onNew),
+            child: ZoButton(
+              label: context.tr(AppStrings.newItemTooltip),
+              icon: Icons.add_rounded,
+              expand: true,
+              dense: true,
+              onPressed: onNew,
+            ),
           ),
           const SizedBox(height: 18),
           Expanded(
@@ -638,12 +650,12 @@ class _Sidebar extends StatelessWidget {
               children: [
                 item(Section.all),
                 item(Section.favorites),
-                const _NavGroup('分类'),
+                const _NavGroup(AppStrings.sidebarCategories),
                 item(Section.login),
                 item(Section.card),
                 item(Section.note),
                 item(Section.identity),
-                const _NavGroup('工具'),
+                const _NavGroup(AppStrings.sidebarTools),
                 item(Section.generator),
                 item(Section.security),
                 item(Section.trash),
@@ -662,11 +674,11 @@ class _Sidebar extends StatelessWidget {
                     const SizedBox(width: 10),
                     Tooltip(
                       message: switch (state.syncState) {
-                        SyncState.off => '云账户尚未完成接入',
-                        SyncState.syncing => '同步中…',
-                        SyncState.error => '同步失败：${state.syncError ?? ''}',
-                        SyncState.needsReconnect => '云账户需要重新验证',
-                        SyncState.idle => '条目自动同步',
+                        SyncState.off => context.tr(AppStrings.cloudSetupPending),
+                        SyncState.syncing => context.tr(AppStrings.syncing),
+                        SyncState.error => context.trf(AppStrings.syncFailed, {'reason': state.syncError ?? ''}),
+                        SyncState.needsReconnect => context.tr(AppStrings.cloudNeedsRevalidate),
+                        SyncState.idle => context.tr(AppStrings.autoSync),
                       },
                       child: Container(
                         width: 7,
@@ -781,12 +793,17 @@ class _EmptyDetail extends StatelessWidget {
           children: [
             Opacity(opacity: 0.9, child: const ZoMark(size: 44)),
             const SizedBox(height: 22),
-            Text('选择一个条目查看详情', style: context.text.titleLarge),
+            Text(context.tr(AppStrings.selectItemHint), style: context.text.titleLarge),
             const SizedBox(height: 8),
-            Text('Ctrl+F 搜索 · Ctrl+N 新建 · Ctrl+G 生成密码 · Ctrl+L 锁定', style: context.text.bodySmall?.copyWith(color: c.textFaint)),
+            Text(context.tr(AppStrings.shortcutHint), style: context.text.bodySmall?.copyWith(color: c.textFaint)),
             if (onNew != null) ...[
               const SizedBox(height: 22),
-              ZoButton(label: '新建条目', icon: Icons.add_rounded, variant: ZoButtonVariant.secondary, onPressed: onNew),
+              ZoButton(
+                label: context.tr(AppStrings.newItemTooltip),
+                icon: Icons.add_rounded,
+                variant: ZoButtonVariant.secondary,
+                onPressed: onNew,
+              ),
             ],
           ],
         ),
@@ -812,7 +829,7 @@ class _MobileItemPage extends StatelessWidget {
       backgroundColor: c.bg,
       appBar: AppBar(backgroundColor: c.bg, surfaceTintColor: Colors.transparent),
       body: item == null
-          ? const Center(child: Text('条目不存在'))
+          ? Center(child: Text(context.tr(AppStrings.itemMissing)))
           : ItemDetail(
               key: ValueKey('m-${item.id}-${item.revision}'),
               item: item,

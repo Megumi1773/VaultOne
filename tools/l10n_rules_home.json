@@ -1,0 +1,34 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/home.dart",
+    "replace": [
+      ["  all('全部条目', Icons.grid_view_rounded, '全部'),\n  favorites('收藏', Icons.star_outline_rounded),\n  login('登录', Icons.key_rounded),\n  card('支付卡', Icons.credit_card_rounded),\n  note('安全笔记', Icons.sticky_note_2_outlined, '笔记'),\n  identity('身份信息', Icons.badge_outlined, '身份'),\n  generator('密码生成器', Icons.auto_awesome_outlined),\n  security('安全中心', Icons.shield_outlined),\n  trash('回收站', Icons.delete_outline_rounded),\n  settings('设置', Icons.tune_rounded);",
+       "  all(AppStrings.sectionAll, Icons.grid_view_rounded, AppStrings.sectionAllShort),\n  favorites(AppStrings.sectionFavorites, Icons.star_outline_rounded),\n  login(AppStrings.sectionLogin, Icons.key_rounded),\n  card(AppStrings.sectionCard, Icons.credit_card_rounded),\n  note(AppStrings.sectionNote, Icons.sticky_note_2_outlined, AppStrings.sectionNoteShort),\n  identity(AppStrings.sectionIdentity, Icons.badge_outlined, AppStrings.sectionIdentityShort),\n  generator(AppStrings.sectionGenerator, Icons.auto_awesome_outlined),\n  security(AppStrings.sectionSecurityCenter, Icons.shield_outlined),\n  trash(AppStrings.sectionTrash, Icons.delete_outline_rounded),\n  settings(AppStrings.settings, Icons.tune_rounded);"],
+      ["  vault('保险库', Icons.inventory_2_outlined, Icons.inventory_2_rounded),\n  generator('生成器', Icons.auto_awesome_outlined, Icons.auto_awesome_rounded),\n  security('安全', Icons.shield_outlined, Icons.shield_rounded),\n  settings('设置', Icons.tune_outlined, Icons.tune_rounded);",
+       "  vault(AppStrings.tabVault, Icons.inventory_2_outlined, Icons.inventory_2_rounded),\n  generator(AppStrings.tabGenerator, Icons.auto_awesome_outlined, Icons.auto_awesome_rounded),\n  security(AppStrings.tabSecurity, Icons.shield_outlined, Icons.shield_rounded),\n  settings(AppStrings.settings, Icons.tune_outlined, Icons.tune_rounded);"],
+      ["      title: '清空回收站？',\n      body: '回收站中已同步的条目将从本机永久删除，无法恢复；尚未同步的条目会保留。已同步到云端的数据不会在其他设备上被抹除。',\n      confirm: '清空',",
+       "      title: context.tr(AppStrings.emptyTrashConfirmTitle),\n      body: context.tr(AppStrings.emptyTrashConfirmBody),\n      confirm: context.tr(AppStrings.emptyTrashConfirmAction),"],
+      ["      final keptNote = r.kept == 0 ? '' : '，${r.kept} 条未同步已保留';\n      showZoMessage(context, r.purged == 0 ? '没有可清空的条目$keptNote' : '已彻底删除 ${r.purged} 条$keptNote', error: r.purged == 0 && r.kept > 0);",
+       "      final keptNote = r.kept == 0 ? '' : context.trf(AppStrings.emptyTrashKeptNote, {'kept': r.kept});\n      final message = r.purged == 0\n          ? context.trf(AppStrings.emptyTrashNone, {'kept': keptNote})\n          : context.trf(AppStrings.emptyTrashDone, {'purged': r.purged, 'kept': keptNote});\n      showZoMessage(context, message, error: r.purged == 0 && r.kept > 0);"],
+      ["            IconButton(tooltip: '清空回收站', onPressed: _emptyTrash, icon: const Icon(Icons.delete_sweep_outlined)),",
+       "            IconButton(tooltip: context.tr(AppStrings.emptyTrashTooltip), onPressed: _emptyTrash, icon: const Icon(Icons.delete_sweep_outlined)),"],
+      ["              tooltip: '立即同步',", "              tooltip: context.tr(AppStrings.syncNow),"],
+      ["          IconButton(tooltip: '立即锁定', onPressed: state.lock, icon: const Icon(Icons.lock_outline_rounded)),",
+       "          IconButton(tooltip: context.tr(AppStrings.lockNow), onPressed: state.lock, icon: const Icon(Icons.lock_outline_rounded)),"],
+      ["              tooltip: '新建条目',\n              backgroundColor: c.accent,", "              tooltip: context.tr(AppStrings.newItemTooltip),\n              backgroundColor: c.accent,"],
+      ["            Padding(padding: const EdgeInsets.fromLTRB(22, 16, 22, 6), child: Text('新建条目', style: ctx.text.titleLarge)),",
+       "            Padding(\n              padding: const EdgeInsets.fromLTRB(22, 16, 22, 6),\n              child: Text(ctx.tr(AppStrings.newItemTooltip), style: ctx.text.titleLarge),\n            ),"],
+      ["            child: ZoButton(label: '新建条目', icon: Icons.add_rounded, expand: true, dense: true, onPressed: onNew),",
+       "            child: ZoButton(\n              label: context.tr(AppStrings.newItemTooltip),\n              icon: Icons.add_rounded,\n              expand: true,\n              dense: true,\n              onPressed: onNew,\n            ),"],
+      ["                const _NavGroup('分类'),", "                const _NavGroup(AppStrings.sidebarCategories),"],
+      ["                const _NavGroup('工具'),", "                const _NavGroup(AppStrings.sidebarTools),"],
+      ["                      message: switch (state.syncState) {\n                        SyncState.off => '云账户尚未完成接入',\n                        SyncState.syncing => '同步中…',\n                        SyncState.error => '同步失败：${state.syncError ?? ''}',\n                        SyncState.needsReconnect => '云账户需要重新验证',\n                        SyncState.idle => '条目自动同步',\n                      },",
+       "                      message: switch (state.syncState) {\n                        SyncState.off => context.tr(AppStrings.cloudSetupPending),\n                        SyncState.syncing => context.tr(AppStrings.syncing),\n                        SyncState.error => context.trf(AppStrings.syncFailed, {'reason': state.syncError ?? ''}),\n                        SyncState.needsReconnect => context.tr(AppStrings.cloudNeedsRevalidate),\n                        SyncState.idle => context.tr(AppStrings.autoSync),\n                      },"],
+      ["            Text('选择一个条目查看详情', style: context.text.titleLarge),\n            const SizedBox(height: 8),\n            Text('Ctrl+F 搜索 · Ctrl+N 新建 · Ctrl+G 生成密码 · Ctrl+L 锁定', style: context.text.bodySmall?.copyWith(color: c.textFaint)),",
+       "            Text(context.tr(AppStrings.selectItemHint), style: context.text.titleLarge),\n            const SizedBox(height: 8),\n            Text(context.tr(AppStrings.shortcutHint), style: context.text.bodySmall?.copyWith(color: c.textFaint)),"],
+      ["              ZoButton(label: '新建条目', icon: Icons.add_rounded, variant: ZoButtonVariant.secondary, onPressed: onNew),",
+       "              ZoButton(\n                label: context.tr(AppStrings.newItemTooltip),\n                icon: Icons.add_rounded,\n                variant: ZoButtonVariant.secondary,\n                onPressed: onNew,\n              ),"],
+      ["          ? const Center(child: Text('条目不存在'))", "          ? Center(child: Text(context.tr(AppStrings.itemMissing)))"]
+    ]
+  }
+]

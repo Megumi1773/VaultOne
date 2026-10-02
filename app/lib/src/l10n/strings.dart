@@ -77,6 +77,166 @@ abstract final class AppStrings {
   static const sectionAbout = '关于';
   static const sectionDanger = '危险操作';
 
+  // ───────── 设置页明细 ─────────
+
+  static const never = '从未';
+  static const accountIdLabel = '账户 ID  {id}';  static const keyDerivation = '密钥派生';
+  static const itemCountTag = '{count} 个条目';
+  static const secretKeyRowSubtitle = '保存在本机系统钥匙串中。查看或重新导出恢复材料前，需要重新输入 Secret Key 与恢复码做逐字节核对。';
+  static const verifyAndView = '核对并查看';
+  static const changeMasterPassword = '修改主密码';
+  static const changeMasterPasswordSubtitle = '只重新封装保险库密钥，条目无需重新加密，秒级完成。';
+  static const masterPasswordUpdated = '主密码已更新，其他设备同步后需使用新主密码解锁';
+  static const newPasswordTooWeak = '新主密码强度不足';
+  static const currentMasterPassword = '当前主密码';
+  static const updateMasterPassword = '更新主密码';
+  static const backupKindRecoveryKit = '恢复套件 PDF';
+  static const backupKindCard = '备份卡 PNG';
+  static const backupKindWljbak = '加密备份 .wljbak';
+  static const backupKindCsv = '明文 CSV';
+  static const backupNever = '本机尚未记录任何备份导出。请先导出恢复套件，并把它打印或存进离线介质。';
+  static const backupLast = '最近一次：{time}（{kind}）。本机只记录时间与方式，不保存文件路径与内容。';
+  static const backupStatus = '备份状态';
+  static const backupCloudNote = '云端备份历史需要服务端端点，尚未实现；这里不把本机记录当作云端已备份。';
+  static const backupMissing = '未备份';
+  static const backupPresent = '已备份';
+  static const recoveryKitAndCard = '恢复套件与备份卡';
+  static const recoveryKitAndCardSubtitle = '重新导出 A4 恢复套件 PDF，或 700×900（2x 导出）的备份卡 PNG。两者都等价于明文凭据，导出前需要重新输入 Secret Key 与恢复码做核对。';
+  static const manageAction = '管理';
+  static const biometricUnlock = '生物识别解锁';
+  static const biometricUnlockSubtitle = '使用 Windows Hello / Touch ID / Face ID / 指纹快速解锁。快速解锁密钥保存在系统钥匙串，修改主密码后自动失效。';
+  static const biometricEnable = '启用生物识别解锁';
+  static const biometricDisable = '关闭生物识别解锁';
+  static const autoLock = '自动锁定';
+  static const autoLockSubtitle = '无操作一段时间后锁定保险库并清空内存中的密钥。';
+  static const minutes = '{n} 分钟';
+  static const lockOnMinimize = '切到后台 / 最小化时锁定';
+  static const clipboardAutoClear = '剪贴板自动清除';
+  static const clipboardAutoClearSubtitle = '复制密码后到期清空；桌面端写入时排除剪贴板历史与云同步。';
+  static const seconds = '{n} 秒';
+  static const cloudSetupPending = '云账户尚未完成接入';
+  static const cloudSetupPendingBody = '重新解锁后完成 Java 云注册。现有条目保留，不提供独立的纯本地账户模式。';
+  static const syncing = '同步中…';
+  static const syncFailed = '同步失败：{reason}';
+  static const sessionExpired = '登录已过期，请重新验证';
+  static const autoSync = '条目自动同步';
+  static const deviceSummary = '本设备：{device} · 上次同步 {time} · 待上传 {pending}';
+  static const revalidate = '重新验证';
+  static const reconnectSync = '重新连接同步服务';
+  static const reconnected = '已重新连接';
+  static const syncNow = '立即同步';
+  static const mergedItems = '已合并 {n} 个在多台设备上同时修改的条目';
+  static const deviceManagement = '设备管理';
+  static const signOutCloudLock = '退出云登录并锁定';
+  static const signOutCloudTitle = '退出云登录？';
+  static const signOutCloudBody = '联网撤销当前会话并锁定本机；本机条目、待同步修改和服务器绑定保留。';
+  static const signOutAndLock = '退出并锁定';
+  static const securityLog = '安全日志';
+  static const deviceManagementSubtitle = '新设备登录需经邮件验证码或在此批准。撤销后该设备会话立即失效。';
+  static const deviceThis = '本机';
+  static const deviceRevoked = '已撤销';
+  static const devicePending = '待批准';
+  static const deviceLine = '{platform} · 添加于 {created} · 最近活跃 {seen}';
+  static const approveAction = '批准';
+  static const approvedAction = '已批准';
+  static const revokeAction = '撤销';
+  static const revokeDeviceTitle = '撤销设备「{name}」？';
+  static const revokeDeviceBody = '该设备将被立即登出且无法再同步。';
+  static const auditSignInOk = '登录成功';
+  static const auditSignInFail = '登录失败';
+  static const auditDeviceRequest = '新设备请求登录';
+  static const auditDeviceApproved = '设备已批准';
+  static const auditDeviceRevoked = '设备已撤销';
+  static const auditPasswordChanged = '主密码已修改';
+  static const auditRecoveryUsed = '使用 Recovery Kit 恢复';
+  static const auditRecoveryFail = '恢复码验证失败';
+  static const theme = '主题';
+  static const themeSystem = '跟随系统';
+  static const themeLight = '浅色';
+  static const themeDark = '深色';
+  static const compareConflicts = '比较并裁决冲突';
+  static const compareConflictsSubtitle = '冲突双方版本在本机加密保存。裁决后等待同步确认；有未完成冲突时不能导出，以免漏掉另一方内容。';
+  static const viewConflicts = '查看冲突';
+  static const importDone = '导入完成';
+  static const importSummary = '来源：{source}\n新增 {added} 条{duplicates}{skipped}。\n\n导出文件是明文，请立即从磁盘和回收站中彻底删除。';
+  static const importBackupSummary = '新增 {added} 条{duplicates}{skipped}。';
+  static const importDuplicates = '，{n} 条与现有条目重复已跳过';
+  static const importSkipped = '，{n} 条无法识别';
+  static const gotIt = '知道了';
+  static const notUtf8 = '文件不是 UTF-8 文本，请用原软件重新导出为 CSV';
+  static const vaultoneBackup = 'VaultOne 备份';
+  static const backupSaved = '已保存加密备份（{bytes} 字节）到 {path}';
+  static const backupSaveFailed = '备份保存失败，请检查目录权限与可用空间。若留下不完整文件，请勿用于恢复。';
+  static const csvConfirmTitle = '导出明文 CSV？';
+  static const csvConfirmBody = 'CSV 不加密，任何拿到文件的人都能看到密码与 TOTP 种子。\n\n'
+      'CSV 不是完整备份：仅导出标题、首个网址、用户名、密码、备注、TOTP 种子、收藏和类型；'
+      '不保留卡片/身份专用字段、自定义字段、其他网址与匹配规则、密码历史及完整 TOTP 参数。'
+      '不含回收站，不能用它无损恢复保险库。完整条目备份请选 .wljbak。\n\n'
+      '导出后请妥善保管，迁移完成后从磁盘与回收站彻底删除；不要用电子表格软件打开不可信内容。';
+  static const stillExport = '仍要导出';
+  static const csvSaved = '已保存有损 CSV（{bytes} 字节）到 {path}；请核对迁移结果，这不是完整备份。';
+  static const csvSaveFailed = 'CSV 保存失败，请检查目录权限与可用空间，并清理可能留下的明文文件。';
+  static const importFromOthers = '从其他密码管理器导入';
+  static const importFromOthersSubtitle = '支持 Chrome / Edge / Firefox / Bitwarden / LastPass / 1Password 导出的 CSV 与 1PIF。文件只在本机解析，随即加密入库；重复条目自动跳过。';
+  static const importing = '导入中…';
+  static const chooseFile = '选择文件';
+  static const exportEncryptedBackup = '导出加密备份';
+  static const exportEncryptedBackupSubtitle = '导出本账户的 .wljbak 条目级备份，不含回收站，不是数据库快照。需先恢复同一账户及其 Vault Key，再导入；仅持有文件或新建同名账户无法恢复。导入会重建条目 ID 和创建/更新时间。';
+  static const exportAction = '导出';
+  static const exportCsv = '导出明文 CSV';
+  static const exportCsvSubtitle = '仅用于有损迁移，不含完整类型字段、历史、多网址及完整 TOTP 参数。文件不加密，请谨慎保管。';
+  static const importFromBackup = '从加密备份导入';
+  static const importFromBackupSubtitle = '选择 .wljbak 备份包还原条目；重复条目自动跳过。';
+  static const keepInTray = '关闭窗口时保留在系统托盘';
+  static const keepInTraySubtitle = '关闭后仍可通过托盘图标或快捷键唤起；从托盘菜单选择「退出」才会结束程序。';
+  static const globalHotkey = '全局快捷键  {combo}';
+  static const globalHotkeySubtitle = '在任何程序中按下即可唤起 VaultOne 并聚焦搜索框。';
+  static const allowBrowserExtension = '允许浏览器扩展连接';
+  static const allowBrowserExtensionSubtitle = '扩展通过本机 Native Messaging 向 VaultOne 请求凭据，只会拿到与当前网站严格匹配的那一条；解密全部在本应用内完成。';
+  static const installExtension = '安装扩展';
+  static const installExtensionSubtitle = '支持 Chrome、Edge、Brave 等 Chromium 内核浏览器。安装后点击扩展图标完成配对。';
+  static const pairedBrowsers = '已配对的浏览器';
+  static const noneYet = '暂无';
+  static const pairedAt = '配对于 {created} · 最近使用 {used}';
+  static const removeAction = '移除';
+  static const repairConnection = '修复连接';
+  static const repairConnectionSubtitle = '扩展提示"未找到 VaultOne 桌面端"时，重新向浏览器登记连接器。';
+  static const reregister = '重新登记';
+  static const reregistered = '已登记，请重启浏览器后重试';
+  static const autofillEnabled = 'VaultOne 已是系统自动填充服务';
+  static const autofillEnable = '将 VaultOne 设为自动填充服务';
+  static const autofillSubtitle = '在应用和浏览器的登录框中选择「用 VaultOne 填充」。网页只推荐与当前域名严格匹配的条目；登录后可一键保存新密码。';
+  static const enabledTag = '已启用';
+  static const openSettings = '去设置';
+  static const verboseLogs = '详细日志（诊断模式）';
+  static const verboseLogsSubtitle = '日志只含事件类型、错误码与耗时，绝不包含密码、条目内容或邮箱。重启应用后生效。';
+  static const logFile = '日志文件';
+  static const logFileSubtitle = '反馈问题时可附上日志文件。';
+  static const openFolder = '打开目录';
+  static const logDirFailed = '无法打开日志目录，请手动前往：{path}';
+  static const logDirFailedGeneric = '打开日志目录失败，请手动前往应用数据目录下的 logs 文件夹';
+  static const buildInfo = '构建 {build} · 加密内核开源（AGPL-3.0）';
+  static const privacyPolicyLink = '隐私政策';
+  static const termsLink = '用户协议';
+  static const sourceAndWhitepaper = '源代码与安全白皮书';
+  static const openSourceLicenses = '开源许可';
+  static const viewLicenses = '查看第三方开源许可';
+  static const feedback = '意见反馈';
+  static const feedbackSubtitle = '提交问题或建议，查看处理状态与客服回复。需要连接支持此功能的 Java 服务。';
+  static const openFeedback = '打开反馈';
+  static const contactSupport = '联系支持';
+  static const sendEmail = '发送邮件';
+  static const wipeLocalData = '清除本机数据';
+  static const wipeLocalDataSubtitle = '删除本机保险库与保存的 Secret Key，不注销云账户；未同步的本机修改会丢失。';
+  static const wipeConfirmBody = '未同步的本机条目和修改将永久丢失。只有已成功同步的数据才能在重新登录后恢复。请先确认备份及 Secret Key 已妥善保存。';
+  static const wipeConfirmTitle = '清除本机数据？';
+  static const deleteCloudAccount = '注销云端账户';
+  static const deleteCloudAccountSubtitle = '永久删除云端的全部密文、设备与日志（个人信息保护法 / GDPR 删除权）。本机数据保留。';
+  static const deleteAccountAction = '注销';
+  static const deleteCloudAccountBody = '此操作不可撤销。请输入主密码确认。';
+  static const deletePermanently = '永久注销';
+  static const cloudAccountDeleted = '云端账户已注销';
+
   // ───────── 导航分区 ─────────
 
   static const sectionAll = '全部条目';
@@ -123,6 +283,88 @@ abstract final class AppStrings {
   static const fatalOpenVaultFailed = '无法打开保险库';
   static const fatalDataIntact = '数据文件未被修改。请将以上信息反馈给我们。';
 
+  // ───────── 条目列表 ─────────
+
+  static const searchItemsHint = '搜索标题、用户名、网址';
+  static const clearSearch = '清除';
+  static const newItem = '新建';
+  static const emptySearchTitle = '没有匹配“{query}”的条目';
+  static const emptySearchBody = '试试标题、用户名或网址中的其他关键词';
+  static const emptyTrashTitle = '回收站是空的';
+  static const emptyTrashBody = '删除的条目会在这里保留，可随时恢复';
+  static const emptyVaultTitle = '这里还没有条目';
+  static const emptyVaultBodyCompact = '点右下角 + 创建第一个';
+  static const emptyVaultBody = '按 Ctrl+N 创建第一个';
+  static const emptyTrashConfirmTitle = '清空回收站？';
+  static const emptyTrashConfirmBody = '回收站中已同步的条目将从本机永久删除，无法恢复；尚未同步的条目会保留。已同步到云端的数据不会在其他设备上被抹除。';
+  static const emptyTrashConfirmAction = '清空';
+  static const emptyTrashKeptNote = '，{kept} 条未同步已保留';
+  static const emptyTrashNone = '没有可清空的条目{kept}';
+  static const emptyTrashDone = '已彻底删除 {purged} 条{kept}';
+  static const emptyTrashTooltip = '清空回收站';
+  static const lockNow = '立即锁定';
+  static const lockNowWithHotkey = '立即锁定 (Ctrl+L)';
+  static const newItemTooltip = '新建条目';
+  static const sidebarCategories = '分类';
+  static const sidebarTools = '工具';
+  static const selectItemHint = '选择一个条目查看详情';
+  static const shortcutHint = 'Ctrl+F 搜索 · Ctrl+N 新建 · Ctrl+G 生成密码 · Ctrl+L 锁定';
+  static const itemMissing = '条目不存在';
+  static const cloudNeedsRevalidate = '云账户需要重新验证';
+
+  // ───────── 条目字段与操作 ─────────
+
+  static const moveToTrash = '移入回收站';
+  static const moveToTrashConfirmTitle = '移入回收站？';
+  static const moveToTrashConfirmBody = '「{title}」将移入回收站，可随时恢复。';
+  static const movedToTrashTitle = '已移入回收站';
+  static const movedToTrashBody = '「{title}」已移入回收站，可随时恢复。';
+  static const purgeConfirmTitle = '彻底删除？';
+  static const purgeConfirmBody = '「{title}」将从本机永久删除，无法恢复。已同步到云端的数据不会在其他设备上被抹除。';
+  static const purgeAction = '彻底删除';
+  static const purgedTitle = '已彻底删除「{title}」';
+  static const fieldUsername = '用户名';
+  static const fieldPassword = '密码';
+  static const fieldTotp = '验证码';
+  static const urlMatchSuffix = '{label}匹配';
+  static const fieldWebsite = '网址';
+  static const openInBrowser = '在浏览器中打开';
+  static const fieldNotes = '备注';
+  static const fieldCardholder = '持卡人';
+  static const fieldCardNumber = '卡号';
+  static const fieldExpiry = '有效期';
+  static const fieldCvv = '安全码';
+  static const fieldPin = 'PIN';
+  static const fieldFullName = '姓名';
+  static const fieldPhone = '电话';
+  static const fieldIdNumber = '证件号';
+  static const fieldAddress = '地址';
+  static const fieldCompany = '公司';
+  static const fieldEmail = '邮箱';
+  static const customFields = '自定义字段';
+  static const passwordHistory = '密码历史';
+  static const historyPassword = '历史密码';
+  static const copyTotp = '复制验证码';
+  static const labelEncrypted = '加密';
+  static const labelHide = '隐藏';
+  static const purgeErrorUnsynced = '该条目尚未同步到云端，请先完成同步后再彻底删除。';
+  static const purgeErrorNotFound = '条目已不存在，请刷新回收站。';
+  static const purgeErrorLocked = '保险库已锁定，请解锁后重试。';
+  static const purgeErrorGeneric = '暂时无法彻底删除，请稍后重试。';
+  static const restoreAction = '恢复';
+  static const restoredTitle = '已恢复「{title}」';
+  static const unfavorite = '取消收藏';
+  static const editAction = '编辑';
+  static const labelCreated = '创建';
+  static const labelUpdated = '修改';
+  static const labelRevision = '版本';
+  static const labelKind = '类型';
+  static const labelReveal = '显示';
+  static const totpOnce = '一次性验证码';
+  static const totpCountdown = '剩余 {seconds} 秒';
+  static const cardExpired = '已过期';
+  static const cardExpiresSoon = '即将过期';
+
   // ───────── 引导 ─────────
 
   static const onboardWelcomeTitle = '欢迎使用 VaultOne';
@@ -134,7 +376,6 @@ abstract final class AppStrings {
   static const onboardStepOne = 'Step 01 / 02';
   static const onboardSetMasterPassword = '设置主密码';
   static const onboardSetMasterPasswordBody = '主密码是你唯一需要记住的密码。它从不离开这台设备，我们也无法帮你找回。';
-  static const emailLabel = '邮箱';
   static const masterPasswordHint = '至少 10 个字符，推荐使用口令短语';
   static const confirmMasterPassword = '确认主密码';
   static const registering = '正在注册云账户…';
@@ -226,6 +467,164 @@ abstract final class AppStrings {
     sectionDiagnostics: '診斷',
     sectionAbout: '關於',
     sectionDanger: '危險操作',
+    never: '從未',
+    accountIdLabel: '帳戶 ID  {id}',
+    keyDerivation: '金鑰派生',
+    itemCountTag: '{count} 個項目',
+    secretKeyRowSubtitle: '儲存在本機系統鑰匙圈中。查看或重新匯出恢復材料前，需要重新輸入 Secret Key 與恢復碼做逐位元組核對。',
+    verifyAndView: '核對並查看',
+    changeMasterPassword: '修改主密碼',
+    changeMasterPasswordSubtitle: '只重新封裝保險庫金鑰，項目無需重新加密，秒級完成。',
+    masterPasswordUpdated: '主密碼已更新，其他裝置同步後需使用新主密碼解鎖',
+    newPasswordTooWeak: '新主密碼強度不足',
+    currentMasterPassword: '目前主密碼',
+    updateMasterPassword: '更新主密碼',
+    backupKindRecoveryKit: '恢復套件 PDF',
+    backupKindCard: '備份卡 PNG',
+    backupKindWljbak: '加密備份 .wljbak',
+    backupKindCsv: '明文 CSV',
+    backupNever: '本機尚未記錄任何備份匯出。請先匯出恢復套件，並把它列印或存進離線媒體。',
+    backupLast: '最近一次：{time}（{kind}）。本機只記錄時間與方式，不儲存檔案路徑與內容。',
+    backupStatus: '備份狀態',
+    backupCloudNote: '雲端備份歷史需要伺服器端點，尚未實作；這裡不把本機記錄當作雲端已備份。',
+    backupMissing: '未備份',
+    backupPresent: '已備份',
+    recoveryKitAndCard: '恢復套件與備份卡',
+    recoveryKitAndCardSubtitle: '重新匯出 A4 恢復套件 PDF，或 700×900（2x 匯出）的備份卡 PNG。兩者都等同於明文憑據，匯出前需要重新輸入 Secret Key 與恢復碼做核對。',
+    manageAction: '管理',
+    biometricUnlock: '生物辨識解鎖',
+    biometricUnlockSubtitle: '使用 Windows Hello / Touch ID / Face ID / 指紋快速解鎖。快速解鎖金鑰儲存在系統鑰匙圈，修改主密碼後自動失效。',
+    biometricEnable: '啟用生物辨識解鎖',
+    biometricDisable: '關閉生物辨識解鎖',
+    autoLock: '自動鎖定',
+    autoLockSubtitle: '無操作一段時間後鎖定保險庫並清空記憶體中的金鑰。',
+    minutes: '{n} 分鐘',
+    lockOnMinimize: '切到背景 / 最小化時鎖定',
+    clipboardAutoClear: '剪貼簿自動清除',
+    clipboardAutoClearSubtitle: '複製密碼後到期清空；桌面端寫入時排除剪貼簿歷史與雲端同步。',
+    seconds: '{n} 秒',
+    cloudSetupPending: '雲端帳戶尚未完成接入',
+    cloudSetupPendingBody: '重新解鎖後完成 Java 雲端註冊。現有項目保留，不提供獨立的純本機帳戶模式。',
+    syncing: '同步中…',
+    syncFailed: '同步失敗：{reason}',
+    sessionExpired: '登入已過期，請重新驗證',
+    autoSync: '項目自動同步',
+    deviceSummary: '本裝置：{device} · 上次同步 {time} · 待上傳 {pending}',
+    revalidate: '重新驗證',
+    reconnectSync: '重新連線同步服務',
+    reconnected: '已重新連線',
+    syncNow: '立即同步',
+    mergedItems: '已合併 {n} 個在多台裝置上同時修改的項目',
+    deviceManagement: '裝置管理',
+    signOutCloudLock: '登出雲端並鎖定',
+    signOutCloudTitle: '登出雲端？',
+    signOutCloudBody: '連線撤銷目前工作階段並鎖定本機；本機項目、待同步修改與伺服器綁定保留。',
+    signOutAndLock: '登出並鎖定',
+    securityLog: '安全日誌',
+    deviceManagementSubtitle: '新裝置登入需經電子郵件驗證碼或在此批准。撤銷後該裝置工作階段立即失效。',
+    deviceThis: '本機',
+    deviceRevoked: '已撤銷',
+    devicePending: '待批准',
+    deviceLine: '{platform} · 新增於 {created} · 最近活動 {seen}',
+    approveAction: '批准',
+    approvedAction: '已批准',
+    revokeAction: '撤銷',
+    revokeDeviceTitle: '撤銷裝置「{name}」？',
+    revokeDeviceBody: '該裝置將被立即登出且無法再同步。',
+    auditSignInOk: '登入成功',
+    auditSignInFail: '登入失敗',
+    auditDeviceRequest: '新裝置請求登入',
+    auditDeviceApproved: '裝置已批准',
+    auditDeviceRevoked: '裝置已撤銷',
+    auditPasswordChanged: '主密碼已修改',
+    auditRecoveryUsed: '使用 Recovery Kit 恢復',
+    auditRecoveryFail: '恢復碼驗證失敗',
+    theme: '主題',
+    themeSystem: '跟隨系統',
+    themeLight: '淺色',
+    themeDark: '深色',
+    compareConflicts: '比較並裁決衝突',
+    compareConflictsSubtitle: '衝突雙方版本在本機加密儲存。裁決後等待同步確認；有未完成衝突時不能匯出，以免漏掉另一方內容。',
+    viewConflicts: '查看衝突',
+    importDone: '匯入完成',
+    importSummary: '來源：{source}\n新增 {added} 筆{duplicates}{skipped}。\n\n匯出檔案是明文，請立即從磁碟與回收筒中徹底刪除。',
+    importBackupSummary: '新增 {added} 筆{duplicates}{skipped}。',
+    importDuplicates: '，{n} 筆與現有項目重複已略過',
+    importSkipped: '，{n} 筆無法識別',
+    gotIt: '知道了',
+    notUtf8: '檔案不是 UTF-8 文字，請用原軟體重新匯出為 CSV',
+    vaultoneBackup: 'VaultOne 備份',
+    backupSaved: '已儲存加密備份（{bytes} 位元組）到 {path}',
+    backupSaveFailed: '備份儲存失敗，請檢查目錄權限與可用空間。若留下不完整檔案，請勿用於恢復。',
+    csvConfirmTitle: '匯出明文 CSV？',
+    csvConfirmBody: 'CSV 不加密，任何拿到檔案的人都能看到密碼與 TOTP 種子。\n\n'
+        'CSV 不是完整備份：僅匯出標題、首個網址、使用者名稱、密碼、備註、TOTP 種子、收藏與類型；'
+        '不保留卡片/身分專用欄位、自訂欄位、其他網址與比對規則、密碼歷史及完整 TOTP 參數。'
+        '不含回收筒，不能用它無損恢復保險庫。完整項目備份請選 .wljbak。\n\n'
+        '匯出後請妥善保管，遷移完成後從磁碟與回收筒徹底刪除；不要用試算表軟體開啟不可信內容。',
+    stillExport: '仍要匯出',
+    csvSaved: '已儲存有損 CSV（{bytes} 位元組）到 {path}；請核對遷移結果，這不是完整備份。',
+    csvSaveFailed: 'CSV 儲存失敗，請檢查目錄權限與可用空間，並清理可能留下的明文檔案。',
+    importFromOthers: '從其他密碼管理器匯入',
+    importFromOthersSubtitle: '支援 Chrome / Edge / Firefox / Bitwarden / LastPass / 1Password 匯出的 CSV 與 1PIF。檔案只在本機解析，隨即加密入庫；重複項目自動略過。',
+    importing: '匯入中…',
+    chooseFile: '選擇檔案',
+    exportEncryptedBackup: '匯出加密備份',
+    exportEncryptedBackupSubtitle: '匯出本帳戶的 .wljbak 項目級備份，不含回收筒，不是資料庫快照。需先恢復同一帳戶及其 Vault Key，再匯入；僅持有檔案或新建同名帳戶無法恢復。匯入會重建項目 ID 與建立/更新時間。',
+    exportAction: '匯出',
+    exportCsv: '匯出明文 CSV',
+    exportCsvSubtitle: '僅用於有損遷移，不含完整類型欄位、歷史、多網址及完整 TOTP 參數。檔案不加密，請謹慎保管。',
+    importFromBackup: '從加密備份匯入',
+    importFromBackupSubtitle: '選擇 .wljbak 備份包還原項目；重複項目自動略過。',
+    keepInTray: '關閉視窗時保留在系統匣',
+    keepInTraySubtitle: '關閉後仍可透過系統匣圖示或快速鍵喚起；從系統匣選單選擇「結束」才會終止程式。',
+    globalHotkey: '全域快速鍵  {combo}',
+    globalHotkeySubtitle: '在任何程式中按下即可喚起 VaultOne 並聚焦搜尋框。',
+    allowBrowserExtension: '允許瀏覽器擴充功能連線',
+    allowBrowserExtensionSubtitle: '擴充功能透過本機 Native Messaging 向 VaultOne 請求憑據，只會拿到與目前網站嚴格比對的那一筆；解密全部在本應用程式內完成。',
+    installExtension: '安裝擴充功能',
+    installExtensionSubtitle: '支援 Chrome、Edge、Brave 等 Chromium 核心瀏覽器。安裝後點擊擴充功能圖示完成配對。',
+    pairedBrowsers: '已配對的瀏覽器',
+    noneYet: '暫無',
+    pairedAt: '配對於 {created} · 最近使用 {used}',
+    removeAction: '移除',
+    repairConnection: '修復連線',
+    repairConnectionSubtitle: '擴充功能提示「找不到 VaultOne 桌面端」時，重新向瀏覽器登記連接器。',
+    reregister: '重新登記',
+    reregistered: '已登記，請重新啟動瀏覽器後重試',
+    autofillEnabled: 'VaultOne 已是系統自動填入服務',
+    autofillEnable: '將 VaultOne 設為自動填入服務',
+    autofillSubtitle: '在應用程式與瀏覽器的登入框中選擇「用 VaultOne 填入」。網頁只推薦與目前網域嚴格比對的項目；登入後可一鍵儲存新密碼。',
+    enabledTag: '已啟用',
+    openSettings: '前往設定',
+    verboseLogs: '詳細日誌（診斷模式）',
+    verboseLogsSubtitle: '日誌只含事件類型、錯誤碼與耗時，絕不包含密碼、項目內容或電子郵件。重新啟動應用程式後生效。',
+    logFile: '日誌檔案',
+    logFileSubtitle: '回報問題時可附上日誌檔案。',
+    openFolder: '開啟目錄',
+    logDirFailed: '無法開啟日誌目錄，請手動前往：{path}',
+    logDirFailedGeneric: '開啟日誌目錄失敗，請手動前往應用程式資料目錄下的 logs 資料夾',
+    buildInfo: '建置 {build} · 加密核心開源（AGPL-3.0）',
+    privacyPolicyLink: '隱私政策',
+    termsLink: '使用者條款',
+    sourceAndWhitepaper: '原始碼與安全白皮書',
+    openSourceLicenses: '開源授權',
+    viewLicenses: '查看第三方開源授權',
+    feedback: '意見回饋',
+    feedbackSubtitle: '提交問題或建議，查看處理狀態與客服回覆。需連線支援此功能的 Java 服務。',
+    openFeedback: '開啟回饋',
+    contactSupport: '聯絡支援',
+    sendEmail: '傳送電子郵件',
+    wipeLocalData: '清除本機資料',
+    wipeLocalDataSubtitle: '刪除本機保險庫與儲存的 Secret Key，不註銷雲端帳戶；未同步的本機修改會遺失。',
+    wipeConfirmBody: '未同步的本機項目與修改將永久遺失。只有已成功同步的資料才能在重新登入後恢復。請先確認備份及 Secret Key 已妥善保存。',
+    wipeConfirmTitle: '清除本機資料？',
+    deleteCloudAccount: '註銷雲端帳戶',
+    deleteCloudAccountSubtitle: '永久刪除雲端的全部密文、裝置與日誌（個人資訊保護法 / GDPR 刪除權）。本機資料保留。',
+    deleteAccountAction: '註銷',
+    deleteCloudAccountBody: '此操作不可撤銷。請輸入主密碼確認。',
+    deletePermanently: '永久註銷',
+    cloudAccountDeleted: '雲端帳戶已註銷',
     sectionAll: '全部項目',
     sectionAllShort: '全部',
     sectionFavorites: '收藏',
@@ -266,6 +665,82 @@ abstract final class AppStrings {
     newPasswordMismatch: '兩次輸入的新主密碼不一致',
     fatalOpenVaultFailed: '無法開啟保險庫',
     fatalDataIntact: '資料檔案未被修改。請將以上資訊回報給我們。',
+    searchItemsHint: '搜尋標題、使用者名稱、網址',
+    clearSearch: '清除',
+    newItem: '新增',
+    emptySearchTitle: '沒有符合「{query}」的項目',
+    emptySearchBody: '試試標題、使用者名稱或網址中的其他關鍵字',
+    emptyTrashTitle: '回收筒是空的',
+    emptyTrashBody: '刪除的項目會在這裡保留，可隨時恢復',
+    emptyVaultTitle: '這裡還沒有項目',
+    emptyVaultBodyCompact: '點右下角 + 建立第一個',
+    emptyVaultBody: '按 Ctrl+N 建立第一個',
+    emptyTrashConfirmTitle: '清空回收筒？',
+    emptyTrashConfirmBody: '回收筒中已同步的項目將從本機永久刪除，無法恢復；尚未同步的項目會保留。已同步到雲端的資料不會在其他裝置上被抹除。',
+    emptyTrashConfirmAction: '清空',
+    emptyTrashKeptNote: '，{kept} 筆未同步已保留',
+    emptyTrashNone: '沒有可清空的項目{kept}',
+    emptyTrashDone: '已徹底刪除 {purged} 筆{kept}',
+    emptyTrashTooltip: '清空回收筒',
+    lockNow: '立即鎖定',
+    lockNowWithHotkey: '立即鎖定 (Ctrl+L)',
+    newItemTooltip: '新增項目',
+    sidebarCategories: '分類',
+    sidebarTools: '工具',
+    selectItemHint: '選擇一個項目查看詳情',
+    shortcutHint: 'Ctrl+F 搜尋 · Ctrl+N 新增 · Ctrl+G 產生密碼 · Ctrl+L 鎖定',
+    itemMissing: '項目不存在',
+    cloudNeedsRevalidate: '雲端帳戶需要重新驗證',
+    moveToTrash: '移至回收筒',
+    moveToTrashConfirmTitle: '移至回收筒？',
+    moveToTrashConfirmBody: '「{title}」將移至回收筒，可隨時恢復。',
+    movedToTrashTitle: '已移至回收筒',
+    movedToTrashBody: '「{title}」已移至回收筒，可隨時恢復。',
+    purgeConfirmTitle: '徹底刪除？',
+    purgeConfirmBody: '「{title}」將從本機永久刪除，無法恢復。已同步到雲端的資料不會在其他裝置上被抹除。',
+    purgeAction: '徹底刪除',
+    purgedTitle: '已徹底刪除「{title}」',
+    fieldUsername: '使用者名稱',
+    fieldPassword: '密碼',
+    fieldTotp: '驗證碼',
+    urlMatchSuffix: '{label}比對',
+    fieldWebsite: '網址',
+    openInBrowser: '在瀏覽器中開啟',
+    fieldNotes: '備註',
+    fieldCardholder: '持卡人',
+    fieldCardNumber: '卡號',
+    fieldExpiry: '有效期限',
+    fieldCvv: '安全碼',
+    fieldPin: 'PIN',
+    fieldFullName: '姓名',
+    fieldPhone: '電話',
+    fieldIdNumber: '證件號',
+    fieldAddress: '地址',
+    fieldCompany: '公司',
+    fieldEmail: '電子郵件',
+    customFields: '自訂欄位',
+    passwordHistory: '密碼歷史',
+    historyPassword: '歷史密碼',
+    copyTotp: '複製驗證碼',
+    labelEncrypted: '加密',
+    labelHide: '隱藏',
+    purgeErrorUnsynced: '該項目尚未同步到雲端，請先完成同步後再徹底刪除。',
+    purgeErrorNotFound: '項目已不存在，請重新整理回收筒。',
+    purgeErrorLocked: '保險庫已鎖定，請解鎖後重試。',
+    purgeErrorGeneric: '暫時無法徹底刪除，請稍後重試。',
+    restoreAction: '恢復',
+    restoredTitle: '已恢復「{title}」',
+    unfavorite: '取消收藏',
+    editAction: '編輯',
+    labelCreated: '建立',
+    labelUpdated: '修改',
+    labelRevision: '版本',
+    labelKind: '類型',
+    labelReveal: '顯示',
+    totpOnce: '一次性驗證碼',
+    totpCountdown: '剩餘 {seconds} 秒',
+    cardExpired: '已過期',
+    cardExpiresSoon: '即將過期',
     onboardWelcomeTitle: '歡迎使用 VaultOne',
     onboardWelcomeBody: '口令、帳號、兩步驗證、金鑰——\n全部在你的裝置上加密，只為你一個人開啟。',
     onboardRegister: '註冊雲端帳戶',
@@ -275,7 +750,6 @@ abstract final class AppStrings {
     onboardStepOne: 'Step 01 / 02',
     onboardSetMasterPassword: '設定主密碼',
     onboardSetMasterPasswordBody: '主密碼是你唯一需要記住的密碼。它從不離開這台裝置，我們也無法幫你找回。',
-    emailLabel: '電子郵件',
     masterPasswordHint: '至少 10 個字元，推薦使用口令短語',
     confirmMasterPassword: '確認主密碼',
     registering: '正在註冊雲端帳戶…',
@@ -349,6 +823,164 @@ abstract final class AppStrings {
     sectionDiagnostics: 'Diagnostics',
     sectionAbout: 'About',
     sectionDanger: 'Danger zone',
+    never: 'Never',
+    accountIdLabel: 'Account ID  {id}',
+    keyDerivation: 'Key derivation',
+    itemCountTag: '{count} items',
+    secretKeyRowSubtitle: 'Stored in this device keychain. Viewing or re-exporting recovery material requires re-entering the Secret Key and recovery code for a byte-by-byte check.',
+    verifyAndView: 'Verify and view',
+    changeMasterPassword: 'Change master password',
+    changeMasterPasswordSubtitle: 'Only the vault key is re-wrapped; items are not re-encrypted and it takes a second.',
+    masterPasswordUpdated: 'Master password updated. Other devices need it after they sync.',
+    newPasswordTooWeak: 'The new master password is too weak',
+    currentMasterPassword: 'Current master password',
+    updateMasterPassword: 'Update master password',
+    backupKindRecoveryKit: 'Recovery Kit PDF',
+    backupKindCard: 'Backup card PNG',
+    backupKindWljbak: 'Encrypted backup .wljbak',
+    backupKindCsv: 'Plain CSV',
+    backupNever: 'No backup export recorded on this device yet. Export the Recovery Kit first and print it or keep it offline.',
+    backupLast: 'Last: {time} ({kind}). This device only records when and how, never the file path or contents.',
+    backupStatus: 'Backup status',
+    backupCloudNote: 'Cloud backup history needs a server endpoint that does not exist yet, so this local record is not treated as a cloud backup.',
+    backupMissing: 'Not backed up',
+    backupPresent: 'Backed up',
+    recoveryKitAndCard: 'Recovery Kit and backup card',
+    recoveryKitAndCardSubtitle: 'Re-export the A4 Recovery Kit PDF, or the 700×900 (2x) backup card PNG. Both are equivalent to plaintext credentials, so the Secret Key and recovery code must be re-entered first.',
+    manageAction: 'Manage',
+    biometricUnlock: 'Biometric unlock',
+    biometricUnlockSubtitle: 'Unlock quickly with Windows Hello, Touch ID, Face ID or a fingerprint. The quick-unlock key lives in the system keychain and stops working after a master password change.',
+    biometricEnable: 'Enable biometric unlock',
+    biometricDisable: 'Turn off biometric unlock',
+    autoLock: 'Auto-lock',
+    autoLockSubtitle: 'Lock the vault and clear in-memory keys after a period of inactivity.',
+    minutes: '{n} min',
+    lockOnMinimize: 'Lock when backgrounded or minimized',
+    clipboardAutoClear: 'Clear the clipboard automatically',
+    clipboardAutoClearSubtitle: 'Copied passwords are cleared on a timer; on desktop the write is excluded from clipboard history and cloud sync.',
+    seconds: '{n}s',
+    cloudSetupPending: 'Cloud account setup is not finished',
+    cloudSetupPendingBody: 'Unlock again to finish Java cloud registration. Existing items are kept; there is no separate local-only account mode.',
+    syncing: 'Syncing…',
+    syncFailed: 'Sync failed: {reason}',
+    sessionExpired: 'The session expired. Verify again.',
+    autoSync: 'Sync items automatically',
+    deviceSummary: 'This device: {device} · last sync {time} · {pending} pending',
+    revalidate: 'Verify again',
+    reconnectSync: 'Reconnect the sync service',
+    reconnected: 'Reconnected',
+    syncNow: 'Sync now',
+    mergedItems: 'Merged {n} items that changed on several devices at once',
+    deviceManagement: 'Device management',
+    signOutCloudLock: 'Sign out of the cloud and lock',
+    signOutCloudTitle: 'Sign out of the cloud?',
+    signOutCloudBody: 'Revokes the current session online and locks this device. Local items, pending changes and the server binding are kept.',
+    signOutAndLock: 'Sign out and lock',
+    securityLog: 'Security log',
+    deviceManagementSubtitle: 'New devices need an email code or approval here. Revoking invalidates that device session immediately.',
+    deviceThis: 'This device',
+    deviceRevoked: 'Revoked',
+    devicePending: 'Pending',
+    deviceLine: '{platform} · added {created} · last seen {seen}',
+    approveAction: 'Approve',
+    approvedAction: 'Approved',
+    revokeAction: 'Revoke',
+    revokeDeviceTitle: 'Revoke “{name}”?',
+    revokeDeviceBody: 'That device is signed out immediately and can no longer sync.',
+    auditSignInOk: 'Signed in',
+    auditSignInFail: 'Sign-in failed',
+    auditDeviceRequest: 'New device requested sign-in',
+    auditDeviceApproved: 'Device approved',
+    auditDeviceRevoked: 'Device revoked',
+    auditPasswordChanged: 'Master password changed',
+    auditRecoveryUsed: 'Recovered with the Recovery Kit',
+    auditRecoveryFail: 'Recovery code rejected',
+    theme: 'Theme',
+    themeSystem: 'Follow system',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    compareConflicts: 'Compare and resolve conflicts',
+    compareConflictsSubtitle: 'Both conflicting versions are stored encrypted on this device. Export stays blocked while a conflict is open so no side is lost.',
+    viewConflicts: 'View conflicts',
+    importDone: 'Import finished',
+    importSummary: 'Source: {source}\nAdded {added}{duplicates}{skipped}.\n\nThe exported file is plaintext. Delete it from disk and the trash right away.',
+    importBackupSummary: 'Added {added}{duplicates}{skipped}.',
+    importDuplicates: ', skipped {n} duplicates',
+    importSkipped: ', {n} unrecognized',
+    gotIt: 'Got it',
+    notUtf8: 'The file is not UTF-8 text. Export it as CSV again from the original app.',
+    vaultoneBackup: 'VaultOne backup',
+    backupSaved: 'Saved an encrypted backup ({bytes} bytes) to {path}',
+    backupSaveFailed: 'Saving the backup failed. Check folder permissions and free space, and do not use a partial file for restore.',
+    csvConfirmTitle: 'Export a plaintext CSV?',
+    csvConfirmBody: 'The CSV is not encrypted: anyone who gets the file can read passwords and TOTP seeds.\n\n'
+        'It is not a full backup. It exports only the title, first URL, username, password, notes, TOTP seed, favorite flag and type; '
+        'card and identity fields, custom fields, extra URLs and match rules, password history and full TOTP parameters are dropped. '
+        'The trash is excluded, so it cannot restore a vault losslessly — use .wljbak for that.\n\n'
+        'Keep the file safe, delete it from disk and the trash once the migration is done, and never open untrusted content in a spreadsheet app.',
+    stillExport: 'Export anyway',
+    csvSaved: 'Saved a lossy CSV ({bytes} bytes) to {path}. Check the migration result; this is not a full backup.',
+    csvSaveFailed: 'Saving the CSV failed. Check folder permissions and free space, and clean up any plaintext file left behind.',
+    importFromOthers: 'Import from other password managers',
+    importFromOthersSubtitle: 'Supports CSV and 1PIF exports from Chrome, Edge, Firefox, Bitwarden, LastPass and 1Password. Files are parsed locally and encrypted immediately; duplicates are skipped.',
+    importing: 'Importing…',
+    chooseFile: 'Choose file',
+    exportEncryptedBackup: 'Export an encrypted backup',
+    exportEncryptedBackupSubtitle: 'Exports this account .wljbak item-level backup. It excludes the trash and is not a database snapshot: restore the same account and Vault Key first, then import. The file alone, or a new account with the same email, cannot restore it. Import rebuilds item IDs and timestamps.',
+    exportAction: 'Export',
+    exportCsv: 'Export a plaintext CSV',
+    exportCsvSubtitle: 'For lossy migration only: no full type fields, history, extra URLs or full TOTP parameters. The file is not encrypted, so store it carefully.',
+    importFromBackup: 'Import from an encrypted backup',
+    importFromBackupSubtitle: 'Pick a .wljbak package to restore items; duplicates are skipped.',
+    keepInTray: 'Keep running in the system tray when the window closes',
+    keepInTraySubtitle: 'After closing, reopen it from the tray icon or the hotkey. Only “Quit” in the tray menu ends the process.',
+    globalHotkey: 'Global hotkey  {combo}',
+    globalHotkeySubtitle: 'Press it in any app to bring VaultOne up with the search box focused.',
+    allowBrowserExtension: 'Allow the browser extension to connect',
+    allowBrowserExtensionSubtitle: 'The extension asks VaultOne over local Native Messaging and only ever receives the entry that strictly matches the current site; all decryption happens inside this app.',
+    installExtension: 'Install the extension',
+    installExtensionSubtitle: 'Works with Chromium-based browsers such as Chrome, Edge and Brave. Click the extension icon after installing to pair.',
+    pairedBrowsers: 'Paired browsers',
+    noneYet: 'None yet',
+    pairedAt: 'Paired {created} · last used {used}',
+    removeAction: 'Remove',
+    repairConnection: 'Repair the connection',
+    repairConnectionSubtitle: 'If the extension reports that the VaultOne desktop app was not found, register the connector with the browser again.',
+    reregister: 'Register again',
+    reregistered: 'Registered. Restart the browser and try again.',
+    autofillEnabled: 'VaultOne is the system autofill service',
+    autofillEnable: 'Set VaultOne as the autofill service',
+    autofillSubtitle: 'Choose “Fill with VaultOne” in app and browser login forms. Web pages only offer entries that strictly match the current domain, and a new password can be saved in one tap after signing in.',
+    enabledTag: 'Enabled',
+    openSettings: 'Open settings',
+    verboseLogs: 'Verbose logs (diagnostic mode)',
+    verboseLogsSubtitle: 'Logs contain event types, error codes and timings only — never passwords, item contents or email addresses. Takes effect after a restart.',
+    logFile: 'Log file',
+    logFileSubtitle: 'Attach the log file when reporting a problem.',
+    openFolder: 'Open folder',
+    logDirFailed: 'Could not open the log folder. Go there manually: {path}',
+    logDirFailedGeneric: 'Could not open the log folder. Go to the logs folder inside the app data directory manually.',
+    buildInfo: 'Build {build} · crypto core open source (AGPL-3.0)',
+    privacyPolicyLink: 'Privacy Policy',
+    termsLink: 'Terms of Service',
+    sourceAndWhitepaper: 'Source code and security whitepaper',
+    openSourceLicenses: 'Open source licenses',
+    viewLicenses: 'View third-party licenses',
+    feedback: 'Feedback',
+    feedbackSubtitle: 'Report problems or ideas and follow their status and replies. Requires a Java service that supports this feature.',
+    openFeedback: 'Open feedback',
+    contactSupport: 'Contact support',
+    sendEmail: 'Send email',
+    wipeLocalData: 'Erase local data',
+    wipeLocalDataSubtitle: 'Deletes the local vault and the stored Secret Key without closing the cloud account; unsynced local changes are lost.',
+    wipeConfirmBody: 'Unsynced local items and changes are lost permanently. Only data that already synced can come back after signing in again. Make sure the backup and Secret Key are stored safely first.',
+    wipeConfirmTitle: 'Erase local data?',
+    deleteCloudAccount: 'Close the cloud account',
+    deleteCloudAccountSubtitle: 'Permanently deletes every cloud ciphertext, device and log entry (GDPR / PIPL right to erasure). Local data is kept.',
+    deleteAccountAction: 'Close account',
+    deleteCloudAccountBody: 'This cannot be undone. Enter your master password to confirm.',
+    deletePermanently: 'Close permanently',
+    cloudAccountDeleted: 'Cloud account closed',
     sectionAll: 'All items',
     sectionAllShort: 'All',
     sectionFavorites: 'Favorites',
@@ -390,6 +1022,83 @@ abstract final class AppStrings {
     newPasswordMismatch: 'The two new master passwords do not match',
     fatalOpenVaultFailed: 'Could not open the vault',
     fatalDataIntact: 'Your data files were not modified. Please report the message above.',
+    searchItemsHint: 'Search titles, usernames, URLs',
+    clearSearch: 'Clear',
+    newItem: 'New',
+    emptySearchTitle: 'No items match “{query}”',
+    emptySearchBody: 'Try another keyword in the title, username or URL',
+    emptyTrashTitle: 'Trash is empty',
+    emptyTrashBody: 'Deleted items stay here until you restore or purge them',
+    emptyVaultTitle: 'No items yet',
+    emptyVaultBodyCompact: 'Tap + in the corner to create the first one',
+    emptyVaultBody: 'Press Ctrl+N to create the first one',
+    emptyTrashConfirmTitle: 'Empty the trash?',
+    emptyTrashConfirmBody: 'Synced items in the trash are erased from this device and cannot be recovered; unsynced items are kept. Data already synced to the cloud is not wiped from other devices.',
+    emptyTrashConfirmAction: 'Empty',
+    emptyTrashKeptNote: ', kept {kept} unsynced',
+    emptyTrashNone: 'Nothing to empty{kept}',
+    emptyTrashDone: 'Permanently deleted {purged}{kept}',
+    emptyTrashTooltip: 'Empty the trash',
+    lockNow: 'Lock now',
+    lockNowWithHotkey: 'Lock now (Ctrl+L)',
+    newItemTooltip: 'New item',
+    sidebarCategories: 'Categories',
+    sidebarTools: 'Tools',
+    selectItemHint: 'Select an item to see its details',
+    shortcutHint: 'Ctrl+F search · Ctrl+N new · Ctrl+G generate · Ctrl+L lock',
+    itemMissing: 'Item not found',
+    cloudNeedsRevalidate: 'The cloud account needs verification again',
+    moveToTrash: 'Move to trash',
+    moveToTrashConfirmTitle: 'Move to trash?',
+    moveToTrashConfirmBody: '“{title}” moves to the trash and can be restored at any time.',
+    movedToTrashTitle: 'Moved to trash',
+    movedToTrashBody: '“{title}” is now in the trash and can be restored at any time.',
+    purgeConfirmTitle: 'Delete permanently?',
+    purgeConfirmBody:
+        '“{title}” will be erased from this device and cannot be recovered. Data already synced to the cloud is not wiped from other devices.',
+    purgeAction: 'Delete permanently',
+    purgedTitle: 'Permanently deleted “{title}”',
+    fieldUsername: 'Username',
+    fieldPassword: 'Password',
+    fieldTotp: 'Code',
+    urlMatchSuffix: '{label} match',
+    fieldWebsite: 'Website',
+    openInBrowser: 'Open in browser',
+    fieldNotes: 'Notes',
+    fieldCardholder: 'Cardholder',
+    fieldCardNumber: 'Card number',
+    fieldExpiry: 'Expiry',
+    fieldCvv: 'Security code',
+    fieldPin: 'PIN',
+    fieldFullName: 'Full name',
+    fieldPhone: 'Phone',
+    fieldIdNumber: 'ID number',
+    fieldAddress: 'Address',
+    fieldCompany: 'Company',
+    fieldEmail: 'Email',
+    customFields: 'Custom fields',
+    passwordHistory: 'Password history',
+    historyPassword: 'Previous password',
+    copyTotp: 'Copy code',
+    labelEncrypted: 'Encrypted',
+    labelHide: 'Hide',
+    purgeErrorUnsynced: 'This item is not synced to the cloud yet. Finish syncing before deleting it permanently.',
+    purgeErrorNotFound: 'The item no longer exists. Refresh the trash.',
+    purgeErrorLocked: 'The vault is locked. Unlock it and try again.',
+    purgeErrorGeneric: 'Could not delete it permanently. Try again later.',
+    restoreAction: 'Restore',
+    restoredTitle: 'Restored “{title}”',
+    unfavorite: 'Remove from favorites',
+    editAction: 'Edit',
+    labelCreated: 'Created',
+    labelUpdated: 'Updated',
+    labelRevision: 'Revision',
+    labelKind: 'Type',
+    labelReveal: 'Show',
+    totpOnce: 'One-time code',
+    totpCountdown: '{seconds}s left',
+    cardExpired: 'Expired',
+    cardExpiresSoon: 'Expires soon',
     onboardWelcomeTitle: 'Welcome to VaultOne',
     onboardWelcomeBody: 'Passwords, accounts, two-factor codes and keys —\nencrypted on your device, opened only by you.',
     onboardRegister: 'Create a cloud account',
@@ -399,7 +1108,6 @@ abstract final class AppStrings {
     onboardStepOne: 'Step 01 / 02',
     onboardSetMasterPassword: 'Set your master password',
     onboardSetMasterPasswordBody: 'The master password is the only password you have to remember. It never leaves this device, and nobody can recover it for you.',
-    emailLabel: 'Email',
     masterPasswordHint: 'At least 10 characters; a passphrase is recommended',
     confirmMasterPassword: 'Confirm master password',
     registering: 'Creating the cloud account…',

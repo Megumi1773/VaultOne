@@ -196,7 +196,7 @@ class _CreateFormState extends State<_CreateForm> {
           ),
           ZoTextField(
             controller: _email,
-            label: context.tr(AppStrings.emailLabel),
+            label: context.tr(AppStrings.fieldEmail),
             hint: 'you@example.com',
             prefixIcon: Icons.alternate_email_rounded,
             keyboardType: TextInputType.emailAddress,

@@ -1,0 +1,33 @@
+[
+  {
+    "file": "app/lib/src/l10n/strings.dart",
+    "replace": [
+      ["  static const trashSectionTitle = '回收站';\n", ""],
+      ["  static const favorite = '收藏';\n", ""],
+      ["  static const labelCopy = '复制';\n", ""],
+      ["  static const emailLabel = '邮箱';\n", ""],
+      ["    trashSectionTitle: '回收筒',\n", ""],
+      ["    favorite: '收藏',\n", ""],
+      ["    labelCopy: '複製',\n", ""],
+      ["    emailLabel: '電子郵件',\n", ""],
+      ["    trashSectionTitle: 'Trash',\n", ""],
+      ["    favorite: 'Add to favorites',\n", ""],
+      ["    labelCopy: 'Copy',\n", ""],
+      ["    emailLabel: 'Email',\n", ""]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/item_detail.dart",
+    "replace": [
+      ["context.tr(AppStrings.trashSectionTitle)", "context.tr(AppStrings.sectionTrash)"],
+      ["context.tr(AppStrings.favorite)", "context.tr(AppStrings.sectionFavorites)"],
+      ["context.tr(AppStrings.labelCopy)", "context.tr(AppStrings.copy)"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/home.dart",
+    "replace": [
+      ["showZoMessage(context, purgeErrorMessage(e), error: true);", "showZoMessage(context, purgeErrorMessage(context, e), error: true);"]
+    ]
+  }
+]

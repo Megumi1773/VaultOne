@@ -8,10 +8,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api.dart';
-import '../../l10n/strings.dart';
 import '../../core/config.dart';
 import '../../core/ffi.dart';
 import '../../core/models.dart';
+import '../../l10n/strings.dart';
 import '../../state/app_state.dart';
 import '../../state/desktop_shell.dart';
 import '../../state/scope.dart';
@@ -147,15 +147,37 @@ class _Row extends StatelessWidget {
   }
 }
 
+/// 时间格式化；`unix` 为空或 0 时返回空串，由调用方按当前语言显示「从未」。
 String _fmtTime(int? unix) {
-  if (unix == null || unix == 0) return '从未';
+  if (unix == null || unix == 0) return '';
   final d = DateTime.fromMillisecondsSinceEpoch(unix * 1000);
   String two(int v) => v.toString().padLeft(2, '0');
   return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
 }
 
+/// 导入结果文案。`duplicates` / `skipped` 为 0 时不显示对应片段。
+String _importSummaryText(
+  BuildContext context, {
+  required String source,
+  required int added,
+  required int duplicates,
+  required int skipped,
+}) {
+  final suffix = '${duplicates > 0 ? context.trf(AppStrings.importDuplicates, {'n': duplicates}) : ''}'
+      '${skipped > 0 ? context.trf(AppStrings.importSkipped, {'n': skipped}) : ''}';
+  if (source.isEmpty) {
+    return context.trf(AppStrings.importBackupSummary, {'added': added, 'duplicates': suffix, 'skipped': ''});
+  }
+  return context.trf(AppStrings.importSummary, {
+    'source': source,
+    'added': added,
+    'duplicates': suffix,
+    'skipped': '',
+  });
+}
+
 /// 通用：要求输入主密码的对话框，返回输入值（取消返回 null）。
-Future<String?> askMasterPassword(BuildContext context, {required String title, String? body, String confirm = '确认'}) {
+Future<String?> askMasterPassword(BuildContext context, {required String title, String? body, String confirm = ''}) {
   return showDialog<String>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.55),
@@ -208,7 +230,7 @@ class _MasterPasswordDialogState extends State<_MasterPasswordDialog> {
               const SizedBox(height: 18),
               ZoTextField(
                 controller: _ctrl,
-                label: '主密码',
+                label: context.tr(AppStrings.masterPassword),
                 obscure: true,
                 autofocus: true,
                 prefixIcon: Icons.key_rounded,
@@ -216,7 +238,7 @@ class _MasterPasswordDialogState extends State<_MasterPasswordDialog> {
               ),
               const SizedBox(height: 20),
               Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                ZoButton(label: '取消', variant: ZoButtonVariant.ghost, onPressed: () => Navigator.pop(ctx)),
+                ZoButton(label: ctx.tr(AppStrings.cancel), variant: ZoButtonVariant.ghost, onPressed: () => Navigator.pop(ctx)),
                 const SizedBox(width: 8),
                 ZoButton(label: widget.confirm, onPressed: _submit),
               ]),
@@ -239,7 +261,7 @@ class _AccountSection extends StatelessWidget {
 
   Future<void> _changePassword(BuildContext context) async {
     final done = await showDialog<bool>(context: context, builder: (_) => const _ChangePasswordDialog());
-    if (done == true && context.mounted) showZoMessage(context, '主密码已更新，其他设备同步后需使用新主密码解锁');
+    if (done == true && context.mounted) showZoMessage(context, context.tr(AppStrings.masterPasswordUpdated));
   }
 
   @override
@@ -247,17 +269,21 @@ class _AccountSection extends StatelessWidget {
     final state = AppScope.of(context);
     final a = state.account;
     return _Section(title: context.tr(AppStrings.sectionAccount), children: [
-      _Row(title: a?.email ?? '—', subtitle: '账户 ID  ${a?.accountId ?? '—'}'),
-      _Row(title: '密钥派生', subtitle: a?.kdfSummary ?? '—', trailing: ZoTag('${a?.itemCount ?? 0} 个条目')),
+      _Row(title: a?.email ?? AppStrings.placeholder, subtitle: context.trf(AppStrings.accountIdLabel, {'id': a?.accountId ?? AppStrings.placeholder})),
       _Row(
-        title: 'Secret Key',
-        subtitle: '保存在本机系统钥匙串中。查看或重新导出恢复材料前，需要重新输入 Secret Key 与恢复码做逐字节核对。',
-        trailing: ZoButton(label: '核对并查看', dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _showSecretKey(context)),
+        title: context.tr(AppStrings.keyDerivation),
+        subtitle: a?.kdfSummary ?? AppStrings.placeholder,
+        trailing: ZoTag(context.trf(AppStrings.itemCountTag, {'count': a?.itemCount ?? 0})),
       ),
       _Row(
-        title: '修改主密码',
-        subtitle: '只重新封装保险库密钥，条目无需重新加密，秒级完成。',
-        trailing: ZoButton(label: '修改', dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _changePassword(context)),
+        title: 'Secret Key',
+        subtitle: context.tr(AppStrings.secretKeyRowSubtitle),
+        trailing: ZoButton(label: context.tr(AppStrings.verifyAndView), dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _showSecretKey(context)),
+      ),
+      _Row(
+        title: context.tr(AppStrings.changeMasterPassword),
+        subtitle: context.tr(AppStrings.changeMasterPasswordSubtitle),
+        trailing: ZoButton(label: context.tr(AppStrings.labelUpdated), dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _changePassword(context)),
       ),
     ]);
   }
@@ -267,12 +293,13 @@ class _AccountSection extends StatelessWidget {
 class _KeyBackupSection extends StatelessWidget {
   const _KeyBackupSection();
 
-  static const _kindLabel = <String, String>{
-    'recovery_kit': '恢复套件 PDF',
-    'backup_card': '备份卡 PNG',
-    'wljbak': '加密备份 .wljbak',
-    'csv': '明文 CSV',
-  };
+  static String _kindLabel(BuildContext context, String? kind) => switch (kind) {
+        'recovery_kit' => context.tr(AppStrings.backupKindRecoveryKit),
+        'backup_card' => context.tr(AppStrings.backupKindCard),
+        'wljbak' => context.tr(AppStrings.backupKindWljbak),
+        'csv' => context.tr(AppStrings.backupKindCsv),
+        _ => '',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -280,21 +307,20 @@ class _KeyBackupSection extends StatelessWidget {
     final at = state.lastBackupAt;
     final kind = state.lastBackupKind;
     final summary = at == 0
-        ? '本机尚未记录任何备份导出。请先导出恢复套件，并把它打印或存进离线介质。'
-        : '最近一次：${_fmtTime(at)}（${_kindLabel[kind] ?? kind ?? '未记录'}）。本机只记录时间与方式，不保存文件路径与内容。';
+        ? context.tr(AppStrings.backupNever)
+        : context.trf(AppStrings.backupLast, {'time': _fmtTime(at), 'kind': _kindLabel(context, kind)});
     return _Section(title: context.tr(AppStrings.sectionKeyBackup), children: [
       _Row(
-        title: '备份状态',
-        subtitle: '$summary\n云端备份历史需要服务端端点，尚未实现；这里不把本机记录当作云端已备份。',
+        title: context.tr(AppStrings.backupStatus),
+        subtitle: '$summary\n${context.tr(AppStrings.backupCloudNote)}',
         trailing: at == 0
-            ? ZoTag('未备份', color: context.zo.danger, icon: Icons.error_outline_rounded)
-            : ZoTag('已备份', color: context.zo.success, icon: Icons.check_circle_outline_rounded),
+            ? ZoTag(context.tr(AppStrings.backupMissing), color: context.zo.danger, icon: Icons.error_outline_rounded)
+            : ZoTag(context.tr(AppStrings.backupPresent), color: context.zo.success, icon: Icons.check_circle_outline_rounded),
       ),
       _Row(
-        title: '恢复套件与备份卡',
-        subtitle: '重新导出 A4 恢复套件 PDF，或 700×900（2x 导出）的备份卡 PNG。两者都等价于明文凭据，'
-            '导出前需要重新输入 Secret Key 与恢复码做核对。',
-        trailing: ZoButton(label: '管理', dense: true, variant: ZoButtonVariant.secondary, onPressed: () => showBackupManager(context)),
+        title: context.tr(AppStrings.recoveryKitAndCard),
+        subtitle: context.tr(AppStrings.recoveryKitAndCardSubtitle),
+        trailing: ZoButton(label: context.tr(AppStrings.manageAction), dense: true, variant: ZoButtonVariant.secondary, onPressed: () => showBackupManager(context)),
       ),
     ]);
   }
@@ -323,9 +349,9 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
   }
 
   Future<void> _submit() async {
-    if (_next.text.characters.length < 10) return setState(() => _error = '新主密码至少 10 个字符');
-    if (VaultApi.strength(_next.text).score < 3) return setState(() => _error = '新主密码强度不足');
-    if (_next.text != _next2.text) return setState(() => _error = '两次输入不一致');
+    if (_next.text.characters.length < 10) return setState(() => _error = context.tr(AppStrings.masterPasswordTooShort));
+    if (VaultApi.strength(_next.text).score < 3) return setState(() => _error = context.tr(AppStrings.newPasswordTooWeak));
+    if (_next.text != _next2.text) return setState(() => _error = context.tr(AppStrings.passwordMismatch));
     setState(() {
       _busy = true;
       _error = null;
@@ -350,20 +376,20 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('修改主密码', style: context.text.headlineSmall),
+                Text(context.tr(AppStrings.changeMasterPassword), style: context.text.headlineSmall),
                 const SizedBox(height: 18),
-                ZoTextField(controller: _cur, label: '当前主密码', obscure: true, autofocus: true),
+                ZoTextField(controller: _cur, label: context.tr(AppStrings.currentMasterPassword), obscure: true, autofocus: true),
                 const SizedBox(height: 14),
-                ZoTextField(controller: _next, label: '新主密码', obscure: true, onChanged: (_) => setState(() {})),
+                ZoTextField(controller: _next, label: context.tr(AppStrings.newMasterPassword), obscure: true, onChanged: (_) => setState(() {})),
                 const SizedBox(height: 8),
                 StrengthMeter(strength: VaultApi.strength(_next.text)),
                 const SizedBox(height: 14),
-                ZoTextField(controller: _next2, label: '确认新主密码', obscure: true, error: _error, onSubmitted: (_) => _submit()),
+                ZoTextField(controller: _next2, label: context.tr(AppStrings.confirmNewMasterPassword), obscure: true, error: _error, onSubmitted: (_) => _submit()),
                 const SizedBox(height: 20),
                 Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  ZoButton(label: '取消', variant: ZoButtonVariant.ghost, onPressed: _busy ? null : () => Navigator.pop(context)),
+                  ZoButton(label: context.tr(AppStrings.cancel), variant: ZoButtonVariant.ghost, onPressed: _busy ? null : () => Navigator.pop(context)),
                   const SizedBox(width: 8),
-                  ZoButton(label: '更新主密码', loading: _busy, onPressed: _submit),
+                  ZoButton(label: context.tr(AppStrings.updateMasterPassword), loading: _busy, onPressed: _submit),
                 ]),
               ],
             ),
@@ -384,50 +410,46 @@ class _SecuritySection extends StatelessWidget {
     return _Section(title: context.tr(AppStrings.sectionSecurity), children: [
       if (state.biometricsAvailable)
         _Row(
-          title: '生物识别解锁',
-          subtitle: '使用 Windows Hello / Touch ID / Face ID / 指纹快速解锁。快速解锁密钥保存在系统钥匙串，修改主密码后自动失效。',
+          title: context.tr(AppStrings.biometricUnlock),
+          subtitle: context.tr(AppStrings.biometricUnlockSubtitle),
           trailing: Switch(
             value: state.quickUnlockEnabled,
             onChanged: (v) async {
               try {
                 await state.setQuickUnlock(v);
               } catch (e) {
-                if (context.mounted) showZoMessage(context, '无法${v ? '启用' : '关闭'}生物识别解锁', error: true);
+                if (context.mounted) showZoMessage(context, context.tr(v ? AppStrings.biometricEnable : AppStrings.biometricDisable), error: true);
               }
             },
           ),
         ),
       _Row(
-        title: '自动锁定',
-        subtitle: '无操作一段时间后锁定保险库并清空内存中的密钥。',
+        title: context.tr(AppStrings.autoLock),
+        subtitle: context.tr(AppStrings.autoLockSubtitle),
         trailing: DropdownButton<int>(
           value: s.autoLockMinutes,
           underline: const SizedBox.shrink(),
-          items: const [
-            DropdownMenuItem(value: 1, child: Text('1 分钟')),
-            DropdownMenuItem(value: 5, child: Text('5 分钟')),
-            DropdownMenuItem(value: 10, child: Text('10 分钟')),
-            DropdownMenuItem(value: 30, child: Text('30 分钟')),
-            DropdownMenuItem(value: 0, child: Text('从不')),
+          items: [
+            for (final m in const [1, 5, 10, 30])
+              DropdownMenuItem(value: m, child: Text(context.trf(AppStrings.minutes, {'n': m}))),
+            DropdownMenuItem(value: 0, child: Text(context.tr(AppStrings.never))),
           ],
           onChanged: (v) => state.updateSettings(s.copyWith(autoLockMinutes: v)),
         ),
       ),
       _Row(
-        title: '切到后台 / 最小化时锁定',
+        title: context.tr(AppStrings.lockOnMinimize),
         trailing: Switch(value: s.lockOnMinimize, onChanged: (v) => state.updateSettings(s.copyWith(lockOnMinimize: v))),
       ),
       _Row(
-        title: '剪贴板自动清除',
-        subtitle: '复制密码后到期清空；桌面端写入时排除剪贴板历史与云同步。',
+        title: context.tr(AppStrings.clipboardAutoClear),
+        subtitle: context.tr(AppStrings.clipboardAutoClearSubtitle),
         trailing: DropdownButton<int>(
           value: s.clipboardSeconds,
           underline: const SizedBox.shrink(),
-          items: const [
-            DropdownMenuItem(value: 15, child: Text('15 秒')),
-            DropdownMenuItem(value: 30, child: Text('30 秒')),
-            DropdownMenuItem(value: 60, child: Text('60 秒')),
-            DropdownMenuItem(value: 90, child: Text('90 秒')),
+          items: [
+            for (final n in const [15, 30, 60, 90])
+              DropdownMenuItem(value: n, child: Text(context.trf(AppStrings.seconds, {'n': n}))),
           ],
           onChanged: (v) => state.updateSettings(s.copyWith(clipboardSeconds: v)),
         ),
@@ -466,20 +488,27 @@ class _SyncSectionState extends State<_SyncSection> {
     final remote = state.remote;
     if (remote == null) {
       return _Section(title: context.tr(AppStrings.sectionCloudAccount), children: [
-        _Row(title: '云账户尚未完成接入', subtitle: '重新解锁后完成 Java 云注册。现有条目保留，不提供独立的纯本地账户模式。'),
+        _Row(
+          title: context.tr(AppStrings.cloudSetupPending),
+          subtitle: context.tr(AppStrings.cloudSetupPendingBody),
+        ),
       ]);
     }
 
     final (label, color) = switch (state.syncState) {
-      SyncState.syncing => ('同步中…', context.zo.accent),
-      SyncState.error => ('同步失败：${state.syncError ?? ''}', context.zo.danger),
-      SyncState.needsReconnect => ('登录已过期，请重新验证', context.zo.warning),
-      _ => ('条目自动同步', context.zo.success),
+      SyncState.syncing => (context.tr(AppStrings.syncing), context.zo.accent),
+      SyncState.error => (context.trf(AppStrings.syncFailed, {'reason': state.syncError ?? ''}), context.zo.danger),
+      SyncState.needsReconnect => (context.tr(AppStrings.sessionExpired), context.zo.warning),
+      _ => (context.tr(AppStrings.autoSync), context.zo.success),
     };
     return _Section(title: context.tr(AppStrings.sectionSync), children: [
       _Row(
         title: remote.serverUrl,
-        subtitle: '本设备：${remote.deviceName} · 上次同步 ${_fmtTime(remote.lastSyncAt)} · 待上传 ${remote.pending}',
+        subtitle: context.trf(AppStrings.deviceSummary, {
+          'device': remote.deviceName,
+          'time': _fmtTime(remote.lastSyncAt),
+          'pending': remote.pending,
+        }),
         trailing: ZoTag(label.length > 18 ? '${label.substring(0, 18)}…' : label, color: color),
       ),
       Padding(
@@ -487,39 +516,48 @@ class _SyncSectionState extends State<_SyncSection> {
         child: Wrap(spacing: 8, runSpacing: 8, children: [
           if (state.syncState == SyncState.needsReconnect)
             ZoButton(
-              label: '重新验证',
+              label: context.tr(AppStrings.revalidate),
               icon: Icons.login_rounded,
               onPressed: () async {
-                final pw = await askMasterPassword(context, title: '重新连接同步服务');
-                if (pw != null && pw.isNotEmpty) await _run(() => state.reconnect(pw), ok: '已重新连接');
+                final reconnectedText = context.tr(AppStrings.reconnected);
+                final pw = await askMasterPassword(context, title: context.tr(AppStrings.reconnectSync));
+                if (pw != null && pw.isNotEmpty) await _run(() => state.reconnect(pw), ok: reconnectedText);
               },
             )
           else
             ZoButton(
-              label: '立即同步',
+              label: context.tr(AppStrings.syncNow),
               icon: Icons.sync_rounded,
               loading: _busy || state.syncState == SyncState.syncing,
               onPressed: () => _run(() async {
+                final mergedText = context.trf(AppStrings.mergedItems, {'n': 0});
                 final r = await state.syncNow();
-                if (r != null && r.merged > 0 && mounted) showZoMessage(this.context, '已合并 ${r.merged} 个在多台设备上同时修改的条目');
+                if (r != null && r.merged > 0 && mounted) {
+                  showZoMessage(this.context, AppStrings.format(mergedText, {'n': r.merged}));
+                }
               }),
             ),
           ZoButton(
-            label: '设备管理',
+            label: context.tr(AppStrings.deviceManagement),
             icon: Icons.devices_other_outlined,
             variant: ZoButtonVariant.secondary,
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DevicesPage())),
           ),
           ZoButton(
-            label: '退出云登录并锁定',
+            label: context.tr(AppStrings.signOutCloudLock),
             variant: ZoButtonVariant.ghost,
             onPressed: _busy ? null : () async {
-              final ok = await confirmDialog(context, title: '退出云登录？', body: '联网撤销当前会话并锁定本机；本机条目、待同步修改和服务器绑定保留。', confirm: '退出并锁定');
+              final ok = await confirmDialog(
+                context,
+                title: context.tr(AppStrings.signOutCloudTitle),
+                body: context.tr(AppStrings.signOutCloudBody),
+                confirm: context.tr(AppStrings.signOutAndLock),
+              );
               if (ok == true) await _run(state.signOut);
             },
           ),
           ZoButton(
-            label: '安全日志',
+            label: context.tr(AppStrings.securityLog),
             icon: Icons.history_rounded,
             variant: ZoButtonVariant.secondary,
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuditLogPage())),
@@ -564,7 +602,7 @@ class _DevicesPageState extends State<DevicesPage> {
   Widget build(BuildContext context) {
     final c = context.zo;
     return Scaffold(
-      appBar: AppBar(title: const Text('设备管理'), backgroundColor: c.bg, surfaceTintColor: Colors.transparent),
+      appBar: AppBar(title: Text(context.tr(AppStrings.deviceManagement)), backgroundColor: c.bg, surfaceTintColor: Colors.transparent),
       body: FutureBuilder<List<DeviceDto>>(
         future: _future,
         builder: (context, snap) {
@@ -574,7 +612,7 @@ class _DevicesPageState extends State<DevicesPage> {
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Text('新设备登录需经邮件验证码或在此批准。撤销后该设备会话立即失效。', style: context.text.bodySmall),
+              Text(context.tr(AppStrings.deviceManagementSubtitle), style: context.text.bodySmall),
               const SizedBox(height: 14),
               for (final d in devices)
                 Padding(
@@ -587,27 +625,54 @@ class _DevicesPageState extends State<DevicesPage> {
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Row(children: [
                             Flexible(child: Text(d.name, style: context.text.titleMedium, overflow: TextOverflow.ellipsis)),
-                            if (d.current) ...[const SizedBox(width: 8), ZoTag('本机', color: c.accent)],
-                            if (d.revoked) ...[const SizedBox(width: 8), ZoTag('已撤销', color: c.danger)],
-                            if (!d.approved && !d.revoked) ...[const SizedBox(width: 8), ZoTag('待批准', color: c.warning)],
+                            if (d.current) ...[
+                              const SizedBox(width: 8),
+                              ZoTag(context.tr(AppStrings.deviceThis), color: c.accent),
+                            ],
+                            if (d.revoked) ...[
+                              const SizedBox(width: 8),
+                              ZoTag(context.tr(AppStrings.deviceRevoked), color: c.danger),
+                            ],
+                            if (!d.approved && !d.revoked) ...[
+                              const SizedBox(width: 8),
+                              ZoTag(context.tr(AppStrings.devicePending), color: c.warning),
+                            ],
                           ]),
                           const SizedBox(height: 4),
-                          Text('${d.platform} · 添加于 ${_fmtTime(d.createdAt.toInt())} · 最近活跃 ${_fmtTime(d.lastSeenAt?.toInt())}',
-                              style: context.text.bodySmall),
+                          Text(
+                            context.trf(AppStrings.deviceLine, {
+                              'platform': d.platform,
+                              'created': _fmtTime(d.createdAt.toInt()),
+                              'seen': _fmtTime(d.lastSeenAt?.toInt()),
+                            }),
+                            style: context.text.bodySmall,
+                          ),
                         ]),
                       ),
                       if (!d.approved && !d.revoked)
-                        ZoButton(label: '批准', dense: true, onPressed: () => _act(() => VaultApi.approveDevice(d.id), '已批准')),
+                        ZoButton(
+                          label: context.tr(AppStrings.approveAction),
+                          dense: true,
+                          onPressed: () => _act(() => VaultApi.approveDevice(d.id), context.tr(AppStrings.approvedAction)),
+                        ),
                       if (!d.current && !d.revoked) ...[
                         const SizedBox(width: 8),
                         ZoButton(
-                          label: '撤销',
+                          label: context.tr(AppStrings.revokeAction),
                           dense: true,
                           variant: ZoButtonVariant.danger,
                           onPressed: () async {
-                            final ok = await confirmDialog(context,
-                                title: '撤销设备「${d.name}」？', body: '该设备将被立即登出且无法再同步。', confirm: '撤销', danger: true);
-                            if (ok == true) await _act(() => VaultApi.revokeDevice(d.id), '已撤销');
+                            final revokedText = context.tr(AppStrings.deviceRevoked);
+                            final ok = await confirmDialog(
+                              context,
+                              title: context.trf(AppStrings.revokeDeviceTitle, {'name': d.name}),
+                              body: context.tr(AppStrings.revokeDeviceBody),
+                              confirm: context.tr(AppStrings.revokeAction),
+                              danger: true,
+                            );
+                            if (ok == true) {
+                              await _act(() => VaultApi.revokeDevice(d.id), revokedText);
+                            }
                           },
                         ),
                       ],
@@ -626,23 +691,23 @@ class _DevicesPageState extends State<DevicesPage> {
 class AuditLogPage extends StatelessWidget {
   const AuditLogPage({super.key});
 
-  static const _labels = {
-    'register': '注册账户',
-    'login_ok': '登录成功',
-    'login_fail': '登录失败',
-    'device_added': '新设备请求登录',
-    'device_approved': '设备已批准',
-    'device_revoked': '设备已撤销',
-    'pwd_changed': '主密码已修改',
-    'recovery_used': '使用 Recovery Kit 恢复',
-    'recovery_fail': '恢复码验证失败',
+  static const _labelKeys = <String, String>{
+    'register': AppStrings.registerAccount,
+    'login_ok': AppStrings.auditSignInOk,
+    'login_fail': AppStrings.auditSignInFail,
+    'device_added': AppStrings.auditDeviceRequest,
+    'device_approved': AppStrings.auditDeviceApproved,
+    'device_revoked': AppStrings.auditDeviceRevoked,
+    'pwd_changed': AppStrings.auditPasswordChanged,
+    'recovery_used': AppStrings.auditRecoveryUsed,
+    'recovery_fail': AppStrings.auditRecoveryFail,
   };
 
   @override
   Widget build(BuildContext context) {
     final c = context.zo;
     return Scaffold(
-      appBar: AppBar(title: const Text('安全日志'), backgroundColor: c.bg, surfaceTintColor: Colors.transparent),
+      appBar: AppBar(title: Text(context.tr(AppStrings.securityLog)), backgroundColor: c.bg, surfaceTintColor: Colors.transparent),
       body: FutureBuilder<List<AuditEventDto>>(
         future: VaultApi.auditEvents(),
         builder: (context, snap) {
@@ -657,7 +722,7 @@ class AuditLogPage extends StatelessWidget {
               final bad = e.event.contains('fail') || e.event == 'recovery_used';
               return ListTile(
                 leading: Icon(bad ? Icons.warning_amber_rounded : Icons.check_circle_outline, color: bad ? c.warning : c.success),
-                title: Text(_labels[e.event] ?? e.event),
+                title: Text(_labelKeys[e.event] == null ? e.event : context.tr(_labelKeys[e.event]!)),
                 subtitle: Text('${_fmtTime(e.createdAt.toInt())}${e.deviceId != null ? ' · 设备 ${e.deviceId!.substring(0, 8)}' : ''}'),
               );
             },
@@ -679,14 +744,14 @@ class _AppearanceSection extends StatelessWidget {
     final s = state.settings;
     return _Section(title: context.tr(AppStrings.sectionAppearance), children: [
       _Row(
-        title: '主题',
+        title: context.tr(AppStrings.theme),
         stackOnNarrow: true,
         trailing: SegmentedButton<ThemeModeSetting>(
           showSelectedIcon: false,
-          segments: const [
-            ButtonSegment(value: ThemeModeSetting.system, label: Text('跟随系统')),
-            ButtonSegment(value: ThemeModeSetting.light, label: Text('浅色')),
-            ButtonSegment(value: ThemeModeSetting.dark, label: Text('深色')),
+          segments: [
+            ButtonSegment(value: ThemeModeSetting.system, label: Text(context.tr(AppStrings.themeSystem))),
+            ButtonSegment(value: ThemeModeSetting.light, label: Text(context.tr(AppStrings.themeLight))),
+            ButtonSegment(value: ThemeModeSetting.dark, label: Text(context.tr(AppStrings.themeDark))),
           ],
           selected: {s.themeMode},
           onSelectionChanged: (v) => state.updateSettings(s.copyWith(themeMode: v.first)),
@@ -727,10 +792,10 @@ class _ConflictSection extends StatelessWidget {
     final state = AppScope.of(context);
     return _Section(title: context.tr(AppStrings.sectionConflict), children: [
       _Row(
-        title: '比较并裁决冲突',
-        subtitle: '冲突双方版本在本机加密保存。裁决后等待同步确认；有未完成冲突时不能导出，以免漏掉另一方内容。',
+        title: context.tr(AppStrings.compareConflicts),
+        subtitle: context.tr(AppStrings.compareConflictsSubtitle),
         trailing: ZoButton(
-          label: '查看冲突',
+          label: context.tr(AppStrings.viewConflicts),
           dense: true,
           variant: ZoButtonVariant.secondary,
           onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
@@ -775,23 +840,27 @@ class _DataSectionState extends State<_DataSection> {
       if (!mounted || !state.isCurrentSession(epoch)) return;
       final r = await state.importItems(content);
       if (!mounted || !state.isCurrentSession(epoch)) return;
+      final title = context.tr(AppStrings.importDone);
+      final summary = _importSummaryText(
+        context,
+        source: _importSources[r.format] ?? r.format,
+        added: r.added,
+        duplicates: r.duplicates,
+        skipped: r.skipped,
+      );
+      final dismiss = context.tr(AppStrings.gotIt);
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('导入完成'),
-          content: Text(
-            '来源：${_importSources[r.format] ?? r.format}\n'
-            '新增 ${r.added} 条${r.duplicates > 0 ? '，${r.duplicates} 条与现有条目重复已跳过' : ''}'
-            '${r.skipped > 0 ? '，${r.skipped} 条无法识别' : ''}。\n\n'
-            '导出文件是明文，请立即从磁盘和回收站中彻底删除。',
-          ),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('知道了'))],
+          title: Text(title),
+          content: Text(summary),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(dismiss))],
         ),
       );
     } on CoreException catch (e) {
       if (mounted) showZoMessage(context, e.message, error: true);
     } on FormatException {
-      if (mounted) showZoMessage(context, '文件不是 UTF-8 文本，请用原软件重新导出为 CSV', error: true);
+      if (mounted) showZoMessage(context, context.tr(AppStrings.notUtf8), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -807,13 +876,17 @@ class _DataSectionState extends State<_DataSection> {
       if (!mounted || !state.isCurrentSession(epoch)) return;
       final loc = await getSaveLocation(
         suggestedName: 'vaultone-backup-${DateTime.now().millisecondsSinceEpoch}.wljbak',
-        acceptedTypeGroups: const [XTypeGroup(label: 'VaultOne 备份', extensions: ['wljbak'])],
+        acceptedTypeGroups: [XTypeGroup(label: context.tr(AppStrings.vaultoneBackup), extensions: const ['wljbak'])],
       );
       if (loc == null || !mounted || !state.isCurrentSession(epoch)) return;
       await File(loc.path).writeAsBytes(data, flush: true);
-      if (mounted && state.isCurrentSession(epoch)) showZoMessage(context, '已保存加密备份（${data.length} 字节）到 ${loc.path}');
+      if (mounted && state.isCurrentSession(epoch)) {
+        showZoMessage(context, context.trf(AppStrings.backupSaved, {'bytes': data.length, 'path': loc.path}));
+      }
     } on FileSystemException {
-      if (mounted && state.isCurrentSession(epoch)) showZoMessage(context, '备份保存失败，请检查目录权限与可用空间。若留下不完整文件，请勿用于恢复。', error: true);
+      if (mounted && state.isCurrentSession(epoch)) {
+        showZoMessage(context, context.tr(AppStrings.backupSaveFailed), error: true);
+      }
     } on CoreException catch (e) {
       if (mounted && state.isCurrentSession(epoch)) showZoMessage(context, e.message, error: true);
     } finally {
@@ -827,13 +900,9 @@ class _DataSectionState extends State<_DataSection> {
     if (!state.isCurrentSession(epoch)) return;
     final ok = await confirmDialog(
       context,
-      title: '导出明文 CSV？',
-      body: 'CSV 不加密，任何拿到文件的人都能看到密码与 TOTP 种子。\n\n'
-          'CSV 不是完整备份：仅导出标题、首个网址、用户名、密码、备注、TOTP 种子、收藏和类型；'
-          '不保留卡片/身份专用字段、自定义字段、其他网址与匹配规则、密码历史及完整 TOTP 参数。'
-          '不含回收站，不能用它无损恢复保险库。完整条目备份请选 .wljbak。\n\n'
-          '导出后请妥善保管，迁移完成后从磁盘与回收站彻底删除；不要用电子表格软件打开不可信内容。',
-      confirm: '仍要导出',
+      title: context.tr(AppStrings.csvConfirmTitle),
+      body: context.tr(AppStrings.csvConfirmBody),
+      confirm: context.tr(AppStrings.stillExport),
       danger: true,
     );
     if (ok != true || !mounted || !state.isCurrentSession(epoch)) return;
@@ -848,9 +917,13 @@ class _DataSectionState extends State<_DataSection> {
       if (loc == null || !mounted || !state.isCurrentSession(epoch)) return;
       final saved = await File(loc.path).writeAsString(csv, flush: true);
       final bytes = await saved.length();
-      if (mounted && state.isCurrentSession(epoch)) showZoMessage(context, '已保存有损 CSV（$bytes 字节）到 ${loc.path}；请核对迁移结果，这不是完整备份。');
+      if (mounted && state.isCurrentSession(epoch)) {
+        showZoMessage(context, context.trf(AppStrings.csvSaved, {'bytes': bytes, 'path': loc.path}));
+      }
     } on FileSystemException {
-      if (mounted && state.isCurrentSession(epoch)) showZoMessage(context, 'CSV 保存失败，请检查目录权限与可用空间，并清理可能留下的明文文件。', error: true);
+      if (mounted && state.isCurrentSession(epoch)) {
+        showZoMessage(context, context.tr(AppStrings.csvSaveFailed), error: true);
+      }
     } on CoreException catch (e) {
       if (mounted && state.isCurrentSession(epoch)) showZoMessage(context, e.message, error: true);
     } finally {
@@ -862,8 +935,8 @@ class _DataSectionState extends State<_DataSection> {
     final state = AppScope.of(context);
     final epoch = state.sessionEpoch;
     if (!state.isCurrentSession(epoch)) return;
-    final file = await openFile(acceptedTypeGroups: const [
-      XTypeGroup(label: 'VaultOne 备份', extensions: ['wljbak'], uniformTypeIdentifiers: ['public.data']),
+    final file = await openFile(acceptedTypeGroups: [
+      XTypeGroup(label: context.tr(AppStrings.vaultoneBackup), extensions: const ['wljbak'], uniformTypeIdentifiers: const ['public.data']),
     ]);
     if (file == null || !mounted || !state.isCurrentSession(epoch)) return;
     setState(() => _busy = true);
@@ -872,12 +945,21 @@ class _DataSectionState extends State<_DataSection> {
       if (!mounted || !state.isCurrentSession(epoch)) return;
       final r = await state.importBackup(content);
       if (!mounted || !state.isCurrentSession(epoch)) return;
+      final title = context.tr(AppStrings.importDone);
+      final summary = _importSummaryText(
+        context,
+        source: '',
+        added: r.added,
+        duplicates: r.duplicates,
+        skipped: r.skipped,
+      );
+      final dismiss = context.tr(AppStrings.gotIt);
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('导入完成'),
-          content: Text('新增 ${r.added} 条${r.duplicates > 0 ? '，${r.duplicates} 条重复已跳过' : ''}${r.skipped > 0 ? '，${r.skipped} 条无法识别' : ''}。'),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('知道了'))],
+          title: Text(title),
+          content: Text(summary),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(dismiss))],
         ),
       );
     } on CoreException catch (e) {
@@ -890,24 +972,29 @@ class _DataSectionState extends State<_DataSection> {
   @override
   Widget build(BuildContext context) => _Section(title: context.tr(AppStrings.sectionData), children: [
         _Row(
-          title: '从其他密码管理器导入',
-          subtitle: '支持 Chrome / Edge / Firefox / Bitwarden / LastPass / 1Password 导出的 CSV 与 1PIF。文件只在本机解析，随即加密入库；重复条目自动跳过。',
-          trailing: ZoButton(label: _busy ? '导入中…' : '选择文件', dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _import),
+          title: context.tr(AppStrings.importFromOthers),
+          subtitle: context.tr(AppStrings.importFromOthersSubtitle),
+          trailing: ZoButton(
+            label: context.tr(_busy ? AppStrings.importing : AppStrings.chooseFile),
+            dense: true,
+            variant: ZoButtonVariant.secondary,
+            onPressed: _busy ? null : _import,
+          ),
         ),
         _Row(
-          title: '导出加密备份',
-          subtitle: '导出本账户的 .wljbak 条目级备份，不含回收站，不是数据库快照。需先恢复同一账户及其 Vault Key，再导入；仅持有文件或新建同名账户无法恢复。导入会重建条目 ID 和创建/更新时间。',
-          trailing: ZoButton(label: '导出', dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _exportBackup),
+          title: context.tr(AppStrings.exportEncryptedBackup),
+          subtitle: context.tr(AppStrings.exportEncryptedBackupSubtitle),
+          trailing: ZoButton(label: context.tr(AppStrings.exportAction), dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _exportBackup),
         ),
         _Row(
-          title: '导出明文 CSV',
-          subtitle: '仅用于有损迁移，不含完整类型字段、历史、多网址及完整 TOTP 参数。文件不加密，请谨慎保管。',
-          trailing: ZoButton(label: '导出', dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _exportCsv),
+          title: context.tr(AppStrings.exportCsv),
+          subtitle: context.tr(AppStrings.exportCsvSubtitle),
+          trailing: ZoButton(label: context.tr(AppStrings.exportAction), dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _exportCsv),
         ),
         _Row(
-          title: '从加密备份导入',
-          subtitle: '选择 .wljbak 备份包还原条目；重复条目自动跳过。',
-          trailing: ZoButton(label: '选择文件', dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _importBackup),
+          title: context.tr(AppStrings.importFromBackup),
+          subtitle: context.tr(AppStrings.importFromBackupSubtitle),
+          trailing: ZoButton(label: context.tr(AppStrings.chooseFile), dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _importBackup),
         ),
       ]);
 }
@@ -923,13 +1010,13 @@ class _DesktopSection extends StatelessWidget {
     final s = state.settings;
     return _Section(title: context.tr(AppStrings.sectionDesktop), children: [
       _Row(
-        title: '关闭窗口时保留在系统托盘',
-        subtitle: '关闭后仍可通过托盘图标或快捷键唤起；从托盘菜单选择「退出」才会结束程序。',
+        title: context.tr(AppStrings.keepInTray),
+        subtitle: context.tr(AppStrings.keepInTraySubtitle),
         trailing: Switch(value: s.closeToTray, onChanged: (v) => state.updateSettings(s.copyWith(closeToTray: v))),
       ),
       _Row(
-        title: '全局快捷键  ${DesktopShell.hotKeyLabel}',
-        subtitle: '在任何程序中按下即可唤起 VaultOne 并聚焦搜索框。',
+        title: context.trf(AppStrings.globalHotkey, {'combo': DesktopShell.hotKeyLabel}),
+        subtitle: context.tr(AppStrings.globalHotkeySubtitle),
         trailing: Switch(value: s.globalHotkey, onChanged: (v) => state.updateSettings(s.copyWith(globalHotkey: v))),
       ),
     ]);
@@ -968,13 +1055,13 @@ class _BrowserSectionState extends State<_BrowserSection> {
     final s = state.settings;
     return _Section(title: context.tr(AppStrings.sectionBrowser), children: [
       _Row(
-        title: '允许浏览器扩展连接',
-        subtitle: '扩展通过本机 Native Messaging 向 VaultOne 请求凭据，只会拿到与当前网站严格匹配的那一条；解密全部在本应用内完成。',
+        title: context.tr(AppStrings.allowBrowserExtension),
+        subtitle: context.tr(AppStrings.allowBrowserExtensionSubtitle),
         trailing: Switch(value: s.browserIntegration, onChanged: (v) => state.updateSettings(s.copyWith(browserIntegration: v))),
       ),
       _Row(
-        title: '安装扩展',
-        subtitle: '支持 Chrome、Edge、Brave 等 Chromium 内核浏览器。安装后点击扩展图标完成配对。',
+        title: context.tr(AppStrings.installExtension),
+        subtitle: context.tr(AppStrings.installExtensionSubtitle),
         trailing: ZoIconButton(
           icon: Icons.open_in_new_rounded,
           tooltip: AppConfig.extensionUrl,
@@ -985,14 +1072,19 @@ class _BrowserSectionState extends State<_BrowserSection> {
         future: _clients,
         builder: (context, snap) {
           final list = snap.data ?? const <BrowserClient>[];
-          if (list.isEmpty) return const _Row(title: '已配对的浏览器', subtitle: '暂无');
+          if (list.isEmpty) {
+            return _Row(title: context.tr(AppStrings.pairedBrowsers), subtitle: context.tr(AppStrings.noneYet));
+          }
           return Column(children: [
             for (final c in list)
               _Row(
                 title: c.name,
-                subtitle: '配对于 ${_fmtTime(c.createdAt)} · 最近使用 ${_fmtTime(c.lastUsedAt)}',
+                subtitle: context.trf(AppStrings.pairedAt, {
+                  'created': _fmtTime(c.createdAt),
+                  'used': _fmtTime(c.lastUsedAt),
+                }),
                 trailing: ZoButton(
-                  label: '移除',
+                  label: context.tr(AppStrings.removeAction),
                   dense: true,
                   variant: ZoButtonVariant.secondary,
                   onPressed: () async {
@@ -1005,16 +1097,16 @@ class _BrowserSectionState extends State<_BrowserSection> {
         },
       ),
       _Row(
-        title: '修复连接',
-        subtitle: '扩展提示"未找到 VaultOne 桌面端"时，重新向浏览器登记连接器。',
+        title: context.tr(AppStrings.repairConnection),
+        subtitle: context.tr(AppStrings.repairConnectionSubtitle),
         trailing: ZoButton(
-          label: '重新登记',
+          label: context.tr(AppStrings.reregister),
           dense: true,
           variant: ZoButtonVariant.secondary,
           onPressed: () async {
             try {
               await VaultApi.registerNativeHost();
-              if (context.mounted) showZoMessage(context, '已登记，请重启浏览器后重试');
+              if (context.mounted) showZoMessage(context, context.tr(AppStrings.reregistered));
             } on CoreException catch (e) {
               if (context.mounted) showZoMessage(context, e.message, error: true);
             }
@@ -1073,11 +1165,16 @@ class _AndroidAutofillSectionState extends State<_AndroidAutofillSection> with W
     if (!_supported) return const SizedBox.shrink();
     return _Section(title: context.tr(AppStrings.sectionAutofill), children: [
       _Row(
-        title: _enabled ? 'VaultOne 已是系统自动填充服务' : '将 VaultOne 设为自动填充服务',
-        subtitle: '在应用和浏览器的登录框中选择「用 VaultOne 填充」。网页只推荐与当前域名严格匹配的条目；登录后可一键保存新密码。',
+        title: context.tr(_enabled ? AppStrings.autofillEnabled : AppStrings.autofillEnable),
+        subtitle: context.tr(AppStrings.autofillSubtitle),
         trailing: _enabled
-            ? const ZoTag('已启用')
-            : ZoButton(label: '去设置', dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _channel.invokeMethod('openAutofillSettings')),
+            ? ZoTag(context.tr(AppStrings.enabledTag))
+            : ZoButton(
+                label: context.tr(AppStrings.openSettings),
+                dense: true,
+                variant: ZoButtonVariant.secondary,
+                onPressed: () => _channel.invokeMethod('openAutofillSettings'),
+              ),
       ),
     ]);
   }
@@ -1092,16 +1189,16 @@ class _DiagnosticsSection extends StatelessWidget {
     final s = state.settings;
     return _Section(title: context.tr(AppStrings.sectionDiagnostics), children: [
       _Row(
-        title: '详细日志（诊断模式）',
-        subtitle: '日志只含事件类型、错误码与耗时，绝不包含密码、条目内容或邮箱。重启应用后生效。',
+        title: context.tr(AppStrings.verboseLogs),
+        subtitle: context.tr(AppStrings.verboseLogsSubtitle),
         trailing: Switch(value: s.verboseLogs, onChanged: (v) => state.updateSettings(s.copyWith(verboseLogs: v))),
       ),
       if (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
         _Row(
-          title: '日志文件',
-          subtitle: '反馈问题时可附上日志文件。',
+          title: context.tr(AppStrings.logFile),
+          subtitle: context.tr(AppStrings.logFileSubtitle),
           trailing: ZoButton(
-            label: '打开目录',
+            label: context.tr(AppStrings.openFolder),
             dense: true,
             variant: ZoButtonVariant.secondary,
             onPressed: () => _openLogsDir(context),
@@ -1122,10 +1219,14 @@ class _DiagnosticsSection extends StatelessWidget {
       if (!path.endsWith(Platform.pathSeparator)) path = '$path${Platform.pathSeparator}';
       final uri = Uri.file(path);
       if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && context.mounted) {
-        showZoMessage(context, '无法打开日志目录，请手动前往：${dir.path}${Platform.pathSeparator}logs', error: true);
+        showZoMessage(
+          context,
+          context.trf(AppStrings.logDirFailed, {'path': '${dir.path}${Platform.pathSeparator}logs'}),
+          error: true,
+        );
       }
     } catch (_) {
-      if (context.mounted) showZoMessage(context, '打开日志目录失败，请手动前往应用数据目录下的 logs 文件夹', error: true);
+      if (context.mounted) showZoMessage(context, context.tr(AppStrings.logDirFailedGeneric), error: true);
     }
   }
 }
@@ -1144,25 +1245,25 @@ class _AboutSection extends StatelessWidget {
         future: PackageInfo.fromPlatform(),
         builder: (context, snap) => _Row(
           title: 'VaultOne ${snap.data?.version ?? ''}',
-          subtitle: '构建 ${snap.data?.buildNumber ?? '-'} · 加密内核开源（AGPL-3.0）',
+          subtitle: context.trf(AppStrings.buildInfo, {'build': snap.data?.buildNumber ?? '-'}),
         ),
       ),
-      link('隐私政策', AppConfig.privacyPolicyUrl),
-      link('用户协议', AppConfig.termsUrl),
-      link('源代码与安全白皮书', AppConfig.sourceUrl),
+      link(context.tr(AppStrings.privacyPolicyLink), AppConfig.privacyPolicyUrl),
+      link(context.tr(AppStrings.termsLink), AppConfig.termsUrl),
+      link(context.tr(AppStrings.sourceAndWhitepaper), AppConfig.sourceUrl),
       _Row(
-        title: '开源许可',
+        title: context.tr(AppStrings.openSourceLicenses),
         trailing: ZoIconButton(
           icon: Icons.chevron_right_rounded,
-          tooltip: '查看第三方开源许可',
+          tooltip: context.tr(AppStrings.viewLicenses),
           onPressed: () => showLicensePage(context: context, applicationName: 'VaultOne'),
         ),
       ),
       _Row(
-        title: '意见反馈',
-        subtitle: '提交问题或建议，查看处理状态与客服回复。需要连接支持此功能的 Java 服务。',
+        title: context.tr(AppStrings.feedback),
+        subtitle: context.tr(AppStrings.feedbackSubtitle),
         trailing: ZoButton(
-          label: '打开反馈',
+          label: context.tr(AppStrings.openFeedback),
           dense: true,
           variant: ZoButtonVariant.secondary,
           onPressed: () {
@@ -1183,11 +1284,11 @@ class _AboutSection extends StatelessWidget {
         ),
       ),
       _Row(
-        title: '联系支持',
+        title: context.tr(AppStrings.contactSupport),
         subtitle: AppConfig.supportEmail,
         trailing: ZoIconButton(
           icon: Icons.mail_outline_rounded,
-          tooltip: '发送邮件',
+          tooltip: context.tr(AppStrings.sendEmail),
           onPressed: () => launchUrl(Uri(scheme: 'mailto', path: AppConfig.supportEmail)),
         ),
       ),
@@ -1203,33 +1304,43 @@ class _DangerSection extends StatelessWidget {
     final state = AppScope.of(context);
     return _Section(title: context.tr(AppStrings.sectionDanger), children: [
       _Row(
-        title: '清除本机数据',
-        subtitle: '删除本机保险库与保存的 Secret Key，不注销云账户；未同步的本机修改会丢失。',
+        title: context.tr(AppStrings.wipeLocalData),
+        subtitle: context.tr(AppStrings.wipeLocalDataSubtitle),
         trailing: ZoButton(
-          label: '清除',
+          label: context.tr(AppStrings.delete),
           dense: true,
           variant: ZoButtonVariant.danger,
           onPressed: () async {
-            final msg = '未同步的本机条目和修改将永久丢失。只有已成功同步的数据才能在重新登录后恢复。请先确认备份及 Secret Key 已妥善保存。';
-            final ok = await confirmDialog(context, title: '清除本机数据？', body: msg, confirm: '清除', danger: true);
+            final ok = await confirmDialog(
+              context,
+              title: context.tr(AppStrings.wipeConfirmTitle),
+              body: context.tr(AppStrings.wipeConfirmBody),
+              confirm: context.tr(AppStrings.delete),
+              danger: true,
+            );
             if (ok == true) await state.wipeThisDevice();
           },
         ),
       ),
       if (state.remote != null)
         _Row(
-          title: '注销云端账户',
-          subtitle: '永久删除云端的全部密文、设备与日志（个人信息保护法 / GDPR 删除权）。本机数据保留。',
+          title: context.tr(AppStrings.deleteCloudAccount),
+          subtitle: context.tr(AppStrings.deleteCloudAccountSubtitle),
           trailing: ZoButton(
-            label: '注销',
+            label: context.tr(AppStrings.deleteAccountAction),
             dense: true,
             variant: ZoButtonVariant.danger,
             onPressed: () async {
-              final pw = await askMasterPassword(context, title: '注销云端账户', body: '此操作不可撤销。请输入主密码确认。', confirm: '永久注销');
+              final pw = await askMasterPassword(
+                context,
+                title: context.tr(AppStrings.deleteCloudAccount),
+                body: context.tr(AppStrings.deleteCloudAccountBody),
+                confirm: context.tr(AppStrings.deletePermanently),
+              );
               if (pw == null || pw.isEmpty || !context.mounted) return;
               try {
                 await state.deleteCloudAccount(pw);
-                if (context.mounted) showZoMessage(context, '云端账户已注销');
+                if (context.mounted) showZoMessage(context, context.tr(AppStrings.cloudAccountDeleted));
               } on CoreException catch (e) {
                 if (context.mounted) showZoMessage(context, e.message, error: true);
               }

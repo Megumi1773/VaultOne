@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/api.dart';
 import '../../core/ffi.dart';
 import '../../core/models.dart';
+import '../../l10n/strings.dart';
 import '../../state/clipboard.dart';
 import '../../state/scope.dart';
 import '../theme.dart';
@@ -28,32 +29,32 @@ class ItemDetail extends StatelessWidget {
   Future<void> _delete(BuildContext context) async {
     final ok = await confirmDialog(
       context,
-      title: '移入回收站？',
-      body: '「${item.data.title}」将移入回收站，可随时恢复。',
-      confirm: '移入回收站',
+      title: context.tr(AppStrings.moveToTrashConfirmTitle),
+      body: context.trf(AppStrings.moveToTrashConfirmBody, {'title': item.data.title}),
+      confirm: context.tr(AppStrings.moveToTrash),
       danger: true,
     );
     if (ok != true || !context.mounted) return;
     await AppScope.read(context).delete(item.id);
     onDeleted();
-    if (context.mounted) showZoMessage(context, '已移入回收站');
+    if (context.mounted) showZoMessage(context, context.tr(AppStrings.movedToTrashTitle));
   }
 
   Future<void> _purge(BuildContext context) async {
     final ok = await confirmDialog(
       context,
-      title: '彻底删除？',
-      body: '「${item.data.title}」将从本机永久删除，无法恢复。已同步到云端的数据不会在其他设备上被抹除。',
-      confirm: '彻底删除',
+      title: context.tr(AppStrings.purgeConfirmTitle),
+      body: context.trf(AppStrings.purgeConfirmBody, {'title': item.data.title}),
+      confirm: context.tr(AppStrings.purgeAction),
       danger: true,
     );
     if (ok != true || !context.mounted) return;
     try {
       await AppScope.read(context).purge(item.id);
       onDeleted();
-      if (context.mounted) showZoMessage(context, '已彻底删除「${item.data.title}」');
+      if (context.mounted) showZoMessage(context, context.trf(AppStrings.purgedTitle, {'title': item.data.title}));
     } on CoreException catch (e) {
-      if (context.mounted) showZoMessage(context, purgeErrorMessage(e), error: true);
+      if (context.mounted) showZoMessage(context, purgeErrorMessage(context, e), error: true);
     }
   }
 
@@ -72,17 +73,17 @@ class ItemDetail extends StatelessWidget {
     // 登录信息
     if (d.username != null || d.password != null || d.totp != null) {
       sections.add(_Group(children: [
-        if (d.username != null) FieldRow(label: '用户名', value: d.username!, onCopy: () => copy(d.username!, '用户名', sensitive: false)),
+        if (d.username != null) FieldRow(label: context.tr(AppStrings.fieldUsername), value: d.username!, onCopy: () => copy(d.username!, context.tr(AppStrings.fieldUsername), sensitive: false)),
         if (d.password != null)
           FieldRow(
-            label: '密码',
+            label: context.tr(AppStrings.fieldPassword),
             value: d.password!,
             secret: true,
-            onCopy: () => copy(d.password!, '密码'),
+            onCopy: () => copy(d.password!, context.tr(AppStrings.fieldPassword)),
             badge: _StrengthBadge(password: d.password!, inputs: [d.title, d.username ?? '']),
           ),
         if (d.totp != null)
-          _TotpRow(config: d.totp!, onCopy: (code) => copy(code, '验证码')),
+          _TotpRow(config: d.totp!, onCopy: (code) => copy(code, context.tr(AppStrings.fieldTotp))),
       ]));
     }
 
@@ -90,12 +91,12 @@ class ItemDetail extends StatelessWidget {
       sections.add(_Group(children: [
         for (final u in d.urls)
           FieldRow(
-            label: '网站 · ${u.match.label}匹配',
+            label: context.trf(AppStrings.urlMatchSuffix, {'label': u.match.label}),
             value: u.url,
-            onCopy: () => copy(u.url, '网址', sensitive: false),
+            onCopy: () => copy(u.url, context.tr(AppStrings.fieldWebsite), sensitive: false),
             extra: ZoIconButton(
               icon: Icons.open_in_new_rounded,
-              tooltip: '在浏览器中打开',
+              tooltip: context.tr(AppStrings.openInBrowser),
               size: 28,
               onPressed: () {
                 final uri = Uri.tryParse(u.url.contains('://') ? u.url : 'https://${u.url}');
@@ -110,33 +111,44 @@ class ItemDetail extends StatelessWidget {
       final k = d.card!;
       sections.add(_CardVisual(card: k));
       sections.add(_Group(children: [
-        if (k.cardholder.isNotEmpty) FieldRow(label: '持卡人', value: k.cardholder, onCopy: () => copy(k.cardholder, '持卡人', sensitive: false)),
-        if (k.number.isNotEmpty) FieldRow(label: '卡号', value: k.number, secret: true, mono: true, onCopy: () => copy(k.number.replaceAll(' ', ''), '卡号')),
-        if (k.expiry.isNotEmpty) FieldRow(label: '有效期', value: k.expiry, mono: true, onCopy: () => copy(k.expiry, '有效期', sensitive: false)),
-        if (k.cvv.isNotEmpty) FieldRow(label: '安全码', value: k.cvv, secret: true, mono: true, onCopy: () => copy(k.cvv, '安全码')),
-        if (k.pin.isNotEmpty) FieldRow(label: 'PIN', value: k.pin, secret: true, mono: true, onCopy: () => copy(k.pin, 'PIN')),
+        if (k.cardholder.isNotEmpty) FieldRow(label: context.tr(AppStrings.fieldCardholder), value: k.cardholder, onCopy: () => copy(k.cardholder, context.tr(AppStrings.fieldCardholder), sensitive: false)),
+        if (k.number.isNotEmpty) FieldRow(label: context.tr(AppStrings.fieldCardNumber), value: k.number, secret: true, mono: true, onCopy: () => copy(k.number.replaceAll(' ', ''), context.tr(AppStrings.fieldCardNumber))),
+        if (k.expiry.isNotEmpty) FieldRow(label: context.tr(AppStrings.fieldExpiry), value: k.expiry, mono: true, onCopy: () => copy(k.expiry, context.tr(AppStrings.fieldExpiry), sensitive: false)),
+        if (k.cvv.isNotEmpty) FieldRow(label: context.tr(AppStrings.fieldCvv), value: k.cvv, secret: true, mono: true, onCopy: () => copy(k.cvv, context.tr(AppStrings.fieldCvv))),
+        if (k.pin.isNotEmpty) FieldRow(label: AppStrings.fieldPin, value: k.pin, secret: true, mono: true, onCopy: () => copy(k.pin, AppStrings.fieldPin)),
       ]));
     }
 
     if (d.identity != null) {
       final id = d.identity!;
       final rows = [
-        ('姓名', id.fullName, false),
-        ('邮箱', id.email, false),
-        ('电话', id.phone, false),
-        ('证件号', id.idNumber, true),
-        ('地址', id.address, false),
-        ('公司', id.company, false),
+        (AppStrings.fieldFullName, id.fullName, false),
+        (AppStrings.fieldEmail, id.email, false),
+        (AppStrings.fieldPhone, id.phone, false),
+        (AppStrings.fieldIdNumber, id.idNumber, true),
+        (AppStrings.fieldAddress, id.address, false),
+        (AppStrings.fieldCompany, id.company, false),
       ].where((r) => r.$2.isNotEmpty);
       sections.add(_Group(children: [
-        for (final r in rows) FieldRow(label: r.$1, value: r.$2, secret: r.$3, onCopy: () => copy(r.$2, r.$1, sensitive: r.$3)),
+        for (final r in rows)
+          FieldRow(
+            label: context.tr(r.$1),
+            value: r.$2,
+            secret: r.$3,
+            onCopy: () => copy(r.$2, context.tr(r.$1), sensitive: r.$3),
+          ),
       ]));
     }
 
     if (d.customFields.isNotEmpty) {
       sections.add(_Group(children: [
         for (final f in d.customFields)
-          FieldRow(label: f.label.isEmpty ? '自定义字段' : f.label, value: f.value, secret: f.sensitive, onCopy: () => copy(f.value, f.label, sensitive: f.sensitive)),
+          FieldRow(
+            label: f.label.isEmpty ? context.tr(AppStrings.customFields) : f.label,
+            value: f.value,
+            secret: f.sensitive,
+            onCopy: () => copy(f.value, f.label, sensitive: f.sensitive),
+          ),
       ]));
     }
 
@@ -147,7 +159,7 @@ class ItemDetail extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('备注', style: context.text.labelMedium),
+              Text(context.tr(AppStrings.fieldNotes), style: context.text.labelMedium),
               const SizedBox(height: 8),
               SelectableText(d.notes!, style: context.text.bodyMedium?.copyWith(height: 1.65)),
             ],
@@ -157,7 +169,7 @@ class ItemDetail extends StatelessWidget {
     }
 
     if (d.passwordHistory.isNotEmpty) {
-      sections.add(_HistoryGroup(history: d.passwordHistory, onCopy: (p) => copy(p, '历史密码')));
+      sections.add(_HistoryGroup(history: d.passwordHistory, onCopy: (p) => copy(p, context.tr(AppStrings.historyPassword))));
     }
 
     return Column(
@@ -179,25 +191,25 @@ class ItemDetail extends StatelessWidget {
                     const SizedBox(height: 6),
                     Row(children: [
                       ZoTag(d.kind.label, icon: d.kind.icon),
-                      if (inTrash) ...[const SizedBox(width: 6), ZoTag('回收站', color: c.danger)],
+                      if (inTrash) ...[const SizedBox(width: 6), ZoTag(context.tr(AppStrings.sectionTrash), color: c.danger)],
                     ]),
                   ],
                 ),
               ),
               if (inTrash) ...[
                 ZoButton(
-                  label: '恢复',
+                  label: context.tr(AppStrings.restoreAction),
                   icon: Icons.restore_rounded,
                   variant: ZoButtonVariant.secondary,
                   dense: true,
                   onPressed: () async {
                     await state.restore(item.id);
-                    if (context.mounted) showZoMessage(context, '已恢复「${d.title}」');
+                    if (context.mounted) showZoMessage(context, context.trf(AppStrings.restoredTitle, {'title': d.title}));
                   },
                 ),
                 const SizedBox(width: 8),
                 ZoButton(
-                  label: '彻底删除',
+                  label: context.tr(AppStrings.purgeAction),
                   icon: Icons.delete_forever_rounded,
                   variant: ZoButtonVariant.danger,
                   dense: true,
@@ -206,14 +218,14 @@ class ItemDetail extends StatelessWidget {
               ] else ...[
                 ZoIconButton(
                   icon: d.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
-                  tooltip: d.favorite ? '取消收藏' : '收藏',
+                  tooltip: d.favorite ? context.tr(AppStrings.unfavorite) : context.tr(AppStrings.sectionFavorites),
                   active: d.favorite,
                   onPressed: () => state.toggleFavorite(item),
                 ),
                 const SizedBox(width: 4),
-                ZoIconButton(icon: Icons.delete_outline_rounded, tooltip: '移入回收站', onPressed: () => _delete(context)),
+                ZoIconButton(icon: Icons.delete_outline_rounded, tooltip: context.tr(AppStrings.moveToTrash), onPressed: () => _delete(context)),
                 const SizedBox(width: 10),
-                ZoButton(label: '编辑', icon: Icons.edit_outlined, dense: true, variant: ZoButtonVariant.secondary, onPressed: onEdit),
+                ZoButton(label: context.tr(AppStrings.editAction), icon: Icons.edit_outlined, dense: true, variant: ZoButtonVariant.secondary, onPressed: onEdit),
               ],
             ],
           ),
@@ -228,10 +240,10 @@ class ItemDetail extends StatelessWidget {
                 spacing: 24,
                 runSpacing: 6,
                 children: [
-                  _Meta('创建', formatTime(d.createdAt)),
-                  _Meta('修改', formatTime(d.updatedAt)),
-                  _Meta('版本', 'r${item.revision}'),
-                  _Meta('加密', 'AES-256-GCM'),
+                  _Meta(context.tr(AppStrings.labelCreated), formatTime(d.createdAt)),
+                  _Meta(context.tr(AppStrings.labelUpdated), formatTime(d.updatedAt)),
+                  _Meta(context.tr(AppStrings.labelRevision), 'r${item.revision}'),
+                  _Meta(context.tr(AppStrings.labelEncrypted), 'AES-256-GCM'),
                 ],
               ),
             ],
@@ -352,11 +364,11 @@ class _FieldRowState extends State<FieldRow> {
                   if (widget.secret)
                     ZoIconButton(
                       icon: _reveal ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      tooltip: _reveal ? '隐藏' : '显示',
+                      tooltip: _reveal ? context.tr(AppStrings.labelHide) : context.tr(AppStrings.labelReveal),
                       size: 28,
                       onPressed: () => setState(() => _reveal = !_reveal),
                     ),
-                  ZoIconButton(icon: Icons.copy_rounded, tooltip: '复制', size: 28, onPressed: widget.onCopy),
+                  ZoIconButton(icon: Icons.copy_rounded, tooltip: context.tr(AppStrings.copy), size: 28, onPressed: widget.onCopy),
                 ],
               ),
             ),
@@ -400,7 +412,7 @@ class _TotpRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('一次性验证码', style: context.text.labelMedium),
+                  Text(context.tr(AppStrings.totpOnce), style: context.text.labelMedium),
                   const SizedBox(height: 4),
                   TotpView(config: config),
                 ],
@@ -409,7 +421,7 @@ class _TotpRow extends StatelessWidget {
             AnimatedOpacity(
               opacity: hover ? 1 : 0,
               duration: Zo.fast,
-              child: ZoIconButton(icon: Icons.copy_rounded, tooltip: '复制验证码', size: 28, onPressed: () => onCopy(VaultApi.totp(config).code)),
+              child: ZoIconButton(icon: Icons.copy_rounded, tooltip: context.tr(AppStrings.copyTotp), size: 28, onPressed: () => onCopy(VaultApi.totp(config).code)),
             ),
           ],
         ),
@@ -443,7 +455,7 @@ class _HistoryGroupState extends State<_HistoryGroup> {
             children: [
               Icon(Icons.history_rounded, size: 16, color: c.textMuted),
               const SizedBox(width: 10),
-              Text('密码历史', style: context.text.titleMedium?.copyWith(fontSize: 13.5)),
+              Text(context.tr(AppStrings.passwordHistory), style: context.text.titleMedium?.copyWith(fontSize: 13.5)),
               const SizedBox(width: 8),
               Text('${widget.history.length}', style: monoStyle(context, size: 11, color: c.textFaint)),
               const Spacer(),
@@ -518,12 +530,12 @@ class _CardVisual extends StatelessWidget {
   }
 }
 
-/// 彻底删除 / 清空回收站失败时按稳定错误码给出安全中文提示，不展示原始 message。
-String purgeErrorMessage(CoreException e) => switch (e.code) {
-      'item_unsynced' => '该条目尚未同步到云端，请先完成同步后再彻底删除。',
-      'not_found' => '条目已不存在，请刷新回收站。',
-      'locked' || 'session_expired' => '保险库已锁定，请解锁后重试。',
-      _ => '暂时无法彻底删除，请稍后重试。',
+/// 彻底删除 / 清空回收站失败时按稳定错误码给出安全提示，不展示原始 message。
+String purgeErrorMessage(BuildContext context, CoreException e) => switch (e.code) {
+      'item_unsynced' => context.tr(AppStrings.purgeErrorUnsynced),
+      'not_found' => context.tr(AppStrings.purgeErrorNotFound),
+      'locked' || 'session_expired' => context.tr(AppStrings.purgeErrorLocked),
+      _ => context.tr(AppStrings.purgeErrorGeneric),
     };
 
 /// 通用确认对话框。
@@ -553,7 +565,7 @@ Future<bool?> confirmDialog(
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  ZoButton(label: '取消', variant: ZoButtonVariant.ghost, onPressed: () => Navigator.pop(context, false)),
+                  ZoButton(label: context.tr(AppStrings.cancel), variant: ZoButtonVariant.ghost, onPressed: () => Navigator.pop(context, false)),
                   const SizedBox(width: 8),
                   ZoButton(
                     label: confirm,

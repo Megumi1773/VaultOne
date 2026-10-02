@@ -1,0 +1,13 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/settings_page.dart",
+    "replace": [
+      ["          items: const [\n            DropdownMenuItem(value: 15, child: Text('15 秒')),\n            DropdownMenuItem(value: 30, child: Text('30 秒')),\n            DropdownMenuItem(value: 60, child: Text('60 秒')),\n            DropdownMenuItem(value: 90, child: Text('90 秒')),\n          ],",
+       "          items: [\n            for (final n in const [15, 30, 60, 90])\n              DropdownMenuItem(value: n, child: Text(context.trf(AppStrings.seconds, {'n': n}))),\n          ],"],
+      ["        title: '主题',\n        stackOnNarrow: true,\n        trailing: SegmentedButton<ThemeModeSetting>(\n          showSelectedIcon: false,\n          segments: const [\n            ButtonSegment(value: ThemeModeSetting.system, label: Text('跟随系统')),\n            ButtonSegment(value: ThemeModeSetting.light, label: Text('浅色')),\n            ButtonSegment(value: ThemeModeSetting.dark, label: Text('深色')),\n          ],",
+       "        title: context.tr(AppStrings.theme),\n        stackOnNarrow: true,\n        trailing: SegmentedButton<ThemeModeSetting>(\n          showSelectedIcon: false,\n          segments: [\n            ButtonSegment(value: ThemeModeSetting.system, label: Text(context.tr(AppStrings.themeSystem))),\n            ButtonSegment(value: ThemeModeSetting.light, label: Text(context.tr(AppStrings.themeLight))),\n            ButtonSegment(value: ThemeModeSetting.dark, label: Text(context.tr(AppStrings.themeDark))),\n          ],"],
+      ["        title: '比较并裁决冲突',\n        subtitle: '冲突双方版本在本机加密保存。裁决后等待同步确认；有未完成冲突时不能导出，以免漏掉另一方内容。',\n        trailing: ZoButton(\n          label: '查看冲突',",
+       "        title: context.tr(AppStrings.compareConflicts),\n        subtitle: context.tr(AppStrings.compareConflictsSubtitle),\n        trailing: ZoButton(\n          label: context.tr(AppStrings.viewConflicts),"]
+    ]
+  }
+]

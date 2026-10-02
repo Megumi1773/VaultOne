@@ -1,0 +1,27 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/settings_page.dart",
+    "replace": [
+      ["import '../../core/models.dart';", "import '../../core/models.dart';\nimport '../../l10n/strings.dart';"],
+      ["String _fmtTime(int? unix) {\n  if (unix == null || unix == 0) return '从未';", "/// 时间格式化；`unix` 为空或 0 时返回空串，由调用方按当前语言显示「从未」。\nString _fmtTime(int? unix) {\n  if (unix == null || unix == 0) return '';"],
+      ["String confirm = '确认'}) {", "String confirm = ''}) {"],
+      ["                label: '主密码',\n                obscure: true,\n                autofocus: true,", "                label: context.tr(AppStrings.masterPassword),\n                obscure: true,\n                autofocus: true,"],
+      ["ZoButton(label: '取消', variant: ZoButtonVariant.ghost, onPressed: () => Navigator.pop(ctx)),", "ZoButton(label: ctx.tr(AppStrings.cancel), variant: ZoButtonVariant.ghost, onPressed: () => Navigator.pop(ctx)),"],
+      ["if (done == true && context.mounted) showZoMessage(context, '主密码已更新，其他设备同步后需使用新主密码解锁');", "if (done == true && context.mounted) showZoMessage(context, context.tr(AppStrings.masterPasswordUpdated));"],
+      ["      _Row(title: a?.email ?? '—', subtitle: '账户 ID  ${a?.accountId ?? '—'}'),\n      _Row(title: '密钥派生', subtitle: a?.kdfSummary ?? '—', trailing: ZoTag('${a?.itemCount ?? 0} 个条目')),",
+       "      _Row(title: a?.email ?? AppStrings.placeholder, subtitle: context.trf(AppStrings.accountIdLabel, {'id': a?.accountId ?? AppStrings.placeholder})),\n      _Row(\n        title: context.tr(AppStrings.keyDerivation),\n        subtitle: a?.kdfSummary ?? AppStrings.placeholder,\n        trailing: ZoTag(context.trf(AppStrings.itemCountTag, {'count': a?.itemCount ?? 0})),\n      ),"],
+      ["        subtitle: '保存在本机系统钥匙串中。查看或重新导出恢复材料前，需要重新输入 Secret Key 与恢复码做逐字节核对。',\n        trailing: ZoButton(label: '核对并查看', dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _showSecretKey(context)),",
+       "        subtitle: context.tr(AppStrings.secretKeyRowSubtitle),\n        trailing: ZoButton(label: context.tr(AppStrings.verifyAndView), dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _showSecretKey(context)),"],
+      ["        title: '修改主密码',\n        subtitle: '只重新封装保险库密钥，条目无需重新加密，秒级完成。',\n        trailing: ZoButton(label: '修改', dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _changePassword(context)),",
+       "        title: context.tr(AppStrings.changeMasterPassword),\n        subtitle: context.tr(AppStrings.changeMasterPasswordSubtitle),\n        trailing: ZoButton(label: context.tr(AppStrings.labelUpdated), dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _changePassword(context)),"],
+      ["  static const _kindLabel = <String, String>{\n    'recovery_kit': '恢复套件 PDF',\n    'backup_card': '备份卡 PNG',\n    'wljbak': '加密备份 .wljbak',\n    'csv': '明文 CSV',\n  };",
+       "  static String _kindLabel(BuildContext context, String? kind) => switch (kind) {\n        'recovery_kit' => context.tr(AppStrings.backupKindRecoveryKit),\n        'backup_card' => context.tr(AppStrings.backupKindCard),\n        'wljbak' => context.tr(AppStrings.backupKindWljbak),\n        'csv' => context.tr(AppStrings.backupKindCsv),\n        _ => '',\n      };"],
+      ["    final summary = at == 0\n        ? '本机尚未记录任何备份导出。请先导出恢复套件，并把它打印或存进离线介质。'\n        : '最近一次：${_fmtTime(at)}（${_kindLabel[kind] ?? kind ?? '未记录'}）。本机只记录时间与方式，不保存文件路径与内容。';",
+       "    final summary = at == 0\n        ? context.tr(AppStrings.backupNever)\n        : context.trf(AppStrings.backupLast, {'time': _fmtTime(at), 'kind': _kindLabel(context, kind)});"],
+      ["        title: '备份状态',\n        subtitle: '$summary\\n云端备份历史需要服务端端点，尚未实现；这里不把本机记录当作云端已备份。',\n        trailing: at == 0\n            ? ZoTag('未备份', color: context.zo.danger, icon: Icons.error_outline_rounded)\n            : ZoTag('已备份', color: context.zo.success, icon: Icons.check_circle_outline_rounded),",
+       "        title: context.tr(AppStrings.backupStatus),\n        subtitle: '$summary\\n${context.tr(AppStrings.backupCloudNote)}',\n        trailing: at == 0\n            ? ZoTag(context.tr(AppStrings.backupMissing), color: context.zo.danger, icon: Icons.error_outline_rounded)\n            : ZoTag(context.tr(AppStrings.backupPresent), color: context.zo.success, icon: Icons.check_circle_outline_rounded),"],
+      ["        title: '恢复套件与备份卡',\n        subtitle: '重新导出 A4 恢复套件 PDF，或 700×900（2x 导出）的备份卡 PNG。两者都等价于明文凭据，'\n            '导出前需要重新输入 Secret Key 与恢复码做核对。',\n        trailing: ZoButton(label: '管理', dense: true, variant: ZoButtonVariant.secondary, onPressed: () => showBackupManager(context)),",
+       "        title: context.tr(AppStrings.recoveryKitAndCard),\n        subtitle: context.tr(AppStrings.recoveryKitAndCardSubtitle),\n        trailing: ZoButton(label: context.tr(AppStrings.manageAction), dense: true, variant: ZoButtonVariant.secondary, onPressed: () => showBackupManager(context)),"]
+    ]
+  }
+]

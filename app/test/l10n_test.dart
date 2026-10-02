@@ -150,6 +150,43 @@ void main() {
     expect(find.text('欢迎回来'), findsNothing);
   });
 
+  test('设置页与首页已迁移文案在三种语言下都有对应文本', () {
+    // 这两页的完整渲染依赖真实内核状态（纯 widget 测试无桥），因此这里只验证文案表本身：
+    // 每个已迁移条目在繁中与英文下都必须给出与中文原文不同的文本，避免漏翻译回退成中文。
+    const migrated = [
+      AppStrings.settings,
+      AppStrings.sectionAccount,
+      AppStrings.sectionKeyBackup,
+      AppStrings.sectionSecurity,
+      AppStrings.sectionData,
+      AppStrings.sectionDanger,
+      AppStrings.language,
+      AppStrings.theme,
+      AppStrings.autoLock,
+      AppStrings.backupStatus,
+      AppStrings.deleteCloudAccount,
+      AppStrings.wipeLocalData,
+      AppStrings.sectionAll,
+      AppStrings.sectionTrash,
+      AppStrings.tabVault,
+      AppStrings.emptyTrashConfirmTitle,
+      AppStrings.newItemTooltip,
+      AppStrings.sidebarCategories,
+      AppStrings.fieldUsername,
+      AppStrings.fieldPassword,
+      AppStrings.purgeAction,
+      AppStrings.restoreAction,
+    ];
+    for (final source in migrated) {
+      final hant = AppStrings.translate(source, AppLanguage.zhHant);
+      final en = AppStrings.translate(source, AppLanguage.en);
+      expect(hant, isNot(source), reason: '「$source」缺少繁体中文译文');
+      expect(en, isNot(source), reason: '「$source」缺少英文译文');
+      expect(hant, isNotEmpty);
+      expect(en, isNotEmpty);
+    }
+  });
+
   test('设置项默认语言为简体中文，copyWith 可切换且不影响其他字段', () {
     const s = Settings();
     expect(s.language, AppLanguage.zhHans);

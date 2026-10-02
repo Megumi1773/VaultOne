@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/models.dart';
+import '../../l10n/strings.dart';
 import '../theme.dart';
 import '../widgets/controls.dart';
 
@@ -70,7 +71,7 @@ class ItemListPane extends StatelessWidget {
                   ?headerAction,
                   if (onNew != null)
                     PopupMenuButton<ItemKind>(
-                      tooltip: '新建',
+                      tooltip: context.tr(AppStrings.newItem),
                       position: PopupMenuPosition.under,
                       onSelected: (k) => onNew!(k),
                       itemBuilder: (_) => [
@@ -103,7 +104,7 @@ class ItemListPane extends StatelessWidget {
               child: ZoTextField(
                 controller: searchController,
                 focusNode: searchFocus,
-                hint: '搜索标题、用户名、网址',
+                hint: context.tr(AppStrings.searchItemsHint),
                 prefixIcon: Icons.search_rounded,
                 dense: true,
                 onChanged: onQuery,
@@ -114,7 +115,7 @@ class ItemListPane extends StatelessWidget {
                   if (query.isNotEmpty)
                     ZoIconButton(
                       icon: Icons.close_rounded,
-                      tooltip: '清除',
+                      tooltip: context.tr(AppStrings.clearSearch),
                       size: 26,
                       onPressed: () {
                         searchController.clear();
@@ -224,10 +225,10 @@ class _EmptyList extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.zo;
     final (icon, title, body) = query.isNotEmpty
-        ? (Icons.search_off_rounded, '没有匹配“$query”的条目', '试试标题、用户名或网址中的其他关键词')
+        ? (Icons.search_off_rounded, context.trf(AppStrings.emptySearchTitle, {'query': query}), context.tr(AppStrings.emptySearchBody))
         : isTrash
-            ? (Icons.delete_outline_rounded, '回收站是空的', '删除的条目会在这里保留，可随时恢复')
-            : (Icons.inventory_2_outlined, '这里还没有条目', compact ? '点右下角 + 创建第一个' : '按 Ctrl+N 创建第一个');
+            ? (Icons.delete_outline_rounded, context.tr(AppStrings.emptyTrashTitle), context.tr(AppStrings.emptyTrashBody))
+            : (Icons.inventory_2_outlined, context.tr(AppStrings.emptyVaultTitle), compact ? context.tr(AppStrings.emptyVaultBodyCompact) : context.tr(AppStrings.emptyVaultBody));
     return Padding(
       padding: const EdgeInsets.all(32),
       child: Column(

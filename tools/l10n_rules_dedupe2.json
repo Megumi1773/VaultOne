@@ -1,0 +1,16 @@
+[
+  {
+    "file": "app/lib/src/l10n/strings.dart",
+    "replace": [
+      ["  static const changeAction = '修改';\n", ""],
+      ["  static const auditRegister = '注册账户';\n", ""],
+      ["  static const wipeAction = '清除';\n", ""],
+      ["    changeAction: '修改',\n", ""],
+      ["    auditRegister: '註冊帳戶',\n", ""],
+      ["    wipeAction: '清除',\n", ""],
+      ["    changeAction: 'Change',\n", ""],
+      ["    auditRegister: 'Account created',\n", ""],
+      ["    wipeAction: 'Erase',\n", ""]
+    ]
+  }
+]

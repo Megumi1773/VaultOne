@@ -1,0 +1,17 @@
+[
+  {
+    "file": "app/lib/src/l10n/strings.dart",
+    "replace": [
+      ["  static const changeAction = '修改';\n", ""],
+      ["    changeAction: '修改',\n", ""],
+      ["    changeAction: 'Change',\n", ""]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/settings_page.dart",
+    "replace": [
+      ["          label: context.tr(AppStrings.wipeAction),", "          label: context.tr(AppStrings.delete),"],
+      ["              confirm: context.tr(AppStrings.wipeAction),", "              confirm: context.tr(AppStrings.delete),"]
+    ]
+  }
+]
