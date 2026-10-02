@@ -18,6 +18,8 @@ class ItemListPane extends StatelessWidget {
     required this.onSelect,
     required this.isTrash,
     this.onNew,
+    this.compact = false,
+    this.filterBar,
   });
 
   final String title;
@@ -30,6 +32,12 @@ class ItemListPane extends StatelessWidget {
   final ValueChanged<String> onSelect;
   final void Function([ItemKind? kind])? onNew;
   final bool isTrash;
+
+  /// 手机端：省去大标题行与键盘提示，为列表留出空间；新建走悬浮按钮。
+  final bool compact;
+
+  /// 手机端：搜索框下方的横向过滤条（分类 / 收藏 / 回收站）。
+  final Widget? filterBar;
 
   void _move(int delta) {
     if (items.isEmpty) return;
@@ -46,37 +54,38 @@ class ItemListPane extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 12, 12),
-            child: Row(
-              children: [
-                Text(title, style: context.text.headlineSmall),
-                const SizedBox(width: 8),
-                Text('${items.length}', style: monoStyle(context, size: 12, color: c.textFaint)),
-                const Spacer(),
-                if (onNew != null)
-                  PopupMenuButton<ItemKind>(
-                    tooltip: '新建',
-                    position: PopupMenuPosition.under,
-                    onSelected: (k) => onNew!(k),
-                    itemBuilder: (_) => [
-                      for (final k in ItemKind.values)
-                        PopupMenuItem(
-                          value: k,
-                          height: 38,
-                          child: Row(children: [Icon(k.icon, size: 16, color: c.textMuted), const SizedBox(width: 10), Text(k.label)]),
-                        ),
-                    ],
-                    child: Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Icon(Icons.add_rounded, size: 18, color: c.textMuted),
+          if (!compact)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 12, 12),
+              child: Row(
+                children: [
+                  Text(title, style: context.text.headlineSmall),
+                  const SizedBox(width: 8),
+                  Text('${items.length}', style: monoStyle(context, size: 12, color: c.textFaint)),
+                  const Spacer(),
+                  if (onNew != null)
+                    PopupMenuButton<ItemKind>(
+                      tooltip: '新建',
+                      position: PopupMenuPosition.under,
+                      onSelected: (k) => onNew!(k),
+                      itemBuilder: (_) => [
+                        for (final k in ItemKind.values)
+                          PopupMenuItem(
+                            value: k,
+                            height: 38,
+                            child: Row(children: [Icon(k.icon, size: 16, color: c.textMuted), const SizedBox(width: 10), Text(k.label)]),
+                          ),
+                      ],
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(Icons.add_rounded, size: 18, color: c.textMuted),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+            padding: EdgeInsets.fromLTRB(14, compact ? 12 : 0, 14, compact ? 8 : 10),
             child: CallbackShortcuts(
               bindings: {
                 const SingleActivator(LogicalKeyboardKey.arrowDown): () => _move(1),
@@ -107,7 +116,7 @@ class ItemListPane extends StatelessWidget {
                         onQuery('');
                       },
                     )
-                  else
+                  else if (!compact)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: Text('Ctrl F', style: monoStyle(context, size: 10.5, color: c.textFaint)),
@@ -116,11 +125,15 @@ class ItemListPane extends StatelessWidget {
               ),
             ),
           ),
+          if (filterBar != null) ...[
+            filterBar!,
+            const SizedBox(height: 10),
+          ],
           Expanded(
             child: items.isEmpty
-                ? _EmptyList(query: query, isTrash: isTrash)
+                ? _EmptyList(query: query, isTrash: isTrash, compact: compact)
                 : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(8, 2, 8, 16),
+                    padding: EdgeInsets.fromLTRB(8, 2, 8, compact ? 88 : 16),
                     itemCount: items.length,
                     itemExtent: 60,
                     itemBuilder: (context, i) => _ItemTile(
@@ -196,10 +209,11 @@ class _ItemTile extends StatelessWidget {
 }
 
 class _EmptyList extends StatelessWidget {
-  const _EmptyList({required this.query, required this.isTrash});
+  const _EmptyList({required this.query, required this.isTrash, this.compact = false});
 
   final String query;
   final bool isTrash;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +222,7 @@ class _EmptyList extends StatelessWidget {
         ? (Icons.search_off_rounded, '没有匹配“$query”的条目', '试试标题、用户名或网址中的其他关键词')
         : isTrash
             ? (Icons.delete_outline_rounded, '回收站是空的', '删除的条目会在这里保留，可随时恢复')
-            : (Icons.inventory_2_outlined, '这里还没有条目', '按 Ctrl+N 创建第一个');
+            : (Icons.inventory_2_outlined, '这里还没有条目', compact ? '点右下角 + 创建第一个' : '按 Ctrl+N 创建第一个');
     return Padding(
       padding: const EdgeInsets.all(32),
       child: Column(

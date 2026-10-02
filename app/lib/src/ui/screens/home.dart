@@ -15,21 +15,24 @@ import 'security_page.dart';
 import 'settings_page.dart';
 
 enum Section {
-  all('全部条目', Icons.grid_view_rounded),
+  all('全部条目', Icons.grid_view_rounded, '全部'),
   favorites('收藏', Icons.star_outline_rounded),
   login('登录', Icons.key_rounded),
   card('支付卡', Icons.credit_card_rounded),
-  note('安全笔记', Icons.sticky_note_2_outlined),
-  identity('身份信息', Icons.badge_outlined),
+  note('安全笔记', Icons.sticky_note_2_outlined, '笔记'),
+  identity('身份信息', Icons.badge_outlined, '身份'),
   generator('密码生成器', Icons.auto_awesome_outlined),
   security('安全中心', Icons.shield_outlined),
   trash('回收站', Icons.delete_outline_rounded),
   settings('设置', Icons.tune_rounded);
 
-  const Section(this.label, this.icon);
+  const Section(this.label, this.icon, [String? short]) : short = short ?? label;
 
   final String label;
   final IconData icon;
+
+  /// 窄屏过滤条用的短标签。
+  final String short;
 
   bool get isVault => index <= Section.identity.index || this == Section.trash;
 
@@ -40,6 +43,21 @@ enum Section {
         Section.identity => ItemKind.identity,
         _ => null,
       };
+}
+
+/// 手机端底部导航。桌面端的侧栏分区不照搬到窄屏：只保留四个一级入口，
+/// 分类 / 收藏 / 回收站下沉为保险库页内的横向过滤条。
+enum _MobileTab {
+  vault('保险库', Icons.inventory_2_outlined, Icons.inventory_2_rounded),
+  generator('生成器', Icons.auto_awesome_outlined, Icons.auto_awesome_rounded),
+  security('安全', Icons.shield_outlined, Icons.shield_rounded),
+  settings('设置', Icons.tune_outlined, Icons.tune_rounded);
+
+  const _MobileTab(this.label, this.icon, this.activeIcon);
+
+  final String label;
+  final IconData icon;
+  final IconData activeIcon;
 }
 
 /// 编辑目标：新建某类条目，或编辑已有条目。
@@ -66,6 +84,16 @@ class _HomeScreenState extends State<HomeScreen> {
   final _searchFocus = FocusNode();
   final _search = TextEditingController();
   AppState? _state;
+
+  /// 手机端：记住离开保险库前的过滤条件，切回该 Tab 时恢复。
+  Section _vaultSection = Section.all;
+
+  _MobileTab get _tab => switch (_section) {
+        Section.generator => _MobileTab.generator,
+        Section.security => _MobileTab.security,
+        Section.settings => _MobileTab.settings,
+        _ => _MobileTab.vault,
+      };
 
   @override
   void didChangeDependencies() {
@@ -112,20 +140,36 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _go(Section s) => setState(() {
+        // 回收站是临时去处，不作为「保险库」Tab 的恢复目标。
+        if (s.isVault && s != Section.trash) _vaultSection = s;
         _section = s;
         _editing = null;
         if (!s.isVault) _selectedId = null;
       });
+
+  void _selectTab(_MobileTab tab) {
+    switch (tab) {
+      case _MobileTab.vault:
+        _go(_vaultSection);
+      case _MobileTab.generator:
+        _go(Section.generator);
+      case _MobileTab.security:
+        _go(Section.security);
+      case _MobileTab.settings:
+        _go(Section.settings);
+    }
+  }
 
   void _newItem([ItemKind? kind]) => setState(() {
         if (!_section.isVault || _section == Section.trash) _section = Section.all;
         _editing = EditTarget.create(kind ?? _section.kind ?? ItemKind.login);
       });
 
-  /// 窄屏（手机）：抽屉导航 + 列表，详情与编辑以新页面推入。
+  /// 窄屏（手机）：底部导航 + 列表，详情与编辑以新页面推入。
   Widget _buildMobile(BuildContext context, List<VaultItem> visible, Map<Section, int> counts) {
     final state = AppScope.of(context);
     final c = context.zo;
+    final tab = _tab;
     final isTrash = _section == Section.trash;
 
     void openDetail(String id) {
@@ -148,24 +192,35 @@ class _HomeScreenState extends State<HomeScreen> {
       ));
     }
 
-    final Widget body = _section.isVault
-        ? ItemListPane(
-            title: _section.label,
-            items: visible,
-            selectedId: null,
-            query: _query,
-            searchController: _search,
-            searchFocus: _searchFocus,
-            isTrash: isTrash,
-            onQuery: (q) => setState(() => _query = q),
-            onSelect: openDetail,
-            onNew: isTrash ? null : ([kind]) => openEditor(EditTarget.create(kind ?? _section.kind ?? ItemKind.login)),
-          )
-        : switch (_section) {
-            Section.generator => const GeneratorPage(),
-            Section.security => SecurityPage(onOpenItem: openDetail),
-            _ => const SettingsPage(),
-          };
+    // 分类明确时直接建该类；在「全部 / 收藏」下先让用户选类型（编辑器不允许改类型）。
+    Future<void> newItem() async {
+      final kind = _section.kind;
+      if (kind != null) {
+        openEditor(EditTarget.create(kind));
+        return;
+      }
+      final picked = await _pickKind(context);
+      if (picked != null && mounted) openEditor(EditTarget.create(picked));
+    }
+
+    final Widget body = switch (tab) {
+      _MobileTab.vault => ItemListPane(
+          compact: true,
+          title: _section.label,
+          filterBar: _VaultFilters(section: _section, counts: counts, onSelect: _go),
+          items: visible,
+          selectedId: null,
+          query: _query,
+          searchController: _search,
+          searchFocus: _searchFocus,
+          isTrash: isTrash,
+          onQuery: (q) => setState(() => _query = q),
+          onSelect: openDetail,
+        ),
+      _MobileTab.generator => const GeneratorPage(),
+      _MobileTab.security => SecurityPage(onOpenItem: openDetail),
+      _MobileTab.settings => const SettingsPage(),
+    };
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -185,34 +240,65 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(tooltip: '立即锁定', onPressed: state.lock, icon: const Icon(Icons.lock_outline_rounded)),
         ],
       ),
-      drawer: Drawer(
-        backgroundColor: c.surface,
-        child: SafeArea(
-          child: _Sidebar(
-            section: _section,
-            counts: counts,
-            onSelect: (s) {
-              Navigator.pop(context);
-              _go(s);
-            },
-            onNew: () {
-              Navigator.pop(context);
-              openEditor(EditTarget.create(_section.kind ?? ItemKind.login));
-            },
-            onLock: state.lock,
-          ),
-        ),
-      ),
-      body: SafeArea(child: body),
-      floatingActionButton: _section.isVault && !isTrash
+      body: SafeArea(bottom: false, child: body),
+      floatingActionButton: tab == _MobileTab.vault && !isTrash
           ? FloatingActionButton(
               tooltip: '新建条目',
               backgroundColor: c.accent,
               foregroundColor: c.onAccent,
-              onPressed: () => openEditor(EditTarget.create(_section.kind ?? ItemKind.login)),
+              onPressed: () => newItem(),
               child: const Icon(Icons.add_rounded),
             )
           : null,
+      bottomNavigationBar: _MobileNavBar(tab: tab, onSelect: _selectTab),
+    );
+  }
+
+  /// 手机端新建：底部弹层选条目类型。
+  Future<ItemKind?> _pickKind(BuildContext context) {
+    final c = context.zo;
+    return showModalBottomSheet<ItemKind>(
+      context: context,
+      backgroundColor: c.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(Zo.radiusLg))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 10),
+            Center(
+              child: Container(
+                width: 34,
+                height: 4,
+                decoration: BoxDecoration(color: c.borderStrong, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            Padding(padding: const EdgeInsets.fromLTRB(22, 16, 22, 6), child: Text('新建条目', style: ctx.text.titleLarge)),
+            for (final k in ItemKind.values)
+              Hover(
+                onTap: () => Navigator.pop(ctx, k),
+                builder: (context, hover) => Container(
+                  height: 52,
+                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: hover ? c.surfaceHover : Colors.transparent,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(k.icon, size: 18, color: c.textMuted),
+                      const SizedBox(width: 14),
+                      Text(k.label, style: context.text.bodyLarge),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
     );
   }
 
@@ -324,6 +410,138 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+/// 手机端保险库页的横向过滤条：桌面侧栏的分类 / 收藏 / 回收站都在这里。
+class _VaultFilters extends StatelessWidget {
+  const _VaultFilters({required this.section, required this.counts, required this.onSelect});
+
+  static const _order = [
+    Section.all,
+    Section.favorites,
+    Section.login,
+    Section.card,
+    Section.note,
+    Section.identity,
+    Section.trash,
+  ];
+
+  final Section section;
+  final Map<Section, int> counts;
+  final ValueChanged<Section> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zo;
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        itemCount: _order.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final s = _order[i];
+          final active = s == section;
+          final n = counts[s] ?? 0;
+          return Hover(
+            onTap: () => onSelect(s),
+            builder: (context, hover) => AnimatedContainer(
+              duration: Zo.fast,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 13),
+              decoration: ShapeDecoration(
+                color: active ? c.accentSoft : (hover ? c.surfaceHover : c.surfaceRaised),
+                shape: Zo.bevel(5).copyWith(side: BorderSide(color: active ? c.accent : c.border)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    s.short,
+                    style: context.text.labelLarge?.copyWith(fontSize: 12.5, color: active ? c.accent : c.textMuted),
+                  ),
+                  if (n > 0) ...[
+                    const SizedBox(width: 6),
+                    Text('$n', style: monoStyle(context, size: 10.5, color: active ? c.accent : c.textFaint)),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// 手机端底部导航条。
+class _MobileNavBar extends StatelessWidget {
+  const _MobileNavBar({required this.tab, required this.onSelect});
+
+  final _MobileTab tab;
+  final ValueChanged<_MobileTab> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zo;
+    return Container(
+      decoration: BoxDecoration(color: c.surface, border: Border(top: BorderSide(color: c.border))),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 58,
+          child: Row(
+            children: [
+              for (final t in _MobileTab.values)
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    selected: t == tab,
+                    label: t.label,
+                    child: Hover(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        onSelect(t);
+                      },
+                      builder: (context, hover) {
+                        final active = t == tab;
+                        final color = active ? c.accent : (hover ? c.text : c.textFaint);
+                        return Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            AnimatedContainer(
+                              duration: Zo.fast,
+                              width: 46,
+                              height: 26,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: active ? c.accentSoft : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(active ? t.activeIcon : t.icon, size: 19, color: color),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              t.label,
+                              style: context.text.labelMedium?.copyWith(
+                                fontSize: 10.5,
+                                color: color,
+                                fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Sidebar extends StatelessWidget {
   const _Sidebar({required this.section, required this.counts, required this.onSelect, required this.onNew, required this.onLock});
 
@@ -339,7 +557,7 @@ class _Sidebar extends StatelessWidget {
     final state = AppScope.of(context);
     Widget item(Section s) => _NavItem(section: s, active: section == s, count: counts[s], onTap: () => onSelect(s));
     return Container(
-      width: MediaQuery.sizeOf(context).width < 720 ? null : 236,
+      width: 236,
       color: c.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

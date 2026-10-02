@@ -154,13 +154,12 @@ void main() {
       await shot(tester, folder, '05-item-totp');
       await tester.tap(find.byType(BackButton));
       await settle(tester);
-      await tester.tap(find.byType(DrawerButton));
+      // 窄屏走底部导航（标签用短名），不再有抽屉。
+      await tester.tap(find.text('生成器'));
       await settle(tester);
-      await tester.tap(find.text('密码生成器'));
       await shot(tester, folder, '06-generator');
-      await tester.tap(find.byType(DrawerButton));
+      await tester.tap(find.text('安全'));
       await settle(tester);
-      await tester.tap(find.text('安全中心'));
       await shot(tester, folder, '07-security');
     }
 
