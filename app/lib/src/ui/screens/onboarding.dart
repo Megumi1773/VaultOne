@@ -7,6 +7,7 @@ import '../../core/config.dart';
 import '../../core/api.dart';
 import '../../core/ffi.dart';
 import '../../core/models.dart';
+import '../../l10n/strings.dart';
 import '../../state/backup_card.dart';
 import '../../state/clipboard.dart';
 import '../../state/recovery_kit.dart';
@@ -85,22 +86,22 @@ class _Welcome extends StatelessWidget {
       children: [
         const ZoMark(size: 56),
         const SizedBox(height: 36),
-        Text('欢迎使用 VaultOne', style: context.text.displayMedium),
+        Text(context.tr(AppStrings.onboardWelcomeTitle), style: context.text.displayMedium),
         const SizedBox(height: 12),
         Text(
-          '口令、账号、两步验证、密钥——\n全部在你的设备上加密，只为你一个人打开。',
+          context.tr(AppStrings.onboardWelcomeBody),
           style: context.text.bodyLarge?.copyWith(color: c.textMuted),
         ),
         const SizedBox(height: 40),
-        ZoButton(label: '注册云账户', icon: Icons.arrow_forward_rounded, expand: true, onPressed: onStart),
+        ZoButton(label: context.tr(AppStrings.onboardRegister), icon: Icons.arrow_forward_rounded, expand: true, onPressed: onStart),
         const SizedBox(height: 10),
-        ZoButton(label: '我已有账户，登录', icon: Icons.login_rounded, variant: ZoButtonVariant.secondary, expand: true, onPressed: onSignIn),
+        ZoButton(label: context.tr(AppStrings.onboardHaveAccount), icon: Icons.login_rounded, variant: ZoButtonVariant.secondary, expand: true, onPressed: onSignIn),
         const SizedBox(height: 4),
         Center(
           child: TextButton(
             onPressed: onRecover,
             style: TextButton.styleFrom(foregroundColor: c.textMuted),
-            child: const Text('所有设备都丢失了？用 Recovery Kit 恢复'),
+            child: Text(context.tr(AppStrings.onboardAllDevicesLost)),
           ),
         ),
         const SizedBox(height: 10),
@@ -109,7 +110,7 @@ class _Welcome extends StatelessWidget {
             Icon(Icons.lock_outline_rounded, size: 14, color: c.textFaint),
             const SizedBox(width: 6),
             Expanded(
-              child: Text('账户注册与登录需要联网；密码条目在本机加密，可离线使用并自动同步。', style: context.text.bodySmall?.copyWith(color: c.textFaint)),
+              child: Text(context.tr(AppStrings.onboardNetworkNote), style: context.text.bodySmall?.copyWith(color: c.textFaint)),
             ),
           ],
         ),
@@ -158,11 +159,11 @@ class _CreateFormState extends State<_CreateForm> {
     final email = _email.text.trim();
     final pw = _pw.text;
     setState(() {
-      _emailError = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email) ? null : '请输入有效的邮箱地址';
+      _emailError = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email) ? null : context.tr(AppStrings.invalidEmail);
       _pwError = pw.characters.length < 10
-          ? '主密码至少 10 个字符'
-          : (_strength.score < 3 ? '强度不足：试试 4 个以上随机单词组成的短语' : null);
-      _pw2Error = _pw2.text != pw ? '两次输入不一致' : null;
+          ? context.tr(AppStrings.masterPasswordTooShort)
+          : (_strength.score < 3 ? context.tr(AppStrings.passwordTooWeak) : null);
+      _pw2Error = _pw2.text != pw ? context.tr(AppStrings.passwordMismatch) : null;
     });
     if (_emailError != null || _pwError != null || _pw2Error != null) {
       setState(() => _shake++);
@@ -186,16 +187,16 @@ class _CreateFormState extends State<_CreateForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ZoButton(label: '返回', icon: Icons.arrow_back_rounded, variant: ZoButtonVariant.ghost, dense: true, onPressed: _busy ? null : widget.onBack),
+          ZoButton(label: context.tr(AppStrings.back), icon: Icons.arrow_back_rounded, variant: ZoButtonVariant.ghost, dense: true, onPressed: _busy ? null : widget.onBack),
           const SizedBox(height: 24),
-          const AuthHeader(
-            eyebrow: 'Step 01 / 02',
-            title: '设置主密码',
-            subtitle: '主密码是你唯一需要记住的密码。它从不离开这台设备，我们也无法帮你找回。',
+          AuthHeader(
+            eyebrow: AppStrings.onboardStepOne,
+            title: context.tr(AppStrings.onboardSetMasterPassword),
+            subtitle: context.tr(AppStrings.onboardSetMasterPasswordBody),
           ),
           ZoTextField(
             controller: _email,
-            label: '邮箱',
+            label: context.tr(AppStrings.emailLabel),
             hint: 'you@example.com',
             prefixIcon: Icons.alternate_email_rounded,
             keyboardType: TextInputType.emailAddress,
@@ -207,8 +208,8 @@ class _CreateFormState extends State<_CreateForm> {
           const SizedBox(height: 18),
           ZoTextField(
             controller: _pw,
-            label: '主密码',
-            hint: '至少 10 个字符，推荐使用口令短语',
+            label: context.tr(AppStrings.masterPassword),
+            hint: context.tr(AppStrings.masterPasswordHint),
             obscure: true,
             prefixIcon: Icons.key_rounded,
             textInputAction: TextInputAction.next,
@@ -224,7 +225,7 @@ class _CreateFormState extends State<_CreateForm> {
           const SizedBox(height: 18),
           ZoTextField(
             controller: _pw2,
-            label: '确认主密码',
+            label: context.tr(AppStrings.confirmMasterPassword),
             obscure: true,
             prefixIcon: Icons.key_rounded,
             error: _pw2Error,
@@ -232,10 +233,10 @@ class _CreateFormState extends State<_CreateForm> {
             onSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: 28),
-          ZoButton(label: _busy ? '正在注册云账户…' : '注册账户', loading: _busy, expand: true, onPressed: _submit),
+          ZoButton(label: _busy ? context.tr(AppStrings.registering) : context.tr(AppStrings.registerAccount), loading: _busy, expand: true, onPressed: _submit),
           const SizedBox(height: 16),
           Text(
-            '密钥在本机生成，主密码和 Secret Key 不会发送给服务端。只有 Java 服务确认注册后才完成建号；网络失败会保留加密注册草稿供重试。',
+            context.tr(AppStrings.onboardKeyLocalNote),
             style: context.text.bodySmall?.copyWith(color: c.textFaint),
           ),
         ],
@@ -246,11 +247,12 @@ class _CreateFormState extends State<_CreateForm> {
 
 /// Recovery Kit 展示页：必须保存（或逐项复制）并勾选确认后才能进入保险库。
 class RecoveryKitView extends StatefulWidget {
-  const RecoveryKitView({super.key, required this.enrollment, required this.onDone, this.title = '保存你的 Recovery Kit'});
+  const RecoveryKitView({super.key, required this.enrollment, required this.onDone, this.title});
 
   final Enrollment enrollment;
   final Future<void> Function() onDone;
-  final String title;
+  /// 为空时使用当前语言下的默认标题。
+  final String? title;
 
   @override
   State<RecoveryKitView> createState() => _RecoveryKitViewState();
@@ -367,16 +369,16 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AuthHeader(
-          eyebrow: 'Step 02 / 02',
-          title: widget.title,
-          subtitle: '换新设备或忘记主密码时，这是找回保险库的唯一方式。请打印或离线保存，不要存放在网盘或聊天记录里。',
+          eyebrow: AppStrings.onboardStepTwo,
+          title: widget.title ?? context.tr(AppStrings.saveRecoveryKitTitle),
+          subtitle: context.tr(AppStrings.recoveryKitSubtitle),
         ),
-        _KeyBlock(label: 'Secret Key', value: e.secretKey),
+        _KeyBlock(label: AppStrings.secretKeyLabel, value: e.secretKey),
         const SizedBox(height: 12),
-        _KeyBlock(label: 'Recovery Code', value: e.recoveryCode),
+        _KeyBlock(label: AppStrings.recoveryCodeLabel, value: e.recoveryCode),
         const SizedBox(height: 20),
         ZoButton(
-          label: _savedPath == null ? '保存 Recovery Kit（PDF）' : '已保存 · 再次保存',
+          label: _savedPath == null ? context.tr(AppStrings.saveRecoveryKitPdf) : context.tr(AppStrings.saveRecoveryKitAgain),
           icon: _savedPath == null ? Icons.download_rounded : Icons.check_rounded,
           variant: ZoButtonVariant.secondary,
           expand: true,
@@ -384,7 +386,7 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
         ),
         const SizedBox(height: 8),
         ZoButton(
-          label: '导出备份卡（PNG · 700×900）',
+          label: context.tr(AppStrings.exportBackupCard),
           icon: Icons.image_outlined,
           variant: ZoButtonVariant.ghost,
           expand: true,
@@ -420,7 +422,7 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  '我已妥善保存 Recovery Kit 与备份卡，并理解丢失后无人能帮我恢复数据。',
+                  context.tr(AppStrings.savedRecoveryKitAck),
                   style: context.text.bodyMedium?.copyWith(color: _verified ? c.text : c.textFaint),
                 ),
               ),
@@ -429,7 +431,7 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
         ),
         const SizedBox(height: 20),
         ZoButton(
-          label: '进入保险库',
+          label: context.tr(AppStrings.enterVault),
           icon: Icons.arrow_forward_rounded,
           expand: true,
           loading: _busy,
@@ -478,18 +480,18 @@ class _VerifyBlock extends StatelessWidget {
             children: [
               Icon(ok ? Icons.verified_rounded : Icons.spellcheck_rounded, size: 16, color: ok ? c.success : c.accent),
               const SizedBox(width: 8),
-              Text('逐字节核对 Secret Key', style: context.text.labelSmall?.copyWith(color: ok ? c.success : c.accent)),
+              Text(context.tr(AppStrings.verifySecretKeyTitle), style: context.text.labelSmall?.copyWith(color: ok ? c.success : c.accent)),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            '请把刚保存的 Secret Key 重新输入或粘贴一次。系统会逐字节比对（大小写、连字符与 I/L/O 的写法差异不影响结果），确认你手上的副本与本机一致。',
+            context.tr(AppStrings.verifySecretKeyBody),
             style: context.text.bodySmall?.copyWith(color: c.textFaint),
           ),
           const SizedBox(height: 12),
           ZoTextField(
             controller: controller,
-            label: '重新输入 Secret Key',
+            label: context.tr(AppStrings.reenterSecretKey),
             hint: 'V1-XXXXXX-XXXXXX-…',
             mono: true,
             enabled: !ok,
@@ -503,12 +505,12 @@ class _VerifyBlock extends StatelessWidget {
               Icon(Icons.check_circle_rounded, size: 16, color: c.success),
               const SizedBox(width: 6),
               Expanded(
-                child: Text('与本机保存的 Secret Key 逐字节一致。', style: context.text.bodyMedium?.copyWith(color: c.success)),
+                child: Text(context.tr(AppStrings.verifyOk), style: context.text.bodyMedium?.copyWith(color: c.success)),
               ),
             ])
           else
             ZoButton(
-              label: '核对',
+              label: context.tr(AppStrings.verifyAction),
               icon: Icons.check_rounded,
               dense: true,
               loading: checking,
@@ -551,7 +553,7 @@ class _KeyBlock extends StatelessWidget {
                 size: 28,
                 onPressed: () {
                   ClipboardService.copy(value, label: label, clearAfterSeconds: 60);
-                  showZoMessage(context, '$label 已复制，60 秒后自动清空剪贴板');
+                  showZoMessage(context, context.trf(AppStrings.kitCopyToast, {'label': label}));
                 },
               ),
             ],
@@ -589,20 +591,20 @@ class _PrivacyConsent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const AuthHeader(eyebrow: 'Privacy', title: '隐私保护说明', subtitle: '在开始使用前，请阅读并同意《隐私政策》与《用户协议》。'),
-        point(Icons.lock_outline_rounded, '数据只在本机加密', '保险库内容在本机加密存储，云同步也只发送密文；账户和在线业务由 Java 服务处理。'),
-        point(Icons.alternate_email_rounded, '我们收集的最少信息', '仅在你开启云同步时收集邮箱（用于登录与安全通知）与设备名称。'),
-        point(Icons.block_rounded, '不做的事', '不接入任何第三方统计、广告或推送 SDK；不读取通讯录、位置等无关权限。'),
-        point(Icons.fingerprint_rounded, '生物识别', '指纹/面容仅由系统验证，VaultOne 无法获取任何生物特征数据；需你单独开启。'),
+        AuthHeader(eyebrow: AppStrings.privacyEyebrow, title: context.tr(AppStrings.privacyTitle), subtitle: context.tr(AppStrings.privacySubtitle)),
+        point(Icons.lock_outline_rounded, context.tr(AppStrings.privacyLocalOnly), context.tr(AppStrings.privacyLocalOnlyBody)),
+        point(Icons.alternate_email_rounded, context.tr(AppStrings.privacyMinimalData), context.tr(AppStrings.privacyMinimalDataBody)),
+        point(Icons.block_rounded, context.tr(AppStrings.privacyNeverDo), context.tr(AppStrings.privacyNeverDoBody)),
+        point(Icons.fingerprint_rounded, context.tr(AppStrings.privacyBiometrics), context.tr(AppStrings.privacyBiometricsBody)),
         const SizedBox(height: 6),
         Wrap(spacing: 4, children: [
-          TextButton(onPressed: () => launchUrl(Uri.parse(AppConfig.privacyPolicyUrl)), child: const Text('《隐私政策》')),
-          TextButton(onPressed: () => launchUrl(Uri.parse(AppConfig.termsUrl)), child: const Text('《用户协议》')),
+          TextButton(onPressed: () => launchUrl(Uri.parse(AppConfig.privacyPolicyUrl)), child: Text(context.tr(AppStrings.privacyPolicy))),
+          TextButton(onPressed: () => launchUrl(Uri.parse(AppConfig.termsUrl)), child: Text(context.tr(AppStrings.termsOfService))),
         ]),
         const SizedBox(height: 16),
-        ZoButton(label: '同意并继续', expand: true, onPressed: state.acceptPrivacy),
+        ZoButton(label: context.tr(AppStrings.agreeAndContinue), expand: true, onPressed: state.acceptPrivacy),
         const SizedBox(height: 8),
-        ZoButton(label: '不同意并退出', variant: ZoButtonVariant.ghost, expand: true, onPressed: () => SystemNavigator.pop()),
+        ZoButton(label: context.tr(AppStrings.disagreeAndExit), variant: ZoButtonVariant.ghost, expand: true, onPressed: () => SystemNavigator.pop()),
       ],
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/ffi.dart';
+import '../../l10n/strings.dart';
 import '../../state/scope.dart';
 import '../theme.dart';
 import '../widgets/auth_layout.dart';
@@ -99,26 +100,26 @@ class _UnlockScreenState extends State<UnlockScreen> {
               builder: (context, g, _) => ZoMark(size: 52, glow: g),
             ),
             const SizedBox(height: 32),
-            Text('欢迎回来', style: context.text.displayMedium),
+            Text(context.tr(AppStrings.welcomeBack), style: context.text.displayMedium),
             const SizedBox(height: 8),
-            Text('输入主密码以解锁保险库', style: context.text.bodyLarge?.copyWith(color: c.textMuted)),
+            Text(context.tr(AppStrings.unlockSubtitle), style: context.text.bodyLarge?.copyWith(color: c.textMuted)),
             const SizedBox(height: 32),
             if (!state.hasStoredSecretKey) ...[
               ZoTextField(
                 controller: _sk,
-                label: 'Secret Key',
+                label: context.tr(AppStrings.secretKeyLabel),
                 hint: 'V1-XXXXXX-XXXXXX-…',
                 mono: true,
                 prefixIcon: Icons.vpn_key_outlined,
               ),
               const SizedBox(height: 6),
-              Text('本设备未保存 Secret Key，请从 Recovery Kit 中输入。', style: context.text.bodySmall),
+              Text(context.tr(AppStrings.secretKeyMissingOnDevice), style: context.text.bodySmall),
               const SizedBox(height: 18),
             ],
             ZoTextField(
               controller: _pw,
               focusNode: _focus,
-              label: '主密码',
+              label: context.tr(AppStrings.masterPassword),
               obscure: true,
               autofocus: true,
               prefixIcon: Icons.key_rounded,
@@ -127,11 +128,11 @@ class _UnlockScreenState extends State<UnlockScreen> {
               onSubmitted: (_) => _unlock(),
             ),
             const SizedBox(height: 22),
-            ZoButton(label: _busy ? '正在解锁…' : '解锁', icon: Icons.lock_open_rounded, expand: true, loading: _busy, onPressed: _unlock),
+            ZoButton(label: _busy ? context.tr(AppStrings.unlocking) : context.tr(AppStrings.unlockAction), icon: Icons.lock_open_rounded, expand: true, loading: _busy, onPressed: _unlock),
             if (state.quickUnlockEnabled) ...[
               const SizedBox(height: 10),
               ZoButton(
-                label: '使用生物识别解锁',
+                label: context.tr(AppStrings.unlockWithBiometrics),
                 icon: Icons.fingerprint_rounded,
                 variant: ZoButtonVariant.secondary,
                 expand: true,
@@ -143,7 +144,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
               child: TextButton(
                 onPressed: _busy ? null : () => setState(() => _recover = true),
                 style: TextButton.styleFrom(foregroundColor: c.textMuted),
-                child: const Text('忘记主密码？使用 Recovery Kit'),
+                child: Text(context.tr(AppStrings.forgotMasterPassword)),
               ),
             ),
           ],
@@ -185,14 +186,14 @@ class _RecoverFlowState extends State<_RecoverFlow> {
     final state = AppScope.read(context);
     if (_pw.text.characters.length < 10) {
       setState(() {
-        _error = '新主密码至少 10 个字符';
+        _error = context.tr(AppStrings.newPasswordTooShort);
         _shake++;
       });
       return;
     }
     if (_pw.text != _pw2.text) {
       setState(() {
-        _error = '两次输入的新主密码不一致';
+        _error = context.tr(AppStrings.newPasswordMismatch);
         _shake++;
       });
       return;
@@ -222,7 +223,7 @@ class _RecoverFlowState extends State<_RecoverFlow> {
       return AuthLayout(
         child: RecoveryKitView(
           enrollment: pending,
-          title: '恢复成功 · 保存新的 Recovery Kit',
+          title: context.tr(AppStrings.recoverySucceededTitle),
           onDone: state.finishOnboarding,
         ),
       );
@@ -233,30 +234,30 @@ class _RecoverFlowState extends State<_RecoverFlow> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ZoButton(label: '返回解锁', icon: Icons.arrow_back_rounded, variant: ZoButtonVariant.ghost, dense: true, onPressed: _busy ? null : widget.onCancel),
+            ZoButton(label: context.tr(AppStrings.backToUnlock), icon: Icons.arrow_back_rounded, variant: ZoButtonVariant.ghost, dense: true, onPressed: _busy ? null : widget.onCancel),
             const SizedBox(height: 24),
-            const AuthHeader(
-              eyebrow: 'Recovery',
-              title: '联网恢复云账户',
-              subtitle: '需要连接 Java 服务验证恢复材料。本机条目保留；云端确认后旧会话失效，并生成新的 Recovery Kit。失败时请使用相同材料与新密码重试。',
+            AuthHeader(
+              eyebrow: AppStrings.recoverEyebrow,
+              title: context.tr(AppStrings.recoverOnlineTitle),
+              subtitle: context.tr(AppStrings.recoverOnlineSubtitle),
             ),
-            ZoTextField(controller: _email, label: '账户邮箱', keyboardType: TextInputType.emailAddress),
+            ZoTextField(controller: _email, label: context.tr(AppStrings.accountEmail), keyboardType: TextInputType.emailAddress),
             const SizedBox(height: 16),
             if (!state.hasStoredSecretKey) ...[
-              ZoTextField(controller: _sk, label: 'Secret Key', hint: 'V1-…', mono: true),
+              ZoTextField(controller: _sk, label: context.tr(AppStrings.secretKeyLabel), hint: 'V1-…', mono: true),
               const SizedBox(height: 16),
             ],
-            ZoTextField(controller: _rc, label: 'Recovery Code', hint: 'R1-XXXX-XXXX-…', mono: true, autofocus: true),
+            ZoTextField(controller: _rc, label: context.tr(AppStrings.recoveryCodeLabel), hint: 'R1-XXXX-XXXX-…', mono: true, autofocus: true),
             const SizedBox(height: 16),
-            ZoTextField(controller: _pw, label: '新主密码', obscure: true),
+            ZoTextField(controller: _pw, label: context.tr(AppStrings.newMasterPassword), obscure: true),
             const SizedBox(height: 16),
-            ZoTextField(controller: _pw2, label: '确认新主密码', obscure: true, onSubmitted: (_) => _submit()),
+            ZoTextField(controller: _pw2, label: context.tr(AppStrings.confirmNewMasterPassword), obscure: true, onSubmitted: (_) => _submit()),
             if (_error != null) ...[
               const SizedBox(height: 14),
               Text(_error!, style: context.text.bodySmall?.copyWith(color: context.zo.danger)),
             ],
             const SizedBox(height: 24),
-            ZoButton(label: '重设主密码', expand: true, loading: _busy, onPressed: _submit),
+            ZoButton(label: context.tr(AppStrings.resetMasterPassword), expand: true, loading: _busy, onPressed: _submit),
           ],
         ),
       ),
@@ -278,11 +279,11 @@ class FatalScreen extends StatelessWidget {
         children: [
           Icon(Icons.error_outline_rounded, color: context.zo.danger, size: 36),
           const SizedBox(height: 18),
-          Text('无法打开保险库', style: context.text.headlineMedium),
+          Text(context.tr(AppStrings.fatalOpenVaultFailed), style: context.text.headlineMedium),
           const SizedBox(height: 10),
           SelectableText(message, style: context.text.bodyMedium?.copyWith(color: context.zo.textMuted)),
           const SizedBox(height: 18),
-          Text('数据文件未被修改。请将以上信息反馈给我们。', style: context.text.bodySmall),
+          Text(context.tr(AppStrings.fatalDataIntact), style: context.text.bodySmall),
         ],
       ),
     );

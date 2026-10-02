@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vaultone/src/l10n/strings.dart';
 import 'package:vaultone/src/state/app_state.dart';
+import 'package:vaultone/src/state/scope.dart';
+import 'package:vaultone/src/ui/screens/unlock.dart';
 import 'package:vaultone/src/ui/theme.dart';
 
 class _Probe extends StatelessWidget {
@@ -115,6 +117,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('lang:zh_Hans'), findsOneWidget);
     expect(find.text('settings:设置'), findsOneWidget);
+  });
+
+  testWidgets('已迁移页面随语言切换文案（解锁页）', (tester) async {
+    final state = AppState();
+    addTearDown(state.dispose);
+    Future<void> pump(AppLanguage language) async {
+      await tester.pumpWidget(LocaleScope(
+        language: language,
+        child: AppScope(
+          state: state,
+          child: MaterialApp(
+            theme: buildTheme(Brightness.dark),
+            home: const Scaffold(body: UnlockScreen()),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    await pump(AppLanguage.zhHans);
+    expect(find.text('欢迎回来'), findsOneWidget);
+    expect(find.text('忘记主密码？使用 Recovery Kit'), findsOneWidget);
+
+    await pump(AppLanguage.zhHant);
+    expect(find.text('歡迎回來'), findsOneWidget);
+    expect(find.text('忘記主密碼？使用 Recovery Kit'), findsOneWidget);
+
+    await pump(AppLanguage.en);
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Forgot your master password? Use the Recovery Kit'), findsOneWidget);
+    expect(find.text('欢迎回来'), findsNothing);
   });
 
   test('设置项默认语言为简体中文，copyWith 可切换且不影响其他字段', () {
