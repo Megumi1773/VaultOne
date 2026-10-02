@@ -559,6 +559,13 @@ abstract final class AppStrings {
   static const taxonomyAffected = '已更新 {n} 条条目';
   static const taxonomyNoTags = '还没有任何标签';
   static const taxonomyNoCategories = '还没有任何分类';
+
+  // ---------- 条目子列表页（§2.3 / §3.6）----------
+  static const subListTagTitle = '标签：{name}';
+  static const subListCategoryTitle = '分类：{name}';
+  static const subListCount = '共 {n} 条';
+  static const subListViewItems = '查看条目';
+  static const subListOpenInPage = '在新页面打开';
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
   static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
@@ -1416,6 +1423,11 @@ abstract final class AppStrings {
     taxonomyAffected: '已更新 {n} 筆項目',
     taxonomyNoTags: '還沒有任何標籤',
     taxonomyNoCategories: '還沒有任何分類',
+    subListTagTitle: '標籤：{name}',
+    subListCategoryTitle: '分類：{name}',
+    subListCount: '共 {n} 筆',
+    subListViewItems: '檢視項目',
+    subListOpenInPage: '在新頁面開啟',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2206,6 +2218,11 @@ abstract final class AppStrings {
     taxonomyAffected: '{n} items updated',
     taxonomyNoTags: 'No tags yet',
     taxonomyNoCategories: 'No categories yet',
+    subListTagTitle: 'Tag: {name}',
+    subListCategoryTitle: 'Category: {name}',
+    subListCount: '{n} items',
+    subListViewItems: 'View items',
+    subListOpenInPage: 'Open in a page',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',

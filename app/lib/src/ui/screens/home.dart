@@ -21,6 +21,7 @@ import 'item_list.dart';
 import 'security_page.dart';
 import 'settings_page.dart';
 import 'sidebar_layout.dart';
+import 'taxonomy_list_page.dart';
 
 enum Section {
   all(AppStrings.sectionAll, Icons.grid_view_rounded, AppStrings.sectionAllShort),
@@ -163,6 +164,20 @@ bool categoryMatches(String? category, String prefix) {
   return category == prefix || category.startsWith('$prefix/');
 }
 
+/// 分类路径的祖先链（含自身），用于面包屑。与内核 `ItemData::category_ancestors`
+/// 同一规则：按 `/` 分段、逐段去空白、丢掉空段。
+List<String> categoryAncestors(String path) {
+  final out = <String>[];
+  var acc = '';
+  for (final part in path.split('/')) {
+    final trimmed = part.trim();
+    if (trimmed.isEmpty) continue;
+    acc = acc.isEmpty ? trimmed : '$acc/$trimmed';
+    out.add(acc);
+  }
+  return out;
+}
+
 /// 按筛选条件挑选并排序：收藏优先（回收站除外），其余按标题不区分大小写排序。
 List<VaultItem> applyVaultFilter(Iterable<VaultItem> items, VaultFilter filter) {
   final out = items.where(filter.matches).toList();
@@ -249,7 +264,17 @@ class _HomeScreenState extends State<HomeScreen> {
   ///
   /// 分类用**层级菜单**（缩进 + 全路径），与侧栏的树是同一份数据：手机端没有侧栏，
   /// 若这里退回扁平列表，用户就看不出 `工作/生产` 与 `工作` 的父子关系。
-  Widget? _taxonomyBar(List<VaultItem> visible, List<VaultItem> trash, List<CategoryNode> tree) {
+  /// 标签 / 分类筛选条。
+  ///
+  /// `onOpenInPage` 非空时会多出「在新页面打开」按钮：窄屏列表只占一屏，独立页面正是
+  /// 用户想要的东西；宽屏虽然分栏已经显示了列表，整页仍有用（聚焦单一维度），
+  /// 只是选中条目后会关掉整页回到分栏，避免出现两套详情视图。
+  Widget? _taxonomyBar(
+    List<VaultItem> visible,
+    List<VaultItem> trash,
+    List<CategoryNode> tree, {
+    void Function(TaxonomyDimension dimension, String value)? onOpenInPage,
+  }) {
     final tags = tagsOf(_section == Section.trash ? trash : visible);
     if (tags.isEmpty && tree.isEmpty) return null;
     final c = context.zo;
@@ -319,6 +344,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 _tagFilter = null;
                 _categoryFilter = null;
               }),
+            ),
+          // 每个生效的维度各给一个入口：同时筛了标签和分类时，两个按钮各自打开对应页面，
+          // 不静默丢掉其中一个条件。
+          if (onOpenInPage != null && _categoryFilter != null)
+            ZoIconButton(
+              icon: Icons.open_in_new_rounded,
+              tooltip: '${context.tr(AppStrings.subListOpenInPage)} · ${context.tr(AppStrings.sidebarCategories)}',
+              size: 24,
+              onPressed: () => onOpenInPage(TaxonomyDimension.category, _categoryFilter!),
+            ),
+          if (onOpenInPage != null && _tagFilter != null)
+            ZoIconButton(
+              icon: Icons.open_in_new_rounded,
+              tooltip: '${context.tr(AppStrings.subListOpenInPage)} · ${context.tr(AppStrings.tagLabel)}',
+              size: 24,
+              onPressed: () => onOpenInPage(TaxonomyDimension.tag, _tagFilter!),
             ),
         ],
       ),
@@ -507,7 +548,19 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _VaultFilters(section: _section, counts: counts, onSelect: _go),
-              ?_taxonomyBar(visible, state.trash, state.categoryTree),
+              ?_taxonomyBar(
+                visible,
+                state.trash,
+                state.categoryTree,
+                onOpenInPage: (dimension, value) => openTaxonomyList(
+                  context,
+                  dimension: dimension,
+                  value: value,
+                  items: isTrash ? state.trash : state.items,
+                  onOpenItem: (item) => openDetail(item.id),
+                  isTrash: isTrash,
+                ),
+              ),
             ],
           ),
           items: visible,
@@ -650,7 +703,26 @@ class _HomeScreenState extends State<HomeScreen> {
               searchFocus: _searchFocus,
               isTrash: _section == Section.trash,
               onQuery: (q) => setState(() => _query = q),
-              filterBar: _taxonomyBar(visible, state.trash, state.categoryTree),
+              // 宽屏也能开整页：选中条目后关掉整页，回到分栏并选中它，避免出现两套详情视图。
+              filterBar: _taxonomyBar(
+                visible,
+                state.trash,
+                state.categoryTree,
+                onOpenInPage: (dimension, value) => openTaxonomyList(
+                  context,
+                  dimension: dimension,
+                  value: value,
+                  items: _section == Section.trash ? state.trash : state.items,
+                  onOpenItem: (item) {
+                    Navigator.of(context).pop();
+                    setState(() {
+                      _selectedId = item.id;
+                      _editing = null;
+                    });
+                  },
+                  isTrash: _section == Section.trash,
+                ),
+              ),
               onSelect: (id) => setState(() {
                 _selectedId = id;
                 _editing = null;
