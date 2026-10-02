@@ -22,10 +22,25 @@ import 'backup_dialog.dart';
 import 'conflicts_page.dart';
 import 'feedback_page.dart';
 import 'item_detail.dart' show confirmDialog;
+import 'sidebar_layout.dart';
 
 /// 设置页的分区。安全总览（§5.1）的宫格入口据此直接定位到对应分区，
 /// 而不是把用户丢在设置页顶部自己找。
-enum SettingsSection { account, keyBackup, security, sync, conflict, data, desktop, browser, appearance, diagnostics, about, danger }
+enum SettingsSection {
+  account,
+  keyBackup,
+  security,
+  sync,
+  conflict,
+  data,
+  desktop,
+  browser,
+  appearance,
+  sidebarLayout,
+  diagnostics,
+  about,
+  danger,
+}
 
 /// 设置：账户、解锁与安全、云同步与设备、数据导入、桌面托盘与快捷键、浏览器扩展、外观、诊断、关于与法律、危险操作。
 class SettingsPage extends StatefulWidget {
@@ -83,6 +98,7 @@ class _SettingsPageState extends State<SettingsPage> {
               _anchor(SettingsSection.desktop, const _DesktopSection()),
               _anchor(SettingsSection.browser, const _BrowserSection()),
               _anchor(SettingsSection.appearance, const _AppearanceSection()),
+              _anchor(SettingsSection.sidebarLayout, const _SidebarLayoutSection()),
               _anchor(SettingsSection.diagnostics, const _DiagnosticsSection()),
               _anchor(SettingsSection.about, const _AboutSection()),
               _anchor(SettingsSection.danger, const _DangerSection()),
@@ -104,8 +120,79 @@ class _Title extends StatelessWidget {
       );
 }
 
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children});
+/// 首页板块自定义（§3.6 / §3.11）：调整侧栏分区的顺序与显隐。
+///
+/// 布局存成 JSON 字符串放在本机设置里，不同步。顺序即侧栏自上而下的顺序；
+/// 分组标题由布局里的 group 决定，因此拖动条目时标题会跟着走。
+class _SidebarLayoutSection extends StatelessWidget {
+  const _SidebarLayoutSection();
+
+  Future<void> _save(AppState state, List<SidebarEntry> next) =>
+      state.updateSettings(state.settings.copyWith(sidebarLayout: encodeSidebarLayout(next)));
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    final entries = resolveSidebarLayout(state.settings.sidebarLayout);
+    final c = context.zo;
+    return _Section(
+      title: context.tr(AppStrings.sidebarLayoutTitle),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(context.tr(AppStrings.sidebarLayoutSubtitle), style: context.text.bodySmall),
+        ),
+        for (final (i, entry) in entries.indexed)
+          _Row(
+            title: entry.section.title(context),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ZoIconButton(
+                  icon: Icons.keyboard_arrow_up_rounded,
+                  tooltip: context.tr(AppStrings.sidebarMoveUp),
+                  size: 28,
+                  onPressed: i == 0 ? null : () => _save(state, moveSidebarEntry(entries, i, -1)),
+                ),
+                ZoIconButton(
+                  icon: Icons.keyboard_arrow_down_rounded,
+                  tooltip: context.tr(AppStrings.sidebarMoveDown),
+                  size: 28,
+                  onPressed: i == entries.length - 1 ? null : () => _save(state, moveSidebarEntry(entries, i, 1)),
+                ),
+                const SizedBox(width: 6),
+                Switch(
+                  value: entry.visible,
+                  // 不允许把最后一项可见也关掉：侧栏会变成一片空白，用户没有恢复入口。
+                  onChanged: !canHide(entries, entry)
+                      ? null
+                      : (v) => _save(state, [
+                            for (final e in entries)
+                              e.section == entry.section ? e.copyWith(visible: v) : e,
+                          ]),
+                ),
+              ],
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Text(context.tr(AppStrings.sidebarShow), style: context.text.bodySmall?.copyWith(color: c.textFaint)),
+              const Spacer(),
+              TextButton(
+                onPressed: () => _save(state, defaultSidebarLayout()),
+                child: Text(context.tr(AppStrings.sidebarResetLayout)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Section extends StatelessWidget {  const _Section({required this.title, required this.children});
 
   final String title;
   final List<Widget> children;

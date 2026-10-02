@@ -31,6 +31,7 @@ class Settings {
     this.closeToTray = true,
     this.globalHotkey = true,
     this.browserIntegration = true,
+    this.sidebarLayout = '',
   });
 
   final int autoLockMinutes;
@@ -53,6 +54,10 @@ class Settings {
   /// 桌面端：允许浏览器扩展经 Native Messaging 连接
   final bool browserIntegration;
 
+  /// 侧栏（首页板块）布局，JSON 字符串。存成不透明字符串是为了保持分层：状态层不认识
+  /// `Section`，由界面用 `resolveSidebarLayout` 解释；解析失败一律回退默认布局。
+  final String sidebarLayout;
+
   Settings copyWith({
     int? autoLockMinutes,
     int? clipboardSeconds,
@@ -64,6 +69,7 @@ class Settings {
     bool? closeToTray,
     bool? globalHotkey,
     bool? browserIntegration,
+    String? sidebarLayout,
   }) =>
       Settings(
         autoLockMinutes: autoLockMinutes ?? this.autoLockMinutes,
@@ -76,6 +82,7 @@ class Settings {
         closeToTray: closeToTray ?? this.closeToTray,
         globalHotkey: globalHotkey ?? this.globalHotkey,
         browserIntegration: browserIntegration ?? this.browserIntegration,
+        sidebarLayout: sidebarLayout ?? this.sidebarLayout,
       );
 }
 
@@ -269,6 +276,7 @@ class AppState extends ChangeNotifier {
       closeToTray: (await VaultApi.getSetting('close_to_tray')) != '0',
       globalHotkey: (await VaultApi.getSetting('global_hotkey')) != '0',
       browserIntegration: (await VaultApi.getSetting('browser_integration')) != '0',
+      sidebarLayout: await VaultApi.getSetting('sidebar_layout') ?? '',
     );
     privacyAccepted = (await VaultApi.getSetting('privacy_consent')) == privacyVersion;
     lastBackupAt = intOr(await VaultApi.getSetting('backup_last_at'), 0);
@@ -791,6 +799,7 @@ class AppState extends ChangeNotifier {
     await VaultApi.setSetting('close_to_tray', s.closeToTray ? '1' : '0');
     await VaultApi.setSetting('global_hotkey', s.globalHotkey ? '1' : '0');
     await VaultApi.setSetting('browser_integration', s.browserIntegration ? '1' : '0');
+    await VaultApi.setSetting('sidebar_layout', s.sidebarLayout);
   }
 
   // ---------- 浏览器扩展（由 DesktopShell 按设置启停）----------

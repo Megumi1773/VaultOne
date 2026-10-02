@@ -20,6 +20,7 @@ import 'item_editor.dart';
 import 'item_list.dart';
 import 'security_page.dart';
 import 'settings_page.dart';
+import 'sidebar_layout.dart';
 
 enum Section {
   all(AppStrings.sectionAll, Icons.grid_view_rounded, AppStrings.sectionAllShort),
@@ -739,6 +740,7 @@ class _HomeScreenState extends State<HomeScreen> {
               categoryTree: state.categoryTree,
               selectedCategory: _categoryFilter,
               onSelectCategory: _filterByCategory,
+              layout: resolveSidebarLayout(state.settings.sidebarLayout),
             ),
             VerticalDivider(width: 1, color: c.border),
             Expanded(child: ColoredBox(color: c.bg, child: content)),
@@ -891,6 +893,7 @@ class _Sidebar extends StatelessWidget {
     required this.categoryTree,
     required this.selectedCategory,
     required this.onSelectCategory,
+    required this.layout,
   });
 
   final Section section;
@@ -902,10 +905,14 @@ class _Sidebar extends StatelessWidget {
   final String? selectedCategory;
   final ValueChanged<String> onSelectCategory;
 
+  /// 首页板块布局（顺序与显隐），本机偏好。
+  final List<SidebarEntry> layout;
+
   @override
   Widget build(BuildContext context) {
     final c = context.zo;
     final state = AppScope.of(context);
+    final visibleLayout = [for (final e in layout) if (e.visible) e];
     Widget item(Section s) => _NavItem(section: s, active: section == s, count: counts[s], onTap: () => onSelect(s));
     return Container(
       width: 236,
@@ -929,24 +936,23 @@ class _Sidebar extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               children: [
-                item(Section.all),
-                item(Section.favorites),
-                const _NavGroup(AppStrings.sidebarCategories),
-                item(Section.login),
-                item(Section.card),
-                item(Section.note),
-                item(Section.identity),
-                // 分组树接在类型分区之后：类型是固定四类，分组是用户自己的层级。
-                _NavGroup(AppStrings.groupCategories),
-                _CategoryTree(
-                  nodes: categoryTree,
-                  selected: selectedCategory,
-                  onSelect: onSelectCategory,
-                ),
-                const _NavGroup(AppStrings.sidebarTools),
-                item(Section.generator),
-                item(Section.security),
-                item(Section.trash),
+                // 分区顺序与显隐来自本机设置（§3.6 首页板块自定义 / §3.11 板块排序）。
+                // 分组标题按首次出现的位置渲染，因此拖动条目时标题会跟着走。
+                for (final (i, entry) in visibleLayout.indexed) ...[
+                  if (entry.group.isNotEmpty && (i == 0 || visibleLayout[i - 1].group != entry.group))
+                    _NavGroup(_groupLabel(entry.group)),
+                  item(entry.section),
+                  // 分组树跟在「分类」分组之后：类型是固定四类，分组是用户自己的层级。
+                  if (entry.group == 'categories' &&
+                      (i == visibleLayout.length - 1 || visibleLayout[i + 1].group != 'categories')) ...[
+                    _NavGroup(AppStrings.groupCategories),
+                    _CategoryTree(
+                      nodes: categoryTree,
+                      selected: selectedCategory,
+                      onSelect: onSelectCategory,
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
@@ -1009,8 +1015,14 @@ class _Sidebar extends StatelessWidget {
   }
 }
 
-class _NavGroup extends StatelessWidget {
-  const _NavGroup(this.label);
+/// 分组 key → 标题文案。布局里只存 key，取词留给界面，避免状态层依赖文案表。
+String _groupLabel(String group) => switch (group) {
+      'categories' => AppStrings.sidebarCategories,
+      'tools' => AppStrings.sidebarTools,
+      _ => group,
+    };
+
+class _NavGroup extends StatelessWidget {  const _NavGroup(this.label);
 
   final String label;
 

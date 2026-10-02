@@ -507,6 +507,15 @@ abstract final class AppStrings {
   static const healthRisks = '风险项';
   static const healthRiskNone = '没有风险项。';
   static const healthGrid = '快捷入口';
+
+  // ---------- 首页板块自定义（§3.6 / §3.11）----------
+  static const sidebarLayoutTitle = '首页板块';
+  static const sidebarLayoutSubtitle = '调整侧栏分区的顺序与显隐。设置只保存在本机，不同步——不同设备屏幕大小不同，同步反而两边都不顺手。';
+  static const sidebarMoveUp = '上移';
+  static const sidebarMoveDown = '下移';
+  static const sidebarShow = '在侧栏显示';
+  static const sidebarKeepOne = '至少保留一个分区，否则侧栏会变成空白';
+  static const sidebarResetLayout = '恢复默认布局';
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
   static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
@@ -1320,6 +1329,13 @@ abstract final class AppStrings {
     healthRisks: '風險項',
     healthRiskNone: '沒有風險項。',
     healthGrid: '快速入口',
+    sidebarLayoutTitle: '首頁板塊',
+    sidebarLayoutSubtitle: '調整側欄分區的順序與顯示與否。設定只保存在本機，不同步——不同裝置螢幕大小不同，同步反而兩邊都不順手。',
+    sidebarMoveUp: '上移',
+    sidebarMoveDown: '下移',
+    sidebarShow: '在側欄顯示',
+    sidebarKeepOne: '至少保留一個分區，否則側欄會變成空白',
+    sidebarResetLayout: '恢復預設版面',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2066,6 +2082,13 @@ abstract final class AppStrings {
     healthRisks: 'Risks',
     healthRiskNone: 'No risks found.',
     healthGrid: 'Shortcuts',
+    sidebarLayoutTitle: 'Home sections',
+    sidebarLayoutSubtitle: 'Reorder and show or hide sidebar sections. Stored on this device only — screens differ, so syncing it would make both sides worse.',
+    sidebarMoveUp: 'Move up',
+    sidebarMoveDown: 'Move down',
+    sidebarShow: 'Show in sidebar',
+    sidebarKeepOne: 'Keep at least one section, or the sidebar becomes empty',
+    sidebarResetLayout: 'Reset layout',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',
