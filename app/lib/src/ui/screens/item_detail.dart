@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api.dart';
 import '../../core/ffi.dart';
+import '../../core/field_kind.dart';
 import '../../core/models.dart';
 import '../../l10n/strings.dart';
 import '../../state/clipboard.dart';
@@ -148,6 +151,8 @@ class ItemDetail extends StatelessWidget {
             value: f.value,
             secret: f.sensitive,
             onCopy: () => copy(f.value, f.label, sensitive: f.sensitive),
+            // 图片字段在值下面追加一张预览；加载失败时如实显示失败态而不是留白。
+            extra: f.kind == FieldKind.image && f.value.trim().isNotEmpty ? FieldImagePreview(value: f.value) : null,
           ),
       ]));
     }
@@ -400,9 +405,59 @@ class _FieldRowState extends State<FieldRow> {
   }
 }
 
+/// 图片字段的预览（§3.5「字段图片查看」）。
+///
+/// 值为本地路径或 http(s) 地址。**加载失败要有明确的失败态**，不能留白让用户以为条目坏了；
+/// 这也正是基线要求的「含加载失败态」。
+class FieldImagePreview extends StatelessWidget {
+  const FieldImagePreview({super.key, required this.value});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final remote = isRemoteImage(value);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 200,
+          height: 120,
+          child: remote
+              ? Image.network(value.trim(), fit: BoxFit.cover, errorBuilder: (_, _, _) => const ImageLoadFailure())
+              : Image.file(File(value.trim()), fit: BoxFit.cover, errorBuilder: (_, _, _) => const ImageLoadFailure()),
+        ),
+      ),
+    );
+  }
+}
+
+/// 图片加载失败的占位。抽成独立组件是为了能被直接测到——真实图片加载在测试绑定里不落地，
+/// 只靠 `errorBuilder` 的端到端路径盖不住「失败时长什么样」这件事。
+class ImageLoadFailure extends StatelessWidget {
+  const ImageLoadFailure({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zo;
+    return Container(
+      color: c.surfaceRaised,
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.broken_image_outlined, size: 20, color: c.textFaint),
+          const SizedBox(height: 6),
+          Text(context.tr(AppStrings.imageLoadFailed), style: context.text.labelSmall?.copyWith(color: c.textMuted)),
+        ],
+      ),
+    );
+  }
+}
+
 class _StrengthBadge extends StatelessWidget {
   const _StrengthBadge({required this.password, required this.inputs});
-
   final String password;
   final List<String> inputs;
 

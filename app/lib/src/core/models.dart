@@ -95,16 +95,42 @@ class TotpConfig {
 }
 
 class CustomField {
-  const CustomField({required this.label, required this.value, this.sensitive = false});
+  const CustomField({required this.label, required this.value, this.sensitive = false, this.kind = FieldKind.text});
 
   final String label;
   final String value;
   final bool sensitive;
 
-  factory CustomField.fromJson(Map<String, dynamic> j) =>
-      CustomField(label: j['label'] as String? ?? '', value: j['value'] as String? ?? '', sensitive: j['sensitive'] == true);
+  /// 渲染与校验类型（计划书 §3.1）。与 [sensitive] 正交：`sensitive` 决定默认隐藏与按敏感
+  /// 方式复制，`kind` 只决定怎么显示与校验。规则由内核唯一确定（`crates/vault-core/src/item.rs`）。
+  final FieldKind kind;
 
-  Map<String, Object?> toJson() => {'label': label, 'value': value, 'sensitive': sensitive};
+  factory CustomField.fromJson(Map<String, dynamic> j) => CustomField(
+        label: j['label'] as String? ?? '',
+        value: j['value'] as String? ?? '',
+        sensitive: j['sensitive'] == true,
+        kind: FieldKind.parse(j['kind'] as String?),
+      );
+
+  Map<String, Object?> toJson() => {'label': label, 'value': value, 'sensitive': sensitive, 'kind': kind.wire};
+}
+
+/// 动态字段的渲染与校验类型。wire 值与内核 `FieldKind` 的 serde 名一致。
+enum FieldKind {
+  text('text'),
+  date('date'),
+  image('image');
+
+  const FieldKind(this.wire);
+
+  final String wire;
+
+  /// 未知或缺失一律按文本处理（旧库没有 `kind` 键）。
+  static FieldKind parse(String? raw) => switch (raw) {
+        'date' => FieldKind.date,
+        'image' => FieldKind.image,
+        _ => FieldKind.text,
+      };
 }
 
 class PasswordHistoryEntry {

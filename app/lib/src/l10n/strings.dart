@@ -566,6 +566,20 @@ abstract final class AppStrings {
   static const subListCount = '共 {n} 条';
   static const subListViewItems = '查看条目';
   static const subListOpenInPage = '在新页面打开';
+
+  // ---------- 动态字段类型（§3.1）----------
+  static const fieldType = '字段类型';
+  static const fieldKindText = '文本';
+  static const fieldKindDate = '日期';
+  static const fieldKindImage = '图片';
+  static const fieldDateHint = '年-月-日，例如 2026-10-02';
+  static const fieldImageHint = '本地路径或 https:// 地址';
+  static const fieldPickDate = '选择日期';
+  static const fieldPickImage = '选择图片';
+  static const pickImageUnavailable = '当前平台没有文件选择器，请手动填写图片地址';
+  static const fieldDateInvalid = '日期格式应为 年-月-日';
+  static const fieldImageMissing = '请填写图片地址';
+  static const imageLoadFailed = '图片无法加载';
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
   static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
@@ -1428,6 +1442,18 @@ abstract final class AppStrings {
     subListCount: '共 {n} 筆',
     subListViewItems: '檢視項目',
     subListOpenInPage: '在新頁面開啟',
+    fieldType: '欄位類型',
+    fieldKindText: '文字',
+    fieldKindDate: '日期',
+    fieldKindImage: '圖片',
+    fieldDateHint: '年-月-日，例如 2026-10-02',
+    fieldImageHint: '本機路徑或 https:// 網址',
+    fieldPickDate: '選擇日期',
+    fieldPickImage: '選擇圖片',
+    pickImageUnavailable: '目前平台沒有檔案選擇器，請手動填寫圖片網址',
+    fieldDateInvalid: '日期格式應為 年-月-日',
+    fieldImageMissing: '請填寫圖片網址',
+    imageLoadFailed: '圖片無法載入',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2223,6 +2249,18 @@ abstract final class AppStrings {
     subListCount: '{n} items',
     subListViewItems: 'View items',
     subListOpenInPage: 'Open in a page',
+    fieldType: 'Field type',
+    fieldKindText: 'Text',
+    fieldKindDate: 'Date',
+    fieldKindImage: 'Image',
+    fieldDateHint: 'YYYY-MM-DD, e.g. 2026-10-02',
+    fieldImageHint: 'Local path or https:// URL',
+    fieldPickDate: 'Pick a date',
+    fieldPickImage: 'Pick an image',
+    pickImageUnavailable: 'No file picker on this platform; type the image location instead',
+    fieldDateInvalid: 'Date must look like YYYY-MM-DD',
+    fieldImageMissing: 'Enter an image location',
+    imageLoadFailed: 'Image failed to load',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',

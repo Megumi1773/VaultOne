@@ -19,7 +19,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::item::{CardData, CustomField, IdentityData, ItemData, ItemKind, ItemUrl};
+use crate::item::{CardData, CustomField, FieldKind, IdentityData, ItemData, ItemKind, ItemUrl};
 use crate::{Result, VaultError};
 
 /// 1PIF 记录分隔行
@@ -324,7 +324,7 @@ fn bitwarden_fields(s: &str) -> Vec<CustomField> {
     s.lines()
         .filter_map(|line| {
             let (label, value) = line.split_once(": ").or_else(|| line.split_once(':'))?;
-            Some(CustomField { label: label.trim().into(), value: value.trim().into(), sensitive: false })
+            Some(CustomField { label: label.trim().into(), value: value.trim().into(), sensitive: false, kind: FieldKind::Text })
         })
         .filter(|f| !f.label.is_empty() || !f.value.is_empty())
         .collect()
@@ -464,6 +464,8 @@ fn pif_record(rec: &Value) -> Option<ItemData> {
         label: if t.is_empty() { n } else { t },
         value: v,
         sensitive: k == "concealed",
+        // 1PIF 的 `date` / `monthYear` 字段直接落成日期类型，其余按文本。
+        kind: if k == "date" || k == "monthYear" { FieldKind::Date } else { FieldKind::Text },
     }));
     let title = s(rec, "title").map(str::to_string);
     finish(&mut data, title);
@@ -494,7 +496,7 @@ fn host_of(u: &str) -> Option<String> {
 fn set_totp(data: &mut ItemData, raw: &str) {
     match crate::totp::parse(raw) {
         Ok(auth) => data.totp = Some(auth.config.clone()),
-        Err(_) => data.custom_fields.push(CustomField { label: "TOTP".into(), value: raw.into(), sensitive: true }),
+        Err(_) => data.custom_fields.push(CustomField { label: "TOTP".into(), value: raw.into(), sensitive: true, kind: FieldKind::Text }),
     }
 }
 

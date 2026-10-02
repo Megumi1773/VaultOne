@@ -73,6 +73,23 @@ fn default_period() -> u32 {
     30
 }
 
+/// 动态字段的渲染与校验类型（计划书 §3.1）。
+///
+/// **与 `sensitive` 正交**：`sensitive` 决定默认隐藏与按敏感方式复制，`kind` 只决定怎么渲染、
+/// 怎么校验。基线里的 `password` / `secret` 两种「类型」= `kind: Text` + `sensitive: true`；
+/// 把它们也做成 kind 会让「这条字段是不是敏感」出现两处真相。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, Zeroize)]
+#[serde(rename_all = "camelCase")]
+pub enum FieldKind {
+    #[default]
+    Text,
+    /// 日期。值统一规范成 `YYYY-MM-DD`，接受 `-` / `/` / `.` 三种分隔符。
+    Date,
+    /// 图片。值为本地路径或 http(s) 地址——**不内联图片数据**，否则条目 blob 会被撑爆
+    /// （条目总大小上限 256 KB），同步负载也会跟着膨胀。
+    Image,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct CustomField {
@@ -80,6 +97,9 @@ pub struct CustomField {
     pub value: String,
     #[serde(default)]
     pub sensitive: bool,
+    /// 缺省为 `text`：旧库里的字段没有这个键，反序列化后一律按文本处理。
+    #[serde(default)]
+    pub kind: FieldKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
@@ -122,6 +142,56 @@ pub struct IdentityData {
 
 /// 单个条目的标签数量上限；超出的标签被丢弃而不是报错，避免导入的脏数据让整次导入失败。
 pub const TAG_LIMIT: usize = 20;
+
+/// 自定义字段数量上限。
+pub const CUSTOM_FIELD_LIMIT: usize = 30;
+
+/// 自定义字段名长度上限（字符数）。
+pub const CUSTOM_FIELD_LABEL_LIMIT: usize = 64;
+
+/// 文本 / 日期字段的值长度上限（字符数）。
+pub const CUSTOM_FIELD_VALUE_LIMIT: usize = 2048;
+
+/// 图片字段的值长度上限（字符数）。比文本宽：本地路径可能很深，URL 也可能带很长的查询串。
+pub const IMAGE_VALUE_LIMIT: usize = 4096;
+
+/// 把 `YYYY-MM-DD` / `YYYY/MM/DD` / `YYYY.MM.DD` 统一成 `YYYY-MM-DD`；解析不了返回 None。
+///
+/// 自己算而不引入日期库：这里只需要「是不是一个真实存在的日期」这一个判断，
+/// 为它拉进 chrono/time 不值得（闰年规则就几行）。分隔符必须一致，混用一律判为无效。
+pub fn normalize_date(raw: &str) -> Option<String> {
+    let s = raw.trim();
+    let sep = s.chars().find(|c| matches!(c, '-' | '/' | '.'))?;
+    let parts: Vec<&str> = s.split(sep).collect();
+    if parts.len() != 3 || parts.iter().any(|p| p.is_empty() || !p.chars().all(|c| c.is_ascii_digit())) {
+        return None;
+    }
+    let year: i32 = parts[0].parse().ok()?;
+    let month: u32 = parts[1].parse().ok()?;
+    let day: u32 = parts[2].parse().ok()?;
+    if !(1..=9999).contains(&year) || !(1..=12).contains(&month) || day < 1 || day > days_in_month(year, month) {
+        return None;
+    }
+    Some(format!("{year:04}-{month:02}-{day:02}"))
+}
+
+fn days_in_month(year: i32, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        _ => {
+            if is_leap_year(year) {
+                29
+            } else {
+                28
+            }
+        }
+    }
+}
+
+fn is_leap_year(year: i32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
 
 /// 分类名长度上限（字符数，含层级分隔符）。
 pub const CATEGORY_LIMIT: usize = 64;
@@ -288,10 +358,82 @@ impl ItemData {
         path == prefix || path.starts_with(&format!("{prefix}/"))
     }
 
+    /// 规范化自定义字段（计划书 §3.1）：去首尾空白、丢掉完全空的字段、按类型规范取值、限量。
+    ///
+    /// 与标签一样**不静默改写用户内容**——只有日期会因为分隔符不同而被统一成 `YYYY-MM-DD`，
+    /// 因为那本来就是同一个日期；日期解析不了时保留原文（不丢数据），由 [`validate_item`]
+    /// 在保存前报错，用户能看到自己输了什么。
+    pub fn normalize_custom_fields(fields: &[CustomField]) -> Vec<CustomField> {
+        let mut out = Vec::new();
+        for field in fields {
+            let label: String = field.label.trim().chars().take(CUSTOM_FIELD_LABEL_LIMIT).collect();
+            let raw = field.value.trim();
+            if label.is_empty() && raw.is_empty() {
+                continue;
+            }
+            let limit = if field.kind == FieldKind::Image { IMAGE_VALUE_LIMIT } else { CUSTOM_FIELD_VALUE_LIMIT };
+            let value: String = raw.chars().take(limit).collect();
+            out.push(CustomField {
+                label,
+                value: match field.kind {
+                    // 认得出就统一格式，认不出原样保留。
+                    FieldKind::Date => normalize_date(&value).unwrap_or(value),
+                    _ => value,
+                },
+                sensitive: field.sensitive,
+                kind: field.kind,
+            });
+            if out.len() >= CUSTOM_FIELD_LIMIT {
+                break;
+            }
+        }
+        out
+    }
+
+    /// 字段值是否可用于保存。返回 `Err` 时带上可直接展示的中文原因。
+    pub fn check_field(field: &CustomField) -> std::result::Result<(), String> {
+        let label = field.label.trim();
+        if label.is_empty() {
+            return Err("字段名不能为空".into());
+        }
+        if label.chars().count() > CUSTOM_FIELD_LABEL_LIMIT {
+            return Err(format!("字段名不能超过 {CUSTOM_FIELD_LABEL_LIMIT} 字符"));
+        }
+        let value = field.value.trim();
+        if value.chars().count() > IMAGE_VALUE_LIMIT {
+            return Err("字段内容过长".into());
+        }
+        match field.kind {
+            FieldKind::Text => {
+                if value.chars().count() > CUSTOM_FIELD_VALUE_LIMIT {
+                    return Err(format!("字段内容不能超过 {CUSTOM_FIELD_VALUE_LIMIT} 字符"));
+                }
+            }
+            FieldKind::Date => {
+                if !value.is_empty() && normalize_date(value).is_none() {
+                    return Err(format!("「{label}」不是有效日期（应为 年-月-日）"));
+                }
+            }
+            FieldKind::Image => {
+                if value.is_empty() {
+                    return Err(format!("「{label}」没有填写图片地址"));
+                }
+                if value.chars().count() > IMAGE_VALUE_LIMIT {
+                    return Err(format!("图片地址不能超过 {IMAGE_VALUE_LIMIT} 字符"));
+                }
+                if value.contains(['\n', '\r']) {
+                    return Err(format!("「{label}」的图片地址不能包含换行"));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// 就地规范化标签与分类；新建与更新都走这里，保证落库与同步的内容形态一致。
     pub fn normalize_taxonomy(&mut self) {
         self.tags = Self::normalize_tags(&self.tags);
         self.category = Self::normalize_category(self.category.as_deref());
+        self.custom_fields = Self::normalize_custom_fields(&self.custom_fields);
     }
 }
 
@@ -372,6 +514,107 @@ pub struct Item {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ---------- 动态字段类型（§3.1）----------
+
+    #[test]
+    fn date_normalization_accepts_three_separators() {
+        for raw in ["2026-10-02", "2026/10/02", "2026.10.02", "  2026-10-02  "] {
+            assert_eq!(normalize_date(raw).as_deref(), Some("2026-10-02"), "{raw}");
+        }
+        // 补零：`2026-1-2` 与 `2026-01-02` 是同一个日期。
+        assert_eq!(normalize_date("2026-1-2").as_deref(), Some("2026-01-02"));
+    }
+
+    #[test]
+    fn date_normalization_rejects_impossible_dates() {
+        for raw in [
+            "2026-13-01",   // 没有 13 月
+            "2026-02-30",   // 2 月没有 30 号
+            "2025-02-29",   // 平年没有 2 月 29
+            "2026-00-10",   // 没有 0 月
+            "2026-10-00",   // 没有 0 号
+            "2026-10-02-1", // 段数不对
+            "2026/10-02",   // 分隔符混用
+            "2026-10",      // 缺一段
+            "abcd-10-02",   // 年份不是数字
+            "2026-1a-02",   // 月份不是数字
+            "+2026-10-02",  // 不接受正号
+            "",
+        ] {
+            assert!(normalize_date(raw).is_none(), "不该接受 {raw:?}");
+        }
+    }
+
+    #[test]
+    fn leap_year_rule_is_the_real_one() {
+        assert_eq!(normalize_date("2024-02-29").as_deref(), Some("2024-02-29"), "2024 是闰年");
+        assert_eq!(normalize_date("2000-02-29").as_deref(), Some("2000-02-29"), "2000 能被 400 整除");
+        assert!(normalize_date("1900-02-29").is_none(), "1900 能被 100 整除但不是闰年");
+        assert!(normalize_date("2100-02-29").is_none());
+    }
+
+    #[test]
+    fn field_kind_defaults_to_text_for_old_vaults() {
+        // 旧库里的字段没有 `kind` 键，必须反序列化成 text 而不是报错。
+        let f: CustomField = serde_json::from_str(r#"{"label":"PIN","value":"1234","sensitive":true}"#).unwrap();
+        assert_eq!(f.kind, FieldKind::Text);
+        assert!(f.sensitive);
+
+        let json = serde_json::to_value(&f).unwrap();
+        assert_eq!(json["kind"], "text", "序列化用 camelCase 的 wire 值");
+    }
+
+    #[test]
+    fn normalize_custom_fields_trims_drops_empty_and_caps() {
+        let fields = vec![
+            CustomField { label: "  PIN  ".into(), value: "  1234  ".into(), sensitive: false, kind: FieldKind::Text },
+            // 名称与值都是空白 → 整条丢掉。
+            CustomField { label: "   ".into(), value: "".into(), sensitive: false, kind: FieldKind::Text },
+            CustomField { label: "到期".into(), value: "2026/10/02".into(), sensitive: false, kind: FieldKind::Date },
+        ];
+        let out = ItemData::normalize_custom_fields(&fields);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].label, "PIN");
+        assert_eq!(out[0].value, "1234");
+        assert_eq!(out[1].value, "2026-10-02", "日期分隔符统一");
+
+        // 上限：超出部分丢弃而不是报错。
+        let many: Vec<CustomField> = (0..CUSTOM_FIELD_LIMIT + 5)
+            .map(|i| CustomField { label: format!("f{i}"), value: "v".into(), sensitive: false, kind: FieldKind::Text })
+            .collect();
+        assert_eq!(ItemData::normalize_custom_fields(&many).len(), CUSTOM_FIELD_LIMIT);
+    }
+
+    #[test]
+    fn unparseable_date_keeps_the_original_text() {
+        // 规范化不静默丢数据：认不出的日期原样保留，由保存前校验去报错。
+        let fields = vec![CustomField { label: "到期".into(), value: "下个月".into(), sensitive: false, kind: FieldKind::Date }];
+        let out = ItemData::normalize_custom_fields(&fields);
+        assert_eq!(out[0].value, "下个月");
+    }
+
+    #[test]
+    fn check_field_reports_per_kind_problems() {
+        let ok =
+            |label: &str, value: &str, kind: FieldKind| CustomField { label: label.into(), value: value.into(), sensitive: false, kind };
+        assert!(ItemData::check_field(&ok("PIN", "1234", FieldKind::Text)).is_ok());
+        assert!(ItemData::check_field(&ok("到期", "2026-10-02", FieldKind::Date)).is_ok());
+        assert!(ItemData::check_field(&ok("到期", "", FieldKind::Date)).is_ok(), "日期可以留空");
+        assert!(ItemData::check_field(&ok("头像", "/home/me/a.png", FieldKind::Image)).is_ok());
+        assert!(ItemData::check_field(&ok("头像", "https://example.com/a.png", FieldKind::Image)).is_ok());
+
+        assert!(ItemData::check_field(&ok("  ", "v", FieldKind::Text)).is_err(), "字段名不能为空");
+        let e = ItemData::check_field(&ok("到期", "下个月", FieldKind::Date)).unwrap_err();
+        assert!(e.contains("到期"), "报错要点名字段：{e}");
+        assert!(ItemData::check_field(&ok("头像", "", FieldKind::Image)).is_err());
+        assert!(ItemData::check_field(&ok("头像", "a\nb", FieldKind::Image)).is_err());
+
+        let long = "x".repeat(CUSTOM_FIELD_VALUE_LIMIT + 1);
+        assert!(ItemData::check_field(&ok("PIN", &long, FieldKind::Text)).is_err());
+        // 图片地址的上限更宽，同样的长度对图片是合法的。
+        assert!(ItemData::check_field(&ok("头像", &long, FieldKind::Image)).is_ok());
+    }
 
     #[test]
     fn json_matches_spec_shape() {

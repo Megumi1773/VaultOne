@@ -776,6 +776,13 @@ pub(crate) fn validate_item(data: &ItemData) -> Result<()> {
             return Err(VaultError::InvalidInput(format!("分类名不能为空或超过 {} 字符", crate::item::CATEGORY_LIMIT)));
         }
     }
+    if data.custom_fields.len() > crate::item::CUSTOM_FIELD_LIMIT {
+        return Err(VaultError::InvalidInput(format!("自定义字段数量上限 {}", crate::item::CUSTOM_FIELD_LIMIT)));
+    }
+    // 逐条报错时带上字段名，否则用户不知道是哪一条不对。
+    for field in &data.custom_fields {
+        ItemData::check_field(field).map_err(VaultError::InvalidInput)?;
+    }
     let size = serde_json::to_vec(data)?.len();
     if size > 256 * 1024 {
         return Err(VaultError::InvalidInput("条目内容过大（上限 256 KB）".into()));
@@ -1127,6 +1134,35 @@ mod tests {
         assert!(matches!(v.delete_tag("a"), Err(VaultError::Locked)));
         assert!(matches!(v.rename_category("a", "b"), Err(VaultError::Locked)));
         assert!(matches!(v.clear_category("a"), Err(VaultError::Locked)));
+    }
+
+    /// 动态字段类型在保存路径上的行为（计划书 §3.1）。
+    #[test]
+    fn custom_field_kinds_are_validated_and_normalized_on_save() {
+        use crate::item::{CustomField, FieldKind};
+        let field =
+            |label: &str, value: &str, kind: FieldKind| CustomField { label: label.into(), value: value.into(), sensitive: false, kind };
+
+        let (mut v, _) = new_vault();
+        let mut data = login("A", "p");
+        data.custom_fields = vec![field("到期", "2026/10/02", FieldKind::Date), field("头像", "/home/me/a.png", FieldKind::Image)];
+        let created = v.create_item(data).unwrap();
+        // 存进去的是规范化后的值：分隔符统一。
+        assert_eq!(created.data.custom_fields[0].value, "2026-10-02");
+        assert_eq!(created.data.custom_fields[1].kind, FieldKind::Image);
+
+        // 无效日期在保存前被拒，且报错点名是哪个字段。
+        let mut bad = login("B", "p");
+        bad.custom_fields = vec![field("到期", "下个月", FieldKind::Date)];
+        let e = v.create_item(bad).unwrap_err();
+        assert!(matches!(e, VaultError::InvalidInput(_)));
+        assert!(e.to_string().contains("到期"), "报错要点名字段：{e}");
+        assert_eq!(v.item_count().unwrap(), 1, "被拒的条目不该落库");
+
+        // 图片字段必须有地址。
+        let mut empty_image = login("C", "p");
+        empty_image.custom_fields = vec![field("头像", "   ", FieldKind::Image)];
+        assert!(matches!(v.create_item(empty_image), Err(VaultError::InvalidInput(_))));
     }
 
     /// 同名条目在三种策略下的行为（计划书 §3.7）。

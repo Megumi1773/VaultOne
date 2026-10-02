@@ -1,8 +1,10 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/api.dart';
 import '../../core/ffi.dart';
+import '../../core/field_kind.dart';
 import '../../core/item_templates.dart';
 import '../../core/models.dart';
 import '../../l10n/strings.dart';
@@ -23,13 +25,16 @@ class _UrlDraft {
 }
 
 class _FieldDraft {
-  _FieldDraft(String label, String value, this.sensitive)
+  _FieldDraft(String label, String value, this.sensitive, this.kind)
     : label = TextEditingController(text: label),
       value = TextEditingController(text: value);
 
   final TextEditingController label;
   final TextEditingController value;
   bool sensitive;
+
+  /// 渲染与校验类型（§3.1）。改类型只影响显示与校验，不动已经输入的值。
+  FieldKind kind;
 }
 
 /// 条目编辑器（新建与编辑共用）。Ctrl+S 保存，Esc 取消。
@@ -85,7 +90,7 @@ class _ItemEditorState extends State<ItemEditor> {
   ];
   late final List<_FieldDraft> _fields = [
     for (final f in d?.customFields ?? const <CustomField>[])
-      _FieldDraft(f.label, f.value, f.sensitive),
+      _FieldDraft(f.label, f.value, f.sensitive, f.kind),
   ];
 
   TotpConfig? _totpConfig;
@@ -106,6 +111,52 @@ class _ItemEditorState extends State<ItemEditor> {
     super.initState();
     _totpConfig = d?.totp;
     _strength = VaultApi.strength(_password.text);
+  }
+
+  /// 自定义字段的值输入框。按类型给不同提示语，但仍然允许手打——
+  /// 日期可以手输（选择器只是省事），图片可以粘 URL。
+  Widget _fieldValueInput(BuildContext context, int i) {
+    final draft = _fields[i];
+    return ZoTextField(
+      controller: draft.value,
+      hint: switch (draft.kind) {
+        FieldKind.text => context.tr(AppStrings.fieldValue),
+        FieldKind.date => context.tr(AppStrings.fieldDateHint),
+        FieldKind.image => context.tr(AppStrings.fieldImageHint),
+      },
+      dense: true,
+      obscure: draft.sensitive,
+    );
+  }
+
+  /// 日期选择器。写入 `YYYY-MM-DD`，与内核的规范化格式一致。
+  Future<void> _pickDate(int i) async {
+    final draft = _fields[i];
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: parseDateValue(draft.value.text) ?? now,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(now.year + 50),
+    );
+    if (picked == null || !mounted) return;
+    draft.value.text = formatDateValue(picked);
+  }
+
+  /// 图片文件选择器。存**路径**而不是图片数据：条目 blob 有 256 KB 上限，内联图片会把同步
+  /// 负载撑爆，与内核「图片字段只存本地路径或 URL」的设计一致。
+  Future<void> _pickImage(int i) async {
+    final draft = _fields[i];
+    try {
+      final file = await openFile(acceptedTypeGroups: const [
+        XTypeGroup(label: 'image', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']),
+      ]);
+      if (file == null || !mounted) return;
+      draft.value.text = file.path;
+    } on MissingPluginException {
+      // 某些平台没有文件选择器实现；如实告诉用户，让他手打路径。
+      if (mounted) showZoMessage(context, context.tr(AppStrings.pickImageUnavailable), error: true);
+    }
   }
 
   @override
@@ -214,8 +265,9 @@ class _ItemEditorState extends State<ItemEditor> {
           if (f.label.text.trim().isNotEmpty || f.value.text.isNotEmpty)
             CustomField(
               label: f.label.text.trim(),
-              value: f.value.text,
+              value: f.value.text.trim(),
               sensitive: f.sensitive,
+              kind: f.kind,
             ),
       ],
       favorite: d?.favorite ?? false,
@@ -267,7 +319,7 @@ class _ItemEditorState extends State<ItemEditor> {
           (item) => item.label.text.trim() == field.label,
         );
         if (!exists) {
-          _fields.add(_FieldDraft(field.label, '', field.sensitive));
+          _fields.add(_FieldDraft(field.label, '', field.sensitive, FieldKind.text));
           _templateFieldLabels.add(field.label);
         }
       }
@@ -610,7 +662,7 @@ class _ItemEditorState extends State<ItemEditor> {
             variant: ZoButtonVariant.ghost,
             dense: true,
             onPressed: () =>
-                setState(() => _fields.add(_FieldDraft('', '', false))),
+                setState(() => _fields.add(_FieldDraft('', '', false, FieldKind.text))),
           ),
           children: [
             if (_fields.isEmpty)
@@ -631,14 +683,39 @@ class _ItemEditorState extends State<ItemEditor> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: ZoTextField(
-                      controller: _fields[i].value,
-                      hint: context.tr(AppStrings.fieldValue),
-                      dense: true,
-                      obscure: _fields[i].sensitive,
+                  Expanded(child: _fieldValueInput(context, i)),
+                  // 类型：文本 / 日期 / 图片。改类型只影响显示与校验，不动已输入的值。
+                  PopupMenuButton<FieldKind>(
+                    tooltip: context.tr(AppStrings.fieldType),
+                    position: PopupMenuPosition.under,
+                    onSelected: (k) => setState(() => _fields[i].kind = k),
+                    itemBuilder: (_) => [
+                      for (final k in FieldKind.values)
+                        PopupMenuItem(value: k, height: 38, child: Text(fieldKindLabel(context, k))),
+                    ],
+                    child: ZoTag(
+                      fieldKindLabel(context, _fields[i].kind),
+                      icon: switch (_fields[i].kind) {
+                        FieldKind.text => Icons.text_fields_rounded,
+                        FieldKind.date => Icons.event_outlined,
+                        FieldKind.image => Icons.image_outlined,
+                      },
+                      color: _fields[i].kind == FieldKind.text ? c.textMuted : c.accent,
                     ),
                   ),
+                  // 日期给选择器，图片给文件选择：这两类让用户手打路径是折磨。
+                  if (_fields[i].kind == FieldKind.date)
+                    ZoIconButton(
+                      icon: Icons.edit_calendar_outlined,
+                      tooltip: context.tr(AppStrings.fieldPickDate),
+                      onPressed: () => _pickDate(i),
+                    ),
+                  if (_fields[i].kind == FieldKind.image)
+                    ZoIconButton(
+                      icon: Icons.folder_open_rounded,
+                      tooltip: context.tr(AppStrings.fieldPickImage),
+                      onPressed: () => _pickImage(i),
+                    ),
                   ZoIconButton(
                     icon: _fields[i].sensitive
                         ? Icons.lock_rounded
