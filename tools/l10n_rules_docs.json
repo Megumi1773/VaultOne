@@ -1,0 +1,29 @@
+[
+  {
+    "file": "app/lib/src/state/backup_card.dart",
+    "replace": [
+      ["    final badge = _text('RECOVERY KIT · 备份卡', size: 11, color: _accent, weight: FontWeight.w600, spacing: 1.6);",
+       "    final badge = _text(_t(AppStrings.cardDocBadge), size: 11, color: _accent, weight: FontWeight.w600, spacing: 1.6);"],
+      ["    final title = _text('请离线保管这张卡', size: 27, weight: FontWeight.w700, spacing: -0.4);",
+       "    final title = _text(_t(AppStrings.cardDocTitle), size: 27, weight: FontWeight.w700, spacing: -0.4);"],
+      ["    final lead = _wrap(\n      '它是找回你保险库的唯一凭据。VaultOne 采用零知识架构，无法重置你的主密码，也无法替你恢复数据。'\n      '请打印成实体卡或存入离线介质，不要放进网盘、邮箱或聊天记录。',",
+       "    final lead = _wrap(\n      _t(AppStrings.cardLead),"],
+      ["    final skHeight = _block(canvas, y, 'SECRET KEY · 设备密钥', data.secretKey, size: 19);",
+       "    final skHeight = _block(canvas, y, _t(AppStrings.docSecretKeyLabel), data.secretKey, size: 19);"],
+      ["    final rcHeight = _block(canvas, y, 'RECOVERY CODE · 恢复码', data.recoveryCode, size: 19);",
+       "    final rcHeight = _block(canvas, y, _t(AppStrings.docRecoveryCodeLabel), data.recoveryCode, size: 19);"],
+      ["    final emailHeight = _block(canvas, y, '账户邮箱 / EMAIL', data.email, size: 14, mono: false);",
+       "    final emailHeight = _block(canvas, y, _t(AppStrings.docEmailLabel), data.email, size: 14, mono: false);"],
+      ["    final blankLabel = _text('主密码（可选，手写）/ MASTER PASSWORD', size: 10, color: _faint, spacing: 1.2);",
+       "    final blankLabel = _text(_t(AppStrings.docMasterPasswordLabel), size: 10, color: _faint, spacing: 1.2);"],
+      ["    for (final line in [\n      '在新设备登录时，需要同时输入「主密码」与「Secret Key」。',\n      '忘记主密码时，可用「Secret Key + 恢复码」重设主密码；重设后此恢复码立即作废，请保存新的恢复套件。',\n    ]) {",
+       "    for (final line in [\n      _t(AppStrings.docLoginNeedsBoth),\n      _t(AppStrings.cardResetHint),\n    ]) {"],
+      ["    final foot = _text('生成于 $date · 能打开你保险库的，只有你自己。', size: 10, color: _faint);",
+       "    final foot = _text(\n      AppStrings.format(_t(AppStrings.docGeneratedFooter), {'date': date}),\n      size: 10,\n      color: _faint,\n    );"],
+      ["    final word = _text('VaultOne', size: 21, weight: FontWeight.w800, spacing: 0.4);",
+       "    final word = _text(AppStrings.appName, size: 21, weight: FontWeight.w800, spacing: 0.4);"],
+      ["    final markFoot = _text('VaultOne', size: 10, color: _faint, weight: FontWeight.w700, spacing: 1.2);",
+       "    final markFoot = _text(AppStrings.appName, size: 10, color: _faint, weight: FontWeight.w700, spacing: 1.2);"]
+    ]
+  }
+]

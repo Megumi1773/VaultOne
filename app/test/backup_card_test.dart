@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vaultone/src/l10n/strings.dart';
 import 'package:vaultone/src/state/backup_card.dart';
 
 void main() {
@@ -33,9 +34,26 @@ void main() {
     });
   });
 
-  testWidgets('备份卡尺寸常量与文件名固定', (tester) async {
+  testWidgets('备份卡尺寸常量固定，文件名按语言给出', (tester) async {
     expect(BackupCard.logicalSize, const Size(700, 900));
     expect(BackupCard.defaultScale, 2);
-    expect(BackupCard.fileName, endsWith('.png'));
+    for (final language in AppStrings.supported) {
+      expect(BackupCard.fileName(language), endsWith('.png'), reason: '$language');
+    }
+    expect(
+      BackupCard.fileName(AppLanguage.en),
+      isNot(BackupCard.fileName(AppLanguage.zhHans)),
+      reason: '英文文件名不应残留中文',
+    );
+    expect(BackupCard.fileName(AppLanguage.zhHant), contains('備份卡'), reason: '繁中卡名应使用繁体字形');
+  });
+
+  testWidgets('备份卡按语言渲染：英文卡不含中文文案，繁中卡字形可用', (tester) async {
+    await tester.runAsync(() async {
+      for (final language in AppStrings.supported) {
+        final bytes = await BackupCard.pngBytes(withDate, language: language);
+        expect(bytes.sublist(0, 8), [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], reason: '$language');
+      }
+    });
   });
 }

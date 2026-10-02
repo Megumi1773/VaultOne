@@ -1,0 +1,18 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/onboarding.dart",
+    "replace": [
+      ["      final path = await RecoveryKit.save(widget.enrollment, canContinue: canContinue);",
+       "      final path = await RecoveryKit.save(\n        widget.enrollment,\n        canContinue: canContinue,\n        language: context.language,\n      );"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/backup_dialog.dart",
+    "replace": [
+      ["      final path = await RecoveryKit.save(\n        Enrollment(accountId: m.accountId, email: m.email, secretKey: m.secretKey, recoveryCode: m.recoveryCode),\n        canContinue: canContinue,\n      );",
+       "      final path = await RecoveryKit.save(\n        Enrollment(accountId: m.accountId, email: m.email, secretKey: m.secretKey, recoveryCode: m.recoveryCode),\n        canContinue: canContinue,\n        language: context.language,\n      );"],
+      ["        BackupCardData(email: m.email, secretKey: m.secretKey, recoveryCode: m.recoveryCode, generatedAt: DateTime.now()),\n        canContinue: canContinue,\n      );",
+       "        BackupCardData(email: m.email, secretKey: m.secretKey, recoveryCode: m.recoveryCode, generatedAt: DateTime.now()),\n        canContinue: canContinue,\n        language: context.language,\n      );"]
+    ]
+  }
+]

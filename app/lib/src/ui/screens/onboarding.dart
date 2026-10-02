@@ -280,7 +280,11 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
     final epoch = state.sessionEpoch;
     bool canContinue() => mounted && epoch == state.sessionEpoch;
     try {
-      final path = await RecoveryKit.save(widget.enrollment, canContinue: canContinue);
+      final path = await RecoveryKit.save(
+        widget.enrollment,
+        canContinue: canContinue,
+        language: context.language,
+      );
       if (path != null && canContinue()) {
         await state.recordBackup('recovery_kit');
         if (!canContinue()) return;

@@ -677,6 +677,35 @@ abstract final class AppStrings {
   static const trayQuickSearch = '快速搜索';
   static const trayQuit = '退出';
 
+  // ───────── 恢复套件 PDF 与备份卡图 ─────────
+  //
+  // 这两份交付物是**位图与 PDF**，文字在渲染时固化，不随界面语言在运行时切换：
+  // 渲染入口接收 `AppLanguage`，同时决定文案与内嵌字体（简中/英文用 Noto Sans SC，
+  // 繁中用 Noto Sans TC）。两份材料内容高度重叠，同文案共用同一常量，避免分叉。
+
+  static const docExportedViaPanel = '已通过系统面板导出';
+  static const docSecretKeyLabel = 'SECRET KEY · 设备密钥';
+  static const docRecoveryCodeLabel = 'RECOVERY CODE · 恢复码';
+  static const docEmailLabel = '账户邮箱 / EMAIL';
+  static const docMasterPasswordLabel = '主密码（可选，手写）/ MASTER PASSWORD';
+  static const docLoginNeedsBoth = '在新设备登录时，需要同时输入「主密码」与「Secret Key」。';
+  static const docGeneratedFooter = '生成于 {date} · 能打开你保险库的，只有你自己。';
+
+  static const kitDocTitle = 'Recovery Kit · 恢复套件';
+  static const kitLead = '这是找回你保险库的唯一凭据。VaultOne 采用零知识架构，我们无法重置你的主密码，也无法替你恢复数据。请打印或离线保存本文件，不要存放在网盘、邮箱或聊天记录中。';
+  static const kitResetHint = '忘记主密码时，可用「Secret Key + 恢复码」重设主密码；重设后此恢复码立即作废，请保存新的 Recovery Kit。';
+  static const kitAccountId = '账户 ID：{id}';
+  static const kitFileName = 'VaultOne-Recovery-Kit.pdf';
+  static const kitTypeGroup = 'PDF';
+
+  static const cardDocBadge = 'RECOVERY KIT · 备份卡';
+  static const cardDocTitle = '请离线保管这张卡';
+  static const cardLead = '它是找回你保险库的唯一凭据。VaultOne 采用零知识架构，无法重置你的主密码，也无法替你恢复数据。请打印成实体卡或存入离线介质，不要放进网盘、邮箱或聊天记录。';
+  static const cardResetHint = '忘记主密码时，可用「Secret Key + 恢复码」重设主密码；重设后此恢复码立即作废，请保存新的恢复套件。';
+  static const cardFileName = 'VaultOne-备份卡.png';
+  static const cardTypeGroup = 'PNG 图片';
+  static const cardEncodeFailed = '备份卡编码失败';
+
   // ───────── 条目字段与操作 ─────────
 
   static const moveToTrash = '移入回收站';
@@ -1368,6 +1397,26 @@ abstract final class AppStrings {
     trayOpen: '開啟 VaultOne',
     trayQuickSearch: '快速搜尋',
     trayQuit: '結束',
+    docExportedViaPanel: '已透過系統面板匯出',
+    docSecretKeyLabel: 'SECRET KEY · 裝置金鑰',
+    docRecoveryCodeLabel: 'RECOVERY CODE · 恢復碼',
+    docEmailLabel: '帳戶電子郵件 / EMAIL',
+    docMasterPasswordLabel: '主密碼（選填，手寫）/ MASTER PASSWORD',
+    docLoginNeedsBoth: '在新裝置登入時，需要同時輸入「主密碼」與「Secret Key」。',
+    docGeneratedFooter: '產生於 {date} · 能開啟你保險庫的，只有你自己。',
+    kitDocTitle: 'Recovery Kit · 恢復套件',
+    kitLead: '這是找回你保險庫的唯一憑據。VaultOne 採用零知識架構，我們無法重設你的主密碼，也無法替你恢復資料。請列印或離線保存本檔案，不要存放在網盤、電子郵件或聊天記錄中。',
+    kitResetHint: '忘記主密碼時，可用「Secret Key + 恢復碼」重設主密碼；重設後此恢復碼立即作廢，請保存新的 Recovery Kit。',
+    kitAccountId: '帳戶 ID：{id}',
+    kitFileName: 'VaultOne-Recovery-Kit.pdf',
+    kitTypeGroup: 'PDF',
+    cardDocBadge: 'RECOVERY KIT · 備份卡',
+    cardDocTitle: '請離線保管這張卡',
+    cardLead: '它是找回你保險庫的唯一憑據。VaultOne 採用零知識架構，無法重設你的主密碼，也無法替你恢復資料。請列印成實體卡或存入離線媒體，不要放進網盤、電子郵件或聊天記錄。',
+    cardResetHint: '忘記主密碼時，可用「Secret Key + 恢復碼」重設主密碼；重設後此恢復碼立即作廢，請保存新的恢復套件。',
+    cardFileName: 'VaultOne-備份卡.png',
+    cardTypeGroup: 'PNG 圖片',
+    cardEncodeFailed: '備份卡編碼失敗',
     moveToTrash: '移至回收筒',
     moveToTrashConfirmTitle: '移至回收筒？',
     moveToTrashConfirmBody: '「{title}」將移至回收筒，可隨時恢復。',
@@ -2037,6 +2086,26 @@ abstract final class AppStrings {
     trayOpen: 'Open VaultOne',
     trayQuickSearch: 'Quick search',
     trayQuit: 'Quit',
+    docExportedViaPanel: 'Exported through the system panel',
+    docSecretKeyLabel: 'SECRET KEY · DEVICE KEY',
+    docRecoveryCodeLabel: 'RECOVERY CODE',
+    docEmailLabel: 'ACCOUNT EMAIL',
+    docMasterPasswordLabel: 'MASTER PASSWORD (optional, handwritten)',
+    docLoginNeedsBoth: 'Signing in on a new device requires both the master password and the Secret Key.',
+    docGeneratedFooter: 'Generated {date} · Only you can open your vault.',
+    kitDocTitle: 'Recovery Kit',
+    kitLead: 'This is the only credential that can recover your vault. VaultOne is zero-knowledge: we cannot reset your master password or restore your data for you. Print this file or keep it offline; never store it in a cloud drive, email or chat history.',
+    kitResetHint: 'If you forget the master password, reset it with the Secret Key plus the recovery code. That immediately invalidates this recovery code, so save the new Recovery Kit.',
+    kitAccountId: 'Account ID: {id}',
+    kitFileName: 'VaultOne-Recovery-Kit.pdf',
+    kitTypeGroup: 'PDF',
+    cardDocBadge: 'RECOVERY KIT · BACKUP CARD',
+    cardDocTitle: 'Keep this card offline',
+    cardLead: 'It is the only credential that can recover your vault. VaultOne is zero-knowledge: we cannot reset your master password or restore your data for you. Print it as a physical card or keep it on offline media; never put it in a cloud drive, email or chat history.',
+    cardResetHint: 'If you forget the master password, reset it with the Secret Key plus the recovery code. That immediately invalidates this recovery code, so save the new Recovery Kit.',
+    cardFileName: 'VaultOne-backup-card.png',
+    cardTypeGroup: 'PNG image',
+    cardEncodeFailed: 'Encoding the backup card failed',
     moveToTrash: 'Move to trash',
     moveToTrashConfirmTitle: 'Move to trash?',
     moveToTrashConfirmBody: '“{title}” moves to the trash and can be restored at any time.',

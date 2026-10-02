@@ -1,0 +1,20 @@
+[
+  {
+    "file": "app/test/backup_card_test.dart",
+    "replace": [
+      ["import 'package:vaultone/src/state/backup_card.dart';",
+       "import 'package:vaultone/src/l10n/strings.dart';\nimport 'package:vaultone/src/state/backup_card.dart';"],
+      ["  testWidgets('备份卡尺寸常量与文件名固定', (tester) async {\n    expect(BackupCard.logicalSize, const Size(700, 900));\n    expect(BackupCard.defaultScale, 2);\n    expect(BackupCard.fileName, endsWith('.png'));\n  });",
+       "  testWidgets('备份卡尺寸常量固定，文件名按语言给出', (tester) async {\n    expect(BackupCard.logicalSize, const Size(700, 900));\n    expect(BackupCard.defaultScale, 2);\n    for (final language in AppStrings.supported) {\n      expect(BackupCard.fileName(language), endsWith('.png'), reason: '$language');\n    }\n    expect(\n      BackupCard.fileName(AppLanguage.en),\n      isNot(BackupCard.fileName(AppLanguage.zhHans)),\n      reason: '英文文件名不应残留中文',\n    );\n  });\n\n  testWidgets('备份卡按语言渲染：英文卡不含中文文案，繁中卡字形可用', (tester) async {\n    await tester.runAsync(() async {\n      for (final language in AppStrings.supported) {\n        final bytes = await BackupCard.pngBytes(withDate, language: language);\n        expect(bytes.sublist(0, 8), [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], reason: '$language');\n      }\n    });\n  });"]
+    ]
+  },
+  {
+    "file": "app/test/recovery_kit_guard_test.dart",
+    "replace": [
+      ["import 'package:vaultone/src/core/models.dart';\nimport 'package:vaultone/src/state/recovery_kit.dart';",
+       "import 'package:vaultone/src/core/models.dart';\nimport 'package:vaultone/src/l10n/strings.dart';\nimport 'package:vaultone/src/state/recovery_kit.dart';"],
+      ["  test('恢复套件生成期间会话失效，不继续调用文件或分享插件', () async {\n    var checks = 0;\n    final path = await RecoveryKit.save(enrollment, canContinue: () => ++checks == 1);\n    expect(checks, 2);\n    expect(path, isNull);\n  });",
+       "  test('恢复套件生成期间会话失效，不继续调用文件或分享插件', () async {\n    var checks = 0;\n    final path = await RecoveryKit.save(enrollment, canContinue: () => ++checks == 1);\n    expect(checks, 2);\n    expect(path, isNull);\n  });\n\n  test('恢复套件三种语言都能生成 PDF，文件名按语言给出', () async {\n    for (final language in AppStrings.supported) {\n      final bytes = await RecoveryKit.build(enrollment, language: language);\n      expect(bytes.sublist(0, 5), '%PDF-'.codeUnits, reason: '$language 应是 PDF');\n      expect(bytes.length, greaterThan(1024), reason: '$language 不是空文档');\n    }\n    expect(\n      RecoveryKit.fileName(AppLanguage.en),\n      isNot(RecoveryKit.fileName(AppLanguage.zhHans)),\n      reason: '英文文件名不应残留中文',\n    );\n  });"]
+    ]
+  }
+]

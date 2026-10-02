@@ -6,12 +6,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 
+import '../l10n/strings.dart';
+
 /// 备份卡（F-08 补充）：把 Secret Key 与恢复码渲染成一张 700×900 的卡片图，默认 2x
 /// （即 1400×1800 像素）。与 PDF 恢复套件互补——PDF 适合打印归档，卡图适合存进
 /// 手机相册或打印成实体卡随身携带。
 ///
 /// 卡片图是本机生成的静态图片，只写到用户选择的位置或经系统分享面板导出，不经过网络、
 /// 不落应用缓存。它等价于明文凭据，导出后请按恢复套件同等级别保管。
+///
+/// 文字在生成时固化进位图，因此入口接收 [AppLanguage]：按所选语言渲染文案，并加载
+/// 对应字体子集（简中与英文用 Noto Sans SC，繁中用 Noto Sans TC）。
 abstract final class BackupCard {
   /// 逻辑尺寸（1x）。2x 导出即 1400×1800。
   static const Size logicalSize = Size(700, 900);
@@ -19,15 +24,21 @@ abstract final class BackupCard {
   /// 默认导出倍率。
   static const double defaultScale = 2;
 
-  static const String _fontAsset = 'assets/fonts/NotoSansSC-Regular.ttf';
+  static String _fontAsset(AppLanguage language) => language == AppLanguage.zhHant
+      ? 'assets/fonts/NotoSansTC-Regular.ttf'
+      : 'assets/fonts/NotoSansSC-Regular.ttf';
 
-  static Future<ui.Image> render(BackupCardData data, {double scale = defaultScale}) async {
-    final loader = FontLoader('BackupCardSans')..addFont(_fontData());
+  static Future<ui.Image> render(
+    BackupCardData data, {
+    double scale = defaultScale,
+    AppLanguage language = AppStrings.defaultLanguage,
+  }) async {
+    final loader = FontLoader('BackupCardSans')..addFont(_fontData(language));
     await loader.load();
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.scale(scale);
-    _BackupCardPainter(data).paint(canvas, logicalSize);
+    _BackupCardPainter(data, language).paint(canvas, logicalSize);
     final picture = recorder.endRecording();
     try {
       return await picture.toImage((logicalSize.width * scale).round(), (logicalSize.height * scale).round());
@@ -36,36 +47,50 @@ abstract final class BackupCard {
     }
   }
 
-  static Future<Uint8List> pngBytes(BackupCardData data, {double scale = defaultScale}) async {
-    final image = await render(data, scale: scale);
+  static Future<Uint8List> pngBytes(
+    BackupCardData data, {
+    double scale = defaultScale,
+    AppLanguage language = AppStrings.defaultLanguage,
+  }) async {
+    final image = await render(data, scale: scale, language: language);
     try {
       final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (bytes == null) throw StateError('备份卡编码失败');
+      if (bytes == null) throw StateError(AppStrings.translate(AppStrings.cardEncodeFailed, language));
       return bytes.buffer.asUint8List();
     } finally {
       image.dispose();
     }
   }
 
-  static Future<ByteData> _fontData() async {
-    final data = await rootBundle.load(_fontAsset);
+  static Future<ByteData> _fontData(AppLanguage language) async {
+    final data = await rootBundle.load(_fontAsset(language));
     return ByteData.view(data.buffer);
   }
 
-  static String get fileName => 'VaultOne-备份卡.png';
+  static String fileName(AppLanguage language) => AppStrings.translate(AppStrings.cardFileName, language);
 
   /// 返回保存位置描述；用户取消时返回 null。`canContinue` 用于锁定/会话失效后放弃写入。
-  static Future<String?> save(BackupCardData data, {required bool Function() canContinue}) async {
+  static Future<String?> save(
+    BackupCardData data, {
+    required bool Function() canContinue,
+    AppLanguage language = AppStrings.defaultLanguage,
+  }) async {
     if (!canContinue()) return null;
-    final bytes = await pngBytes(data);
+    final bytes = await pngBytes(data, language: language);
     if (!canContinue()) return null;
+    final name = fileName(language);
     if (Platform.isAndroid || Platform.isIOS) {
-      final ok = await Printing.sharePdf(bytes: bytes, filename: fileName);
-      return ok ? '已通过系统面板导出' : null;
+      final ok = await Printing.sharePdf(bytes: bytes, filename: name);
+      return ok ? AppStrings.translate(AppStrings.docExportedViaPanel, language) : null;
     }
     final loc = await getSaveLocation(
-      suggestedName: fileName,
-      acceptedTypeGroups: const [XTypeGroup(label: 'PNG 图片', extensions: ['png'])],
+      suggestedName: name,
+      acceptedTypeGroups: [
+        XTypeGroup(
+          label: AppStrings.translate(AppStrings.cardTypeGroup, language),
+          extensions: const ['png'],
+        ),
+      ],
     );
     if (loc == null || !canContinue()) return null;
     var path = loc.path;
@@ -87,9 +112,12 @@ class BackupCardData {
 }
 
 class _BackupCardPainter {
-  _BackupCardPainter(this.data);
+  _BackupCardPainter(this.data, this.language);
 
   final BackupCardData data;
+  final AppLanguage language;
+
+  String _t(String source) => AppStrings.translate(source, language);
 
   static const _ink = Color(0xFF0A0A0C);
   static const _muted = Color(0xFF55555E);
@@ -163,23 +191,22 @@ class _BackupCardPainter {
         ..strokeCap = StrokeCap.square),
     );
 
-    final word = _text('VaultOne', size: 21, weight: FontWeight.w800, spacing: 0.4);
+    final word = _text(AppStrings.appName, size: 21, weight: FontWeight.w800, spacing: 0.4);
     _draw(canvas, word, Offset(pad + 42, pad + 4));
 
-    final badge = _text('RECOVERY KIT · 备份卡', size: 11, color: _accent, weight: FontWeight.w600, spacing: 1.6);
+    final badge = _text(_t(AppStrings.cardDocBadge), size: 11, color: _accent, weight: FontWeight.w600, spacing: 1.6);
     _draw(canvas, badge, Offset(w - pad - badge.width, pad + 10));
 
     var y = pad + 58;
     canvas.drawLine(Offset(pad, y), Offset(w - pad, y), Paint()..color = _rule..strokeWidth = 1);
     y += 30;
 
-    final title = _text('请离线保管这张卡', size: 27, weight: FontWeight.w700, spacing: -0.4);
+    final title = _text(_t(AppStrings.cardDocTitle), size: 27, weight: FontWeight.w700, spacing: -0.4);
     _draw(canvas, title, Offset(pad, y));
     y += 40;
 
     final lead = _wrap(
-      '它是找回你保险库的唯一凭据。VaultOne 采用零知识架构，无法重置你的主密码，也无法替你恢复数据。'
-      '请打印成实体卡或存入离线介质，不要放进网盘、邮箱或聊天记录。',
+      _t(AppStrings.cardLead),
       size: 12.5,
       color: _muted,
       width: w - pad * 2,
@@ -189,29 +216,29 @@ class _BackupCardPainter {
     y += lead.height + 30;
 
     // Secret Key
-    final skHeight = _block(canvas, y, 'SECRET KEY · 设备密钥', data.secretKey, size: 19);
+    final skHeight = _block(canvas, y, _t(AppStrings.docSecretKeyLabel), data.secretKey, size: 19);
     y += skHeight + 16;
 
     // Recovery Code
-    final rcHeight = _block(canvas, y, 'RECOVERY CODE · 恢复码', data.recoveryCode, size: 19);
+    final rcHeight = _block(canvas, y, _t(AppStrings.docRecoveryCodeLabel), data.recoveryCode, size: 19);
     y += rcHeight + 16;
 
     // 邮箱（非密钥，普通字体）
-    final emailHeight = _block(canvas, y, '账户邮箱 / EMAIL', data.email, size: 14, mono: false);
+    final emailHeight = _block(canvas, y, _t(AppStrings.docEmailLabel), data.email, size: 14, mono: false);
     y += emailHeight + 16;
 
     // 主密码手写留白
     final blank = Rect.fromLTWH(pad, y, w - pad * 2, 62);
     _bevel(canvas, blank, fill: Colors.white.withValues(alpha: 0.6), stroke: _rule, cut: 10, width: 1);
-    final blankLabel = _text('主密码（可选，手写）/ MASTER PASSWORD', size: 10, color: _faint, spacing: 1.2);
+    final blankLabel = _text(_t(AppStrings.docMasterPasswordLabel), size: 10, color: _faint, spacing: 1.2);
     _draw(canvas, blankLabel, Offset(pad + 18, y + 12));
     canvas.drawLine(Offset(pad + 18, y + 46), Offset(w - pad - 18, y + 46), Paint()..color = _rule..strokeWidth = 1);
     y += 62 + 26;
 
     // 使用说明
     for (final line in [
-      '在新设备登录时，需要同时输入「主密码」与「Secret Key」。',
-      '忘记主密码时，可用「Secret Key + 恢复码」重设主密码；重设后此恢复码立即作废，请保存新的恢复套件。',
+      _t(AppStrings.docLoginNeedsBoth),
+      _t(AppStrings.cardResetHint),
     ]) {
       final dot = _text('·', size: 13, color: _accent, weight: FontWeight.w700);
       _draw(canvas, dot, Offset(pad, y));
@@ -224,9 +251,13 @@ class _BackupCardPainter {
     final footY = size.height - pad - 10;
     canvas.drawLine(Offset(pad, footY - 22), Offset(w - pad, footY - 22), Paint()..color = _rule..strokeWidth = 1);
     final date = data.generatedAt.toIso8601String().substring(0, 10);
-    final foot = _text('生成于 $date · 能打开你保险库的，只有你自己。', size: 10, color: _faint);
+    final foot = _text(
+      AppStrings.format(_t(AppStrings.docGeneratedFooter), {'date': date}),
+      size: 10,
+      color: _faint,
+    );
     _draw(canvas, foot, Offset(pad, footY - 14));
-    final markFoot = _text('VaultOne', size: 10, color: _faint, weight: FontWeight.w700, spacing: 1.2);
+    final markFoot = _text(AppStrings.appName, size: 10, color: _faint, weight: FontWeight.w700, spacing: 1.2);
     _draw(canvas, markFoot, Offset(w - pad - markFoot.width, footY - 14));
   }
 

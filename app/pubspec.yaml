@@ -79,7 +79,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
+    # PDF 恢复套件与备份卡内嵌的字体子集（见 tools/subset_font.py）：
+    # 简中与英文用 SC，繁中用 TC。新增文案后需重新生成，门禁见 tools/check_fonts.py。
     - assets/fonts/NotoSansSC-Regular.ttf
+    - assets/fonts/NotoSansTC-Regular.ttf
     - assets/tray/
 
   # To add assets to your application, add an assets section, like this:

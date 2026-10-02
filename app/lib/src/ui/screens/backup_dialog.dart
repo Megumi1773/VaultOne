@@ -116,6 +116,7 @@ class _BackupManagerDialogState extends State<BackupManagerDialog> {
       final path = await RecoveryKit.save(
         Enrollment(accountId: m.accountId, email: m.email, secretKey: m.secretKey, recoveryCode: m.recoveryCode),
         canContinue: canContinue,
+        language: context.language,
       );
       if (path == null || !canContinue()) return;
       await state.recordBackup('recovery_kit');
@@ -139,6 +140,7 @@ class _BackupManagerDialogState extends State<BackupManagerDialog> {
       final path = await BackupCard.save(
         BackupCardData(email: m.email, secretKey: m.secretKey, recoveryCode: m.recoveryCode, generatedAt: DateTime.now()),
         canContinue: canContinue,
+        language: context.language,
       );
       if (path == null || !canContinue()) return;
       await state.recordBackup('backup_card');

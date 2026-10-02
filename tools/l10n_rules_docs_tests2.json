@@ -1,0 +1,16 @@
+[
+  {
+    "file": "app/test/recovery_kit_guard_test.dart",
+    "replace": [
+      ["    expect(\n      RecoveryKit.fileName(AppLanguage.en),\n      isNot(RecoveryKit.fileName(AppLanguage.zhHans)),\n      reason: '英文文件名不应残留中文',\n    );",
+       "    // PDF 文件名刻意保持语言无关的 ASCII：它要落到文件系统与系统分享面板，\n    // 跨平台最稳妥。备份卡文件名则随语言变化（见 backup_card_test）。\n    for (final language in AppStrings.supported) {\n      expect(\n        RecoveryKit.fileName(language),\n        matches(RegExp(r'^[\\x20-\\x7E]+\\.pdf$')),\n        reason: '$language 的 PDF 文件名应为纯 ASCII',\n      );\n    }"]
+    ]
+  },
+  {
+    "file": "app/test/backup_card_test.dart",
+    "replace": [
+      ["    expect(\n      BackupCard.fileName(AppLanguage.en),\n      isNot(BackupCard.fileName(AppLanguage.zhHans)),\n      reason: '英文文件名不应残留中文',\n    );",
+       "    expect(\n      BackupCard.fileName(AppLanguage.en),\n      isNot(BackupCard.fileName(AppLanguage.zhHans)),\n      reason: '英文文件名不应残留中文',\n    );\n    expect(BackupCard.fileName(AppLanguage.zhHant), contains('備份卡'), reason: '繁中卡名应使用繁体字形');"]
+    ]
+  }
+]
