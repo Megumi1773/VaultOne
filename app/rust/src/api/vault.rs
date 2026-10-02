@@ -257,6 +257,70 @@ pub struct BreachResult {
     pub count: u64,
 }
 
+/// 探测本机设备环境（计划书 §5.2）。
+///
+/// 只做**真的能做的检查**：Windows 上调用 `IsDebuggerPresent`（kernel32 默认已链接，
+/// 不需要额外依赖）。其余探测项（模拟器 / ADB / 开发者选项 / root）在桌面端没有意义，
+/// 如实填 `false`；锁屏状态无法可靠判定，保守填 `true`（安全），避免误报。
+///
+/// 不支持探测的平台返回 `supported = false`，体检会跳过该维度而不是假装通过。
+fn probe_environment() -> vault_core::health::EnvironmentReport {
+    #[cfg(windows)]
+    {
+        use vault_core::health::EnvironmentReport;
+        // SAFETY: IsDebuggerPresent 无参数、无副作用，只读当前进程的调试标志。
+        let debugger = unsafe { IsDebuggerPresent() } != 0;
+        return EnvironmentReport {
+            supported: true,
+            debugger_attached: debugger,
+            emulator: false,
+            adb_enabled: false,
+            developer_options: false,
+            // 桌面端无法可靠判定锁屏状态；保守视为已设置，避免误报「未设锁屏」。
+            device_secure: true,
+            // 桌面端没有 root / 越狱的概念，也没有可用的完整性校验接口。
+            compromised: false,
+        };
+    }
+    #[allow(unreachable_code)]
+    vault_core::health::EnvironmentReport::UNSUPPORTED
+}
+
+#[cfg(windows)]
+extern "system" {
+    fn IsDebuggerPresent() -> i32;
+}
+
+/// 运行一次安全体检，返回报告 JSON（计划书 §5.2）。
+///
+/// `breaches_json` 为 `{条目 id: 泄露次数}`；`breach_status` 取
+/// `notRun` / `ok` / `unavailable` / `skipped`；`settings_json` 为安全设置快照。
+/// 全部计算在内核完成（`vault_core::health`），界面只负责展示。
+pub fn health_checkup(breaches_json: String, breach_status: String, settings_json: String) -> BridgeResult<String> {
+    use vault_core::health::{checkup, BreachStatus, HealthInputs, SecuritySettings};
+
+    let breaches: std::collections::HashMap<String, u64> = serde_json::from_str(&breaches_json)?;
+    let settings: SecuritySettings = serde_json::from_str(&settings_json)?;
+    let status = match breach_status.as_str() {
+        "ok" => BreachStatus::Ok,
+        "unavailable" => BreachStatus::Unavailable,
+        "skipped" => BreachStatus::Skipped,
+        _ => BreachStatus::NotRun,
+    };
+
+    let items = with_vault(|v| v.list_items())?;
+    let report = checkup(HealthInputs {
+        items: &items,
+        breaches: &breaches,
+        breach_status: status,
+        environment: probe_environment(),
+        settings,
+        unreadable_items: 0,
+        now: vault_core::vault::now(),
+    });
+    Ok(serde_json::to_string(&report)?)
+}
+
 #[derive(Debug, Clone)]
 pub struct ImportSummary {
     /// 识别出的来源：chrome / firefox / bitwarden / lastpass / 1password / 1pif / csv

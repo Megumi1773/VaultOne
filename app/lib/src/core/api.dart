@@ -14,6 +14,7 @@ import 'conflict_models.dart';
 import 'config.dart';
 import 'feedback_models.dart';
 import 'ffi.dart';
+import 'health_models.dart';
 import 'models.dart';
 
 export '../rust/api/sync.dart' show DeviceDto, AuditEventDto, RemoteStatusDto, SyncReportDto;
@@ -181,6 +182,21 @@ abstract final class VaultApi {
   /// HIBP k-匿名泄露检测（在 Rust 侧发起请求），返回 条目 ID → 泄露次数。
   static Future<Map<String, int>> checkBreaches(List<String> itemIds) => _network(() async => {
         for (final r in await rvault.checkBreaches(itemIds: itemIds)) r.itemId: r.count.toInt(),
+      });
+
+  /// 安全体检（计划书 §5.2）。打分与发现项规则全在内核，这里只传输入并解析报告。
+  static Future<HealthReport> healthCheckup({
+    required Map<String, int> breaches,
+    required BreachStatus breachStatus,
+    required Map<String, Object?> settings,
+  }) =>
+      _session(() async {
+        final raw = await rvault.healthCheckup(
+          breachesJson: jsonEncode(breaches),
+          breachStatus: breachStatus.wire,
+          settingsJson: jsonEncode(settings),
+        );
+        return HealthReport.fromJson((jsonDecode(raw) as Map).cast());
       });
 
   static Future<List<String>> matchItems(String pageUrl) => _session(() => rvault.matchItems(pageUrl: pageUrl));

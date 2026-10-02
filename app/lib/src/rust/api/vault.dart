@@ -8,7 +8,7 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `item_value`, `items_json`, `slot`, `with_vault`
+// These functions are ignored because they are not marked as `pub`: `item_value`, `items_json`, `probe_environment`, `slot`, `with_vault`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
 
 /// 打开（不存在则创建）本地保险库文件。
@@ -137,6 +137,21 @@ Future<String> categoryTree() =>
 /// 对指定条目做 HIBP 泄露检测（k-匿名：只发送 SHA-1 前 5 位），返回 (条目 ID, 泄露次数)。
 Future<List<BreachResult>> checkBreaches({required List<String> itemIds}) =>
     RustLib.instance.api.crateApiVaultCheckBreaches(itemIds: itemIds);
+
+/// 运行一次安全体检，返回报告 JSON（计划书 §5.2）。
+///
+/// `breaches_json` 为 `{条目 id: 泄露次数}`；`breach_status` 取
+/// `notRun` / `ok` / `unavailable` / `skipped`；`settings_json` 为安全设置快照。
+/// 全部计算在内核完成（`vault_core::health`），界面只负责展示。
+Future<String> healthCheckup({
+  required String breachesJson,
+  required String breachStatus,
+  required String settingsJson,
+}) => RustLib.instance.api.crateApiVaultHealthCheckup(
+  breachesJson: breachesJson,
+  breachStatus: breachStatus,
+  settingsJson: settingsJson,
+);
 
 /// 从其他密码管理器的导出文件导入（CSV / 1PIF，自动识别）。文件内容只在内存中解析后立即加密入库。
 Future<ImportSummary> importItems({required String content}) =>
