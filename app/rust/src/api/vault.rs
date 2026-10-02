@@ -228,8 +228,28 @@ pub fn audit_local() -> BridgeResult<Vec<AuditFindingDto>> {
         .collect())
 }
 
-/// 分类树（JSON 数组，节点含 `name` / `path` / `direct` / `total` / `children`）。
+/// 标签与分类的批量管理（计划书 §3.6）。四个操作都返回受影响的条目数。
 ///
+/// 全部走内核的 `update_item`，因此版本号与同步语义与手动编辑完全一致。
+pub fn taxonomy_rename_tag(from: String, to: String) -> BridgeResult<u32> {
+    Ok(with_vault(|v| v.rename_tag(&from, &to))? as u32)
+}
+
+pub fn taxonomy_delete_tag(tag: String) -> BridgeResult<u32> {
+    Ok(with_vault(|v| v.delete_tag(&tag))? as u32)
+}
+
+/// 前缀改写：`工作` → `职业` 会连同 `工作/生产/服务器` 一起改。
+pub fn taxonomy_rename_category(from: String, to: String) -> BridgeResult<u32> {
+    Ok(with_vault(|v| v.rename_category(&from, &to))? as u32)
+}
+
+/// 清空分类（含子分类）的归属，不删条目。
+pub fn taxonomy_clear_category(path: String) -> BridgeResult<u32> {
+    Ok(with_vault(|v| v.clear_category(&path))? as u32)
+}
+
+/// 分类树（JSON 数组，节点含 `name` / `path` / `direct` / `total` / `children`）。///
 /// 分类是层级路径，树**从条目派生**而不是独立存储，因此聚合规则只在内核实现一处，
 /// 界面直接消费；`total` 含后代汇总（计划书 §3.11）。
 pub fn category_tree() -> BridgeResult<String> {

@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1249854188;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 366408298;
 
 // Section: executor
 
@@ -2134,6 +2134,112 @@ fn wire__crate__api__sync__sync_now_impl(
         },
     )
 }
+fn wire__crate__api__vault__taxonomy_clear_category_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "taxonomy_clear_category",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_path = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::vault::taxonomy_clear_category(api_path)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__vault__taxonomy_delete_tag_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "taxonomy_delete_tag",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_tag = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::vault::taxonomy_delete_tag(api_tag)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__vault__taxonomy_rename_category_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "taxonomy_rename_category",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_from = <String>::sse_decode(&mut deserializer);
+            let api_to = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::vault::taxonomy_rename_category(api_from, api_to)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__vault__taxonomy_rename_tag_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "taxonomy_rename_tag",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_from = <String>::sse_decode(&mut deserializer);
+            let api_to = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::vault::taxonomy_rename_tag(api_from, api_to)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__tools__totp_code_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -2886,13 +2992,17 @@ fn pde_ffi_dispatcher_primary_impl(
         77 => wire__crate__api__browser__stop_browser_bridge_impl(port, ptr, rust_vec_len, data_len),
         78 => wire__crate__api__feedback__submit_feedback_impl(port, ptr, rust_vec_len, data_len),
         79 => wire__crate__api__sync__sync_now_impl(port, ptr, rust_vec_len, data_len),
-        81 => wire__crate__api__vault__unlock_impl(port, ptr, rust_vec_len, data_len),
-        82 => wire__crate__api__vault__unlock_with_quick_key_impl(port, ptr, rust_vec_len, data_len),
-        83 => wire__crate__api__vault__update_item_impl(port, ptr, rust_vec_len, data_len),
-        84 => wire__crate__api__vault__verify_master_password_impl(port, ptr, rust_vec_len, data_len),
-        85 => wire__crate__api__sync__verify_new_device_impl(port, ptr, rust_vec_len, data_len),
-        86 => wire__crate__api__vault__verify_secret_key_impl(port, ptr, rust_vec_len, data_len),
-        87 => wire__crate__api__vault__wipe_local_impl(port, ptr, rust_vec_len, data_len),
+        80 => wire__crate__api__vault__taxonomy_clear_category_impl(port, ptr, rust_vec_len, data_len),
+        81 => wire__crate__api__vault__taxonomy_delete_tag_impl(port, ptr, rust_vec_len, data_len),
+        82 => wire__crate__api__vault__taxonomy_rename_category_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__vault__taxonomy_rename_tag_impl(port, ptr, rust_vec_len, data_len),
+        85 => wire__crate__api__vault__unlock_impl(port, ptr, rust_vec_len, data_len),
+        86 => wire__crate__api__vault__unlock_with_quick_key_impl(port, ptr, rust_vec_len, data_len),
+        87 => wire__crate__api__vault__update_item_impl(port, ptr, rust_vec_len, data_len),
+        88 => wire__crate__api__vault__verify_master_password_impl(port, ptr, rust_vec_len, data_len),
+        89 => wire__crate__api__sync__verify_new_device_impl(port, ptr, rust_vec_len, data_len),
+        90 => wire__crate__api__vault__verify_secret_key_impl(port, ptr, rust_vec_len, data_len),
+        91 => wire__crate__api__vault__wipe_local_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2913,7 +3023,7 @@ fn pde_ffi_dispatcher_sync_impl(
         53 => wire__crate__api__tools__parse_totp_impl(ptr, rust_vec_len, data_len),
         54 => wire__crate__api__tools__password_strength_impl(ptr, rust_vec_len, data_len),
         73 => wire__crate__api__screenshot__set_protection_impl(ptr, rust_vec_len, data_len),
-        80 => wire__crate__api__tools__totp_code_impl(ptr, rust_vec_len, data_len),
+        84 => wire__crate__api__tools__totp_code_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

@@ -543,6 +543,22 @@ abstract final class AppStrings {
   static const importPreviewConfirm = '开始导入';
   static const importPreviewEmpty = '这份文件里没有可导入的条目';
   static const importUpdated = '，覆盖 {n} 条';
+
+  // ---------- 标签与分类管理（§3.6）----------
+  static const taxonomyManage = '标签与分类管理';
+  static const taxonomyManageSubtitle = '重命名或清理标签与分类；只改分类归属，不会删除条目。';
+  static const taxonomyRename = '重命名';
+  static const taxonomyRenameTagTitle = '重命名标签';
+  static const taxonomyRenameCategoryTitle = '重命名分类';
+  static const taxonomyClearCategoryTitle = '清空分类';
+  static const taxonomyNewName = '新名称';
+  static const taxonomyTagHint = '不区分大小写；改成已存在的标签等于合并。';
+  static const taxonomyCategoryHint = '子分类会一起移动；改成已存在的分类等于合并。';
+  static const taxonomyClearBody = '将清空「{name}」及其子分类的归属，共 {n} 条条目。条目本身不会被删除。';
+  static const taxonomyDeleteTagBody = '将从 {n} 条条目上移除标签「{name}」。条目本身不会被删除。';
+  static const taxonomyAffected = '已更新 {n} 条条目';
+  static const taxonomyNoTags = '还没有任何标签';
+  static const taxonomyNoCategories = '还没有任何分类';
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
   static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
@@ -1386,6 +1402,20 @@ abstract final class AppStrings {
     importPreviewConfirm: '開始匯入',
     importPreviewEmpty: '這份檔案裡沒有可匯入的項目',
     importUpdated: '，覆寫 {n} 筆',
+    taxonomyManage: '標籤與分類管理',
+    taxonomyManageSubtitle: '重新命名或清理標籤與分類；只改分類歸屬，不會刪除項目。',
+    taxonomyRename: '重新命名',
+    taxonomyRenameTagTitle: '重新命名標籤',
+    taxonomyRenameCategoryTitle: '重新命名分類',
+    taxonomyClearCategoryTitle: '清空分類',
+    taxonomyNewName: '新名稱',
+    taxonomyTagHint: '不分大小寫；改成已存在的標籤等於合併。',
+    taxonomyCategoryHint: '子分類會一起移動；改成已存在的分類等於合併。',
+    taxonomyClearBody: '將清空「{name}」及其子分類的歸屬，共 {n} 筆項目。項目本身不會被刪除。',
+    taxonomyDeleteTagBody: '將從 {n} 筆項目上移除標籤「{name}」。項目本身不會被刪除。',
+    taxonomyAffected: '已更新 {n} 筆項目',
+    taxonomyNoTags: '還沒有任何標籤',
+    taxonomyNoCategories: '還沒有任何分類',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2162,6 +2192,20 @@ abstract final class AppStrings {
     importPreviewConfirm: 'Start import',
     importPreviewEmpty: 'No importable items in this file',
     importUpdated: ', {n} overwritten',
+    taxonomyManage: 'Tags and categories',
+    taxonomyManageSubtitle: 'Rename or clean up tags and categories. Only the grouping changes; items are never deleted.',
+    taxonomyRename: 'Rename',
+    taxonomyRenameTagTitle: 'Rename tag',
+    taxonomyRenameCategoryTitle: 'Rename category',
+    taxonomyClearCategoryTitle: 'Clear category',
+    taxonomyNewName: 'New name',
+    taxonomyTagHint: 'Matching ignores case; renaming onto an existing tag merges them.',
+    taxonomyCategoryHint: 'Subcategories move along; renaming onto an existing category merges them.',
+    taxonomyClearBody: 'This clears "{name}" and its subcategories, affecting {n} items. The items themselves are not deleted.',
+    taxonomyDeleteTagBody: 'This removes the tag "{name}" from {n} items. The items themselves are not deleted.',
+    taxonomyAffected: '{n} items updated',
+    taxonomyNoTags: 'No tags yet',
+    taxonomyNoCategories: 'No categories yet',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',

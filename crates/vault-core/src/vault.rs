@@ -519,6 +519,110 @@ impl Vault {
         Ok(crate::export::to_csv(&self.items_for_export()?))
     }
 
+    // ---------- 标签与分类的批量管理（§3.6）----------
+
+    /// 把标签 `from` 改名成 `to`，返回受影响的条目数。
+    ///
+    /// 匹配**不区分大小写**，与 `normalize_tags` 的去重口径一致——否则 `Work` 会漏掉。
+    /// 改成已存在的标签等于合并（同一条目上重复的会被规范化去重）。
+    pub fn rename_tag(&mut self, from: &str, to: &str) -> Result<usize> {
+        let target = to.trim();
+        if target.is_empty() {
+            return Err(VaultError::InvalidInput("新标签不能为空".into()));
+        }
+        let key = from.trim().to_lowercase();
+        if key.is_empty() {
+            return Err(VaultError::InvalidInput("要改名的标签不能为空".into()));
+        }
+        self.rewrite_items(|data| {
+            if !data.tags.iter().any(|t| t.to_lowercase() == key) {
+                return false;
+            }
+            for tag in &mut data.tags {
+                if tag.to_lowercase() == key {
+                    *tag = target.to_string();
+                }
+            }
+            true
+        })
+    }
+
+    /// 删除标签，返回受影响的条目数。条目本身不受影响。
+    pub fn delete_tag(&mut self, tag: &str) -> Result<usize> {
+        let key = tag.trim().to_lowercase();
+        if key.is_empty() {
+            return Err(VaultError::InvalidInput("要删除的标签不能为空".into()));
+        }
+        self.rewrite_items(|data| {
+            let before = data.tags.len();
+            data.tags.retain(|t| t.to_lowercase() != key);
+            data.tags.len() != before
+        })
+    }
+
+    /// 把分类路径 `from`（含其全部子分类）改名为 `to`，返回受影响的条目数。
+    ///
+    /// 这是**前缀改写**：`工作` → `职业` 会把 `工作/生产/服务器` 一并变成 `职业/生产/服务器`，
+    /// 否则子分类会变成孤儿。改成已存在的路径等于合并。
+    pub fn rename_category(&mut self, from: &str, to: &str) -> Result<usize> {
+        let source = ItemData::normalize_category(Some(from)).ok_or_else(|| VaultError::InvalidInput("要改名的分类不能为空".into()))?;
+        let target = ItemData::normalize_category(Some(to)).ok_or_else(|| VaultError::InvalidInput("新分类不能为空".into()))?;
+        if target == source {
+            return Ok(0);
+        }
+        // 移到自己的子分类下会把树变成环（`工作` → `工作/子`），直接拒绝。
+        if target.starts_with(&format!("{source}/")) {
+            return Err(VaultError::InvalidInput("不能把分类移动到它自己的子分类下".into()));
+        }
+        let prefix = format!("{source}/");
+        self.rewrite_items(|data| {
+            let Some(current) = data.category.as_deref() else { return false };
+            let next = if current == source {
+                target.clone()
+            } else if let Some(rest) = current.strip_prefix(&prefix) {
+                format!("{target}/{rest}")
+            } else {
+                return false;
+            };
+            data.category = Some(next);
+            true
+        })
+    }
+
+    /// 清空分类 `path`（含其子分类）下的分类归属，返回受影响的条目数。
+    ///
+    /// 只清分类，**不删条目**——用户说「删掉这个分类」时想删的是分类，不是里面的密码。
+    pub fn clear_category(&mut self, path: &str) -> Result<usize> {
+        let source = ItemData::normalize_category(Some(path)).ok_or_else(|| VaultError::InvalidInput("要清空的分类不能为空".into()))?;
+        let prefix = format!("{source}/");
+        self.rewrite_items(|data| {
+            let Some(current) = data.category.as_deref() else { return false };
+            if current != source && !current.starts_with(&prefix) {
+                return false;
+            }
+            data.category = None;
+            true
+        })
+    }
+
+    /// 逐条重写条目：`mutate` 返回 false 表示这条不需要改，跳过（不产生新版本）。
+    ///
+    /// 全部走 [`Self::update_item`]，因此版本号、`updated_at` 与同步语义与手动编辑完全一致；
+    /// 批量管理不应该有第二条写路径。
+    fn rewrite_items(&mut self, mut mutate: impl FnMut(&mut ItemData) -> bool) -> Result<usize> {
+        let items = self.list_items()?;
+        let mut affected = 0;
+        for item in items {
+            let mut data = item.data.clone();
+            if !mutate(&mut data) {
+                continue;
+            }
+            self.update_item(&item.id, data)?;
+            affected += 1;
+        }
+        Ok(affected)
+    }
+
     /// 更新条目。密码变化时旧密码自动进入 `passwordHistory`。
     pub fn update_item(&mut self, id: &str, mut data: ItemData) -> Result<Item> {
         data.normalize_taxonomy();
@@ -882,6 +986,147 @@ mod tests {
         assert_eq!(v.import_items(batch).unwrap(), (1, 1, 2));
         assert_eq!(v.get_item(&existing.id).unwrap(), existing);
         assert_eq!(v.item_count().unwrap(), 2);
+    }
+
+    /// 标签与分类的批量管理（计划书 §3.6）。
+    #[test]
+    fn rename_tag_is_case_insensitive_and_merges() {
+        let (mut v, _) = new_vault();
+        let mut a = login("A", "p");
+        a.tags = vec!["Work".into(), "个人".into()];
+        let mut b = login("B", "p");
+        b.tags = vec!["work".into()];
+        let mut c = login("C", "p");
+        c.tags = vec!["其他".into()];
+        let a = v.create_item(a).unwrap();
+        let b = v.create_item(b).unwrap();
+        let c = v.create_item(c).unwrap();
+
+        // `Work` 与 `work` 是同一个标签，改名要一起改到。
+        assert_eq!(v.rename_tag("WORK", "工作").unwrap(), 2);
+        assert_eq!(v.get_item(&a.id).unwrap().data.tags, vec!["工作", "个人"]);
+        assert_eq!(v.get_item(&b.id).unwrap().data.tags, vec!["工作"]);
+        assert_eq!(v.get_item(&c.id).unwrap().data.tags, vec!["其他"], "无关条目不能被碰");
+
+        // 改成已存在的标签 = 合并，同一条目上不会留下两份。
+        assert_eq!(v.rename_tag("个人", "工作").unwrap(), 1);
+        assert_eq!(v.get_item(&a.id).unwrap().data.tags, vec!["工作"]);
+    }
+
+    #[test]
+    fn rename_tag_rejects_empty_target() {
+        let (mut v, _) = new_vault();
+        let mut a = login("A", "p");
+        a.tags = vec!["工作".into()];
+        v.create_item(a).unwrap();
+        assert!(matches!(v.rename_tag("工作", "   "), Err(VaultError::InvalidInput(_))));
+        assert!(matches!(v.rename_tag("  ", "新"), Err(VaultError::InvalidInput(_))));
+        // 改名失败不能留下半成品。
+        assert_eq!(v.list_items().unwrap()[0].data.tags, vec!["工作"]);
+    }
+
+    #[test]
+    fn delete_tag_keeps_the_item() {
+        let (mut v, _) = new_vault();
+        let mut a = login("A", "p");
+        a.tags = vec!["工作".into(), "个人".into()];
+        let a = v.create_item(a).unwrap();
+        let mut b = login("B", "p");
+        b.tags = vec!["其他".into()];
+        v.create_item(b).unwrap();
+
+        assert_eq!(v.delete_tag("工作").unwrap(), 1);
+        assert_eq!(v.get_item(&a.id).unwrap().data.tags, vec!["个人"]);
+        assert_eq!(v.item_count().unwrap(), 2, "删标签不能删条目");
+        assert_eq!(v.delete_tag("不存在的标签").unwrap(), 0);
+    }
+
+    #[test]
+    fn rename_category_rewrites_the_whole_subtree() {
+        let (mut v, _) = new_vault();
+        let mut root = login("root", "p");
+        root.category = Some("工作".into());
+        let mut child = login("child", "p");
+        child.category = Some("工作/生产/服务器".into());
+        let mut sibling = login("sibling", "p");
+        sibling.category = Some("工作台".into());
+        let mut other = login("other", "p");
+        other.category = Some("个人".into());
+        let root = v.create_item(root).unwrap();
+        let child = v.create_item(child).unwrap();
+        let sibling = v.create_item(sibling).unwrap();
+        let other = v.create_item(other).unwrap();
+
+        assert_eq!(v.rename_category("工作", "职业").unwrap(), 2, "只应命中自身与后代");
+        assert_eq!(v.get_item(&root.id).unwrap().data.category.as_deref(), Some("职业"));
+        assert_eq!(v.get_item(&child.id).unwrap().data.category.as_deref(), Some("职业/生产/服务器"));
+        // `工作台` 是另一个分类，前缀相似但不是子分类。
+        assert_eq!(v.get_item(&sibling.id).unwrap().data.category.as_deref(), Some("工作台"));
+        assert_eq!(v.get_item(&other.id).unwrap().data.category.as_deref(), Some("个人"));
+
+        // 改成已存在的路径 = 合并。
+        assert_eq!(v.rename_category("职业", "个人").unwrap(), 2);
+        assert_eq!(v.get_item(&child.id).unwrap().data.category.as_deref(), Some("个人/生产/服务器"));
+    }
+
+    #[test]
+    fn rename_category_refuses_to_move_into_its_own_subtree() {
+        let (mut v, _) = new_vault();
+        let mut a = login("A", "p");
+        a.category = Some("工作/生产".into());
+        let a = v.create_item(a).unwrap();
+        assert!(matches!(v.rename_category("工作", "工作/子"), Err(VaultError::InvalidInput(_))));
+        assert_eq!(v.get_item(&a.id).unwrap().data.category.as_deref(), Some("工作/生产"));
+
+        // 原地改名是空操作，不是错误。
+        assert_eq!(v.rename_category("工作", "工作").unwrap(), 0);
+        // 规范化后相同也算原地：`工作/` 与 `工作` 是同一个分类。
+        assert_eq!(v.rename_category("工作/", " 工作 ").unwrap(), 0);
+    }
+
+    #[test]
+    fn clear_category_clears_the_subtree_but_keeps_items() {
+        let (mut v, _) = new_vault();
+        let mut root = login("root", "p");
+        root.category = Some("工作".into());
+        let mut child = login("child", "p");
+        child.category = Some("工作/生产".into());
+        let mut other = login("other", "p");
+        other.category = Some("个人".into());
+        let root = v.create_item(root).unwrap();
+        let child = v.create_item(child).unwrap();
+        let other = v.create_item(other).unwrap();
+
+        assert_eq!(v.clear_category("工作").unwrap(), 2);
+        assert_eq!(v.get_item(&root.id).unwrap().data.category, None);
+        assert_eq!(v.get_item(&child.id).unwrap().data.category, None);
+        assert_eq!(v.get_item(&other.id).unwrap().data.category.as_deref(), Some("个人"));
+        assert_eq!(v.item_count().unwrap(), 3, "清分类不能删条目");
+    }
+
+    #[test]
+    fn taxonomy_rewrites_bump_revision_and_skip_untouched_items() {
+        let (mut v, _) = new_vault();
+        let mut a = login("A", "p");
+        a.tags = vec!["工作".into()];
+        let a = v.create_item(a).unwrap();
+        let untouched = v.create_item(login("B", "p")).unwrap();
+
+        assert_eq!(v.rename_tag("工作", "职业").unwrap(), 1);
+        let after = v.get_item(&a.id).unwrap();
+        assert_eq!(after.revision, a.revision + 1, "批量改写要走 update_item，产生新版本");
+        assert!(after.data.updated_at > a.data.updated_at, "更新时间必须推进，否则同步会漏掉");
+        assert_eq!(v.get_item(&untouched.id).unwrap(), untouched, "没命中的条目一个字节都不该动");
+    }
+
+    #[test]
+    fn taxonomy_rewrites_require_an_unlocked_vault() {
+        let (mut v, _) = new_vault();
+        v.lock();
+        assert!(matches!(v.rename_tag("a", "b"), Err(VaultError::Locked)));
+        assert!(matches!(v.delete_tag("a"), Err(VaultError::Locked)));
+        assert!(matches!(v.rename_category("a", "b"), Err(VaultError::Locked)));
+        assert!(matches!(v.clear_category("a"), Err(VaultError::Locked)));
     }
 
     /// 同名条目在三种策略下的行为（计划书 §3.7）。

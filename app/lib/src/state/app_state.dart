@@ -809,6 +809,33 @@ class AppState extends ChangeNotifier {
     return summary;
   });
 
+  // ---------- 标签与分类的批量管理（§3.6）----------
+
+  /// 四个批量操作都在内核改写并返回受影响条目数；完成后刷新（分类树也跟着变）。
+  Future<int> renameTag(String from, String to) => _withSession(() async {
+        final n = await VaultApi.renameTag(from, to);
+        await refresh(sync: false);
+        return n;
+      });
+
+  Future<int> deleteTag(String tag) => _withSession(() async {
+        final n = await VaultApi.deleteTag(tag);
+        await refresh(sync: false);
+        return n;
+      });
+
+  Future<int> renameCategory(String from, String to) => _withSession(() async {
+        final n = await VaultApi.renameCategory(from, to);
+        await refresh(sync: false);
+        return n;
+      });
+
+  Future<int> clearCategory(String path) => _withSession(() async {
+        final n = await VaultApi.clearCategory(path);
+        await refresh(sync: false);
+        return n;
+      });
+
   /// 按预览确认的字段映射与覆盖策略导入（§3.7），导入后刷新。
   Future<ImportSummary> importItemsWith(
     String content, {

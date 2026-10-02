@@ -24,6 +24,7 @@ import 'feedback_page.dart';
 import 'item_detail.dart' show confirmDialog;
 import 'import_dialog.dart';
 import 'sidebar_layout.dart';
+import 'taxonomy_dialog.dart';
 
 /// 设置页的分区。安全总览（§5.1）的宫格入口据此直接定位到对应分区，
 /// 而不是把用户丢在设置页顶部自己找。
@@ -1141,6 +1142,24 @@ class _DataSectionState extends State<_DataSection> {
     }
   }
 
+  /// 标签与分类管理（§3.6）。改写规则在内核，这里只把入口与依赖接起来。
+  Future<void> _manageTaxonomy() async {
+    final state = AppScope.of(context);
+    final epoch = state.sessionEpoch;
+    if (!state.isCurrentSession(epoch)) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => TaxonomyDialog(
+        items: state.items,
+        categoryTree: state.categoryTree,
+        renameTag: state.renameTag,
+        deleteTag: state.deleteTag,
+        renameCategory: state.renameCategory,
+        clearCategory: state.clearCategory,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => _Section(title: context.tr(AppStrings.sectionData), children: [
         _Row(
@@ -1167,6 +1186,11 @@ class _DataSectionState extends State<_DataSection> {
           title: context.tr(AppStrings.importFromBackup),
           subtitle: context.tr(AppStrings.importFromBackupSubtitle),
           trailing: ZoButton(label: context.tr(AppStrings.chooseFile), dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _importBackup),
+        ),
+        _Row(
+          title: context.tr(AppStrings.taxonomyManage),
+          subtitle: context.tr(AppStrings.taxonomyManageSubtitle),
+          trailing: ZoButton(label: context.tr(AppStrings.taxonomyManage), dense: true, variant: ZoButtonVariant.secondary, onPressed: _busy ? null : _manageTaxonomy),
         ),
       ]);
 }

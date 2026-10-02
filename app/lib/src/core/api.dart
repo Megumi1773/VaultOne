@@ -176,6 +176,24 @@ abstract final class VaultApi {
         return [for (final node in raw) CategoryNode.fromJson((node as Map).cast())];
       });
 
+  // ---------- 标签与分类的批量管理（§3.6）----------
+  // 四个操作都在内核完成改写并返回受影响条目数；界面只负责确认与展示。
+
+  /// 标签改名（不区分大小写匹配；改成已存在的标签等于合并）。
+  static Future<int> renameTag(String from, String to) =>
+      _session(() async => (await rvault.taxonomyRenameTag(from: from, to: to)).toInt());
+
+  static Future<int> deleteTag(String tag) =>
+      _session(() async => (await rvault.taxonomyDeleteTag(tag: tag)).toInt());
+
+  /// 分类改名（前缀改写，子分类一并跟着走）。
+  static Future<int> renameCategory(String from, String to) =>
+      _session(() async => (await rvault.taxonomyRenameCategory(from: from, to: to)).toInt());
+
+  /// 清空分类（含子分类）的归属，不删条目。
+  static Future<int> clearCategory(String path) =>
+      _session(() async => (await rvault.taxonomyClearCategory(path: path)).toInt());
+
   static Future<List<AuditFinding>> audit() => _session(() async => [
         for (final f in await rvault.auditLocal())
           AuditFinding(itemId: f.itemId, weak: f.weak, score: f.score, reusedWith: f.reusedWith),

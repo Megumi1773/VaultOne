@@ -79,7 +79,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -1249854188;
+  int get rustContentHash => 366408298;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -354,6 +354,20 @@ abstract class RustLibApi extends BaseApi {
   Future<String> crateApiFeedbackSubmitFeedback({required String requestJson});
 
   Future<SyncReportDto> crateApiSyncSyncNow();
+
+  Future<int> crateApiVaultTaxonomyClearCategory({required String path});
+
+  Future<int> crateApiVaultTaxonomyDeleteTag({required String tag});
+
+  Future<int> crateApiVaultTaxonomyRenameCategory({
+    required String from,
+    required String to,
+  });
+
+  Future<int> crateApiVaultTaxonomyRenameTag({
+    required String from,
+    required String to,
+  });
 
   TotpCodeDto crateApiToolsTotpCode({
     required TotpSpec spec,
@@ -2830,6 +2844,135 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "sync_now", argNames: []);
 
   @override
+  Future<int> crateApiVaultTaxonomyClearCategory({required String path}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(path, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 80,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_32,
+          decodeErrorData: sse_decode_bridge_error,
+        ),
+        constMeta: kCrateApiVaultTaxonomyClearCategoryConstMeta,
+        argValues: [path],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultTaxonomyClearCategoryConstMeta =>
+      const TaskConstMeta(
+        debugName: "taxonomy_clear_category",
+        argNames: ["path"],
+      );
+
+  @override
+  Future<int> crateApiVaultTaxonomyDeleteTag({required String tag}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(tag, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 81,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_32,
+          decodeErrorData: sse_decode_bridge_error,
+        ),
+        constMeta: kCrateApiVaultTaxonomyDeleteTagConstMeta,
+        argValues: [tag],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultTaxonomyDeleteTagConstMeta =>
+      const TaskConstMeta(debugName: "taxonomy_delete_tag", argNames: ["tag"]);
+
+  @override
+  Future<int> crateApiVaultTaxonomyRenameCategory({
+    required String from,
+    required String to,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(from, serializer);
+          sse_encode_String(to, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 82,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_32,
+          decodeErrorData: sse_decode_bridge_error,
+        ),
+        constMeta: kCrateApiVaultTaxonomyRenameCategoryConstMeta,
+        argValues: [from, to],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultTaxonomyRenameCategoryConstMeta =>
+      const TaskConstMeta(
+        debugName: "taxonomy_rename_category",
+        argNames: ["from", "to"],
+      );
+
+  @override
+  Future<int> crateApiVaultTaxonomyRenameTag({
+    required String from,
+    required String to,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(from, serializer);
+          sse_encode_String(to, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 83,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_32,
+          decodeErrorData: sse_decode_bridge_error,
+        ),
+        constMeta: kCrateApiVaultTaxonomyRenameTagConstMeta,
+        argValues: [from, to],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultTaxonomyRenameTagConstMeta =>
+      const TaskConstMeta(
+        debugName: "taxonomy_rename_tag",
+        argNames: ["from", "to"],
+      );
+
+  @override
   TotpCodeDto crateApiToolsTotpCode({
     required TotpSpec spec,
     required BigInt unixTime,
@@ -2840,7 +2983,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_box_autoadd_totp_spec(spec, serializer);
           sse_encode_u_64(unixTime, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 80)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 84)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_totp_code_dto,
@@ -2872,7 +3015,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 81,
+            funcId: 85,
             port: port_,
           );
         },
@@ -2902,7 +3045,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 82,
+            funcId: 86,
             port: port_,
           );
         },
@@ -2937,7 +3080,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 83,
+            funcId: 87,
             port: port_,
           );
         },
@@ -2971,7 +3114,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 84,
+            funcId: 88,
             port: port_,
           );
         },
@@ -3002,7 +3145,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 85,
+            funcId: 89,
             port: port_,
           );
         },
@@ -3034,7 +3177,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 86,
+            funcId: 90,
             port: port_,
           );
         },
@@ -3064,7 +3207,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 87,
+            funcId: 91,
             port: port_,
           );
         },

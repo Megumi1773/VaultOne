@@ -127,8 +127,29 @@ Future<EmptyTrashResult> emptyTrash() =>
 Future<List<AuditFindingDto>> auditLocal() =>
     RustLib.instance.api.crateApiVaultAuditLocal();
 
-/// 分类树（JSON 数组，节点含 `name` / `path` / `direct` / `total` / `children`）。
+/// 标签与分类的批量管理（计划书 §3.6）。四个操作都返回受影响的条目数。
 ///
+/// 全部走内核的 `update_item`，因此版本号与同步语义与手动编辑完全一致。
+Future<int> taxonomyRenameTag({required String from, required String to}) =>
+    RustLib.instance.api.crateApiVaultTaxonomyRenameTag(from: from, to: to);
+
+Future<int> taxonomyDeleteTag({required String tag}) =>
+    RustLib.instance.api.crateApiVaultTaxonomyDeleteTag(tag: tag);
+
+/// 前缀改写：`工作` → `职业` 会连同 `工作/生产/服务器` 一起改。
+Future<int> taxonomyRenameCategory({
+  required String from,
+  required String to,
+}) => RustLib.instance.api.crateApiVaultTaxonomyRenameCategory(
+  from: from,
+  to: to,
+);
+
+/// 清空分类（含子分类）的归属，不删条目。
+Future<int> taxonomyClearCategory({required String path}) =>
+    RustLib.instance.api.crateApiVaultTaxonomyClearCategory(path: path);
+
+/// 分类树（JSON 数组，节点含 `name` / `path` / `direct` / `total` / `children`）。///
 /// 分类是层级路径，树**从条目派生**而不是独立存储，因此聚合规则只在内核实现一处，
 /// 界面直接消费；`total` 含后代汇总（计划书 §3.11）。
 Future<String> categoryTree() =>
