@@ -12,12 +12,12 @@ import '../../core/config.dart';
 import '../../core/ffi.dart';
 import '../../core/models.dart';
 import '../../state/app_state.dart';
-import '../../state/clipboard.dart';
 import '../../state/desktop_shell.dart';
 import '../../state/scope.dart';
 import '../theme.dart';
 import '../widgets/controls.dart';
 import '../widgets/vault_widgets.dart';
+import 'backup_dialog.dart';
 import 'conflicts_page.dart';
 import 'feedback_page.dart';
 import 'item_detail.dart' show confirmDialog;
@@ -40,6 +40,7 @@ class SettingsPage extends StatelessWidget {
               children: [
                 _Title(),
                 _AccountSection(),
+                _KeyBackupSection(),
                 _SecuritySection(),
                 _SyncSection(),
                 _ConflictSection(),
@@ -212,31 +213,9 @@ class _MasterPasswordDialogState extends State<_MasterPasswordDialog> {
 class _AccountSection extends StatelessWidget {
   const _AccountSection();
 
-  Future<void> _showSecretKey(BuildContext context) async {
-    final state = AppScope.read(context);
-    final pw = await askMasterPassword(context, title: '查看 Secret Key', body: '为防止旁人查看，请再次输入主密码。');
-    if (pw == null || pw.isEmpty || !context.mounted) return;
-    try {
-      final sk = await state.revealSecretKey(pw);
-      if (!context.mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Secret Key'),
-          content: SelectableText(sk, style: monoStyle(ctx, size: 15, weight: FontWeight.w600)),
-          actions: [
-            TextButton(
-              onPressed: () => ClipboardService.copy(sk, label: 'Secret Key', clearAfterSeconds: state.settings.clipboardSeconds),
-              child: const Text('复制'),
-            ),
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
-          ],
-        ),
-      );
-    } on CoreException catch (e) {
-      if (context.mounted) showZoMessage(context, e.message, error: true);
-    }
-  }
+  /// 查看 Secret Key 是敏感操作：先在备份对话框里用「重输 Secret Key + 恢复码」做字节级核对，
+  /// 核对通过后才能查看或重新导出恢复材料。仅凭主密码即可查看会让未锁定的设备成为旁路。
+  Future<void> _showSecretKey(BuildContext context) => showBackupManager(context);
 
   Future<void> _changePassword(BuildContext context) async {
     final done = await showDialog<bool>(context: context, builder: (_) => const _ChangePasswordDialog());
@@ -252,13 +231,50 @@ class _AccountSection extends StatelessWidget {
       _Row(title: '密钥派生', subtitle: a?.kdfSummary ?? '—', trailing: ZoTag('${a?.itemCount ?? 0} 个条目')),
       _Row(
         title: 'Secret Key',
-        subtitle: '保存在本机系统钥匙串中。登录新设备时需要它。',
-        trailing: ZoButton(label: '查看', dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _showSecretKey(context)),
+        subtitle: '保存在本机系统钥匙串中。查看或重新导出恢复材料前，需要重新输入 Secret Key 与恢复码做逐字节核对。',
+        trailing: ZoButton(label: '核对并查看', dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _showSecretKey(context)),
       ),
       _Row(
         title: '修改主密码',
         subtitle: '只重新封装保险库密钥，条目无需重新加密，秒级完成。',
         trailing: ZoButton(label: '修改', dense: true, variant: ZoButtonVariant.secondary, onPressed: () => _changePassword(context)),
+      ),
+    ]);
+  }
+}
+
+/// 密钥与备份：本机备份状态 + 重新导出恢复套件 / 备份卡入口。
+class _KeyBackupSection extends StatelessWidget {
+  const _KeyBackupSection();
+
+  static const _kindLabel = <String, String>{
+    'recovery_kit': '恢复套件 PDF',
+    'backup_card': '备份卡 PNG',
+    'wljbak': '加密备份 .wljbak',
+    'csv': '明文 CSV',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    final at = state.lastBackupAt;
+    final kind = state.lastBackupKind;
+    final summary = at == 0
+        ? '本机尚未记录任何备份导出。请先导出恢复套件，并把它打印或存进离线介质。'
+        : '最近一次：${_fmtTime(at)}（${_kindLabel[kind] ?? kind ?? '未记录'}）。本机只记录时间与方式，不保存文件路径与内容。';
+    return _Section(title: '密钥与备份', children: [
+      _Row(
+        title: '备份状态',
+        subtitle: '$summary\n云端备份历史需要服务端端点，尚未实现；这里不把本机记录当作云端已备份。',
+        trailing: at == 0
+            ? ZoTag('未备份', color: context.zo.danger, icon: Icons.error_outline_rounded)
+            : ZoTag('已备份', color: context.zo.success, icon: Icons.check_circle_outline_rounded),
+      ),
+      _Row(
+        title: '恢复套件与备份卡',
+        subtitle: '重新导出 A4 恢复套件 PDF，或 700×900（2x 导出）的备份卡 PNG。两者都等价于明文凭据，'
+            '导出前需要重新输入 Secret Key 与恢复码做核对。',
+        trailing: ZoButton(label: '管理', dense: true, variant: ZoButtonVariant.secondary, onPressed: () => showBackupManager(context)),
       ),
     ]);
   }

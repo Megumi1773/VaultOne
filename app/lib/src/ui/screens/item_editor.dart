@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/api.dart';
 import '../../core/ffi.dart';
+import '../../core/item_templates.dart';
 import '../../core/models.dart';
 import '../../state/scope.dart';
 import '../theme.dart';
@@ -13,7 +14,8 @@ import 'home.dart';
 import 'qr_scan.dart';
 
 class _UrlDraft {
-  _UrlDraft(String url, this.match) : controller = TextEditingController(text: url);
+  _UrlDraft(String url, this.match)
+    : controller = TextEditingController(text: url);
 
   final TextEditingController controller;
   UrlMatch match;
@@ -21,8 +23,8 @@ class _UrlDraft {
 
 class _FieldDraft {
   _FieldDraft(String label, String value, this.sensitive)
-      : label = TextEditingController(text: label),
-        value = TextEditingController(text: value);
+    : label = TextEditingController(text: label),
+      value = TextEditingController(text: value);
 
   final TextEditingController label;
   final TextEditingController value;
@@ -31,7 +33,13 @@ class _FieldDraft {
 
 /// 条目编辑器（新建与编辑共用）。Ctrl+S 保存，Esc 取消。
 class ItemEditor extends StatefulWidget {
-  const ItemEditor({super.key, required this.target, required this.onCancel, required this.onSaved, this.initial});
+  const ItemEditor({
+    super.key,
+    required this.target,
+    required this.onCancel,
+    required this.onSaved,
+    this.initial,
+  });
 
   final EditTarget target;
   final ItemData? initial;
@@ -58,24 +66,34 @@ class _ItemEditorState extends State<ItemEditor> {
   late final _cvv = TextEditingController(text: d?.card?.cvv ?? '');
   late final _pin = TextEditingController(text: d?.card?.pin ?? '');
 
-  late final _fullName = TextEditingController(text: d?.identity?.fullName ?? '');
+  late final _fullName = TextEditingController(
+    text: d?.identity?.fullName ?? '',
+  );
   late final _idEmail = TextEditingController(text: d?.identity?.email ?? '');
   late final _phone = TextEditingController(text: d?.identity?.phone ?? '');
-  late final _idNumber = TextEditingController(text: d?.identity?.idNumber ?? '');
+  late final _idNumber = TextEditingController(
+    text: d?.identity?.idNumber ?? '',
+  );
   late final _address = TextEditingController(text: d?.identity?.address ?? '');
   late final _company = TextEditingController(text: d?.identity?.company ?? '');
 
   late final List<_UrlDraft> _urls = [
     for (final u in d?.urls ?? const <ItemUrl>[]) _UrlDraft(u.url, u.match),
-    if (kind == ItemKind.login && (d?.urls.isEmpty ?? true)) _UrlDraft('', UrlMatch.domain),
+    if (kind == ItemKind.login && (d?.urls.isEmpty ?? true))
+      _UrlDraft('', UrlMatch.domain),
   ];
-  late final List<_FieldDraft> _fields = [for (final f in d?.customFields ?? const <CustomField>[]) _FieldDraft(f.label, f.value, f.sensitive)];
+  late final List<_FieldDraft> _fields = [
+    for (final f in d?.customFields ?? const <CustomField>[])
+      _FieldDraft(f.label, f.value, f.sensitive),
+  ];
 
   TotpConfig? _totpConfig;
   String? _totpError;
   String? _titleError;
   Strength _strength = Strength.empty;
   bool _saving = false;
+  ItemTemplate? _template;
+  Set<String> _templateFieldLabels = {};
 
   @override
   void initState() {
@@ -87,7 +105,16 @@ class _ItemEditorState extends State<ItemEditor> {
   @override
   void dispose() {
     for (final c in [
-      _title, _username, _password, _totp, _notes, _holder, _number, _expiry, _cvv, _pin, //
+      _title,
+      _username,
+      _password,
+      _totp,
+      _notes,
+      _holder,
+      _number,
+      _expiry,
+      _cvv,
+      _pin, //
       _fullName, _idEmail, _phone, _idNumber, _address, _company,
     ]) {
       c.dispose();
@@ -116,10 +143,16 @@ class _ItemEditorState extends State<ItemEditor> {
       setState(() {
         _totpConfig = parsed.config;
         _totpError = null;
-        if (_title.text.isEmpty && parsed.issuer != null) _title.text = parsed.issuer!;
-        if (_username.text.isEmpty && parsed.account != null) _username.text = parsed.account!;
+        if (_title.text.isEmpty && parsed.issuer != null) {
+          _title.text = parsed.issuer!;
+        }
+        if (_username.text.isEmpty && parsed.account != null) {
+          _username.text = parsed.account!;
+        }
       });
-      if (t.toLowerCase().startsWith('otpauth://')) _totp.text = parsed.config.secret;
+      if (t.toLowerCase().startsWith('otpauth://')) {
+        _totp.text = parsed.config.secret;
+      }
     } on CoreException catch (e) {
       setState(() {
         _totpConfig = null;
@@ -128,7 +161,8 @@ class _ItemEditorState extends State<ItemEditor> {
     }
   }
 
-  String? _opt(TextEditingController c) => c.text.trim().isEmpty ? null : c.text;
+  String? _opt(TextEditingController c) =>
+      c.text.trim().isEmpty ? null : c.text;
 
   Future<void> _save() async {
     if (_title.text.trim().isEmpty) {
@@ -141,14 +175,21 @@ class _ItemEditorState extends State<ItemEditor> {
       title: _title.text.trim(),
       urls: [
         for (final u in _urls)
-          if (u.controller.text.trim().isNotEmpty) ItemUrl(url: u.controller.text.trim(), match: u.match),
+          if (u.controller.text.trim().isNotEmpty)
+            ItemUrl(url: u.controller.text.trim(), match: u.match),
       ],
       username: kind == ItemKind.login ? _opt(_username) : null,
       password: kind == ItemKind.login ? _opt(_password) : null,
       totp: kind == ItemKind.login ? _totpConfig : null,
       notes: _opt(_notes),
       card: kind == ItemKind.card
-          ? CardData(cardholder: _holder.text.trim(), number: _number.text.trim(), expiry: _expiry.text.trim(), cvv: _cvv.text.trim(), pin: _pin.text.trim())
+          ? CardData(
+              cardholder: _holder.text.trim(),
+              number: _number.text.trim(),
+              expiry: _expiry.text.trim(),
+              cvv: _cvv.text.trim(),
+              pin: _pin.text.trim(),
+            )
           : null,
       identity: kind == ItemKind.identity
           ? IdentityData(
@@ -162,15 +203,24 @@ class _ItemEditorState extends State<ItemEditor> {
           : null,
       customFields: [
         for (final f in _fields)
-          if (f.label.text.trim().isNotEmpty || f.value.text.isNotEmpty) CustomField(label: f.label.text.trim(), value: f.value.text, sensitive: f.sensitive),
+          if (f.label.text.trim().isNotEmpty || f.value.text.isNotEmpty)
+            CustomField(
+              label: f.label.text.trim(),
+              value: f.value.text,
+              sensitive: f.sensitive,
+            ),
       ],
       favorite: d?.favorite ?? false,
     );
     setState(() => _saving = true);
     try {
-      final item = await AppScope.read(context).save(widget.target.itemId, data);
+      final item = await AppScope.read(context)
+          .save(widget.target.itemId, data);
       if (mounted) {
-        showZoMessage(context, widget.target.itemId == null ? '已创建「${data.title}」' : '已保存');
+        showZoMessage(
+          context,
+          widget.target.itemId == null ? '已创建「${data.title}」' : '已保存',
+        );
         widget.onSaved(item);
       }
     } on CoreException catch (e) {
@@ -192,6 +242,83 @@ class _ItemEditorState extends State<ItemEditor> {
     }
   }
 
+  /// 应用模板：只预置标题和自定义字段，不覆盖用户已经填写的内容。
+  void _applyTemplate(ItemTemplate template) {
+    setState(() {
+      _removeTemplateFields();
+      _template = template;
+      if (_title.text.trim().isEmpty && template.defaultTitle != null) {
+        _title.text = template.defaultTitle!;
+      }
+      for (final field in template.fields) {
+        final exists = _fields.any(
+          (item) => item.label.text.trim() == field.label,
+        );
+        if (!exists) {
+          _fields.add(_FieldDraft(field.label, '', field.sensitive));
+          _templateFieldLabels.add(field.label);
+        }
+      }
+    });
+  }
+
+  /// 回到完整字段表单；仅移除上一模板留下的空字段。
+  void _clearTemplate() {
+    setState(() {
+      _removeTemplateFields();
+      _template = null;
+    });
+  }
+
+  void _removeTemplateFields() {
+    for (var i = _fields.length - 1; i >= 0; i--) {
+      final field = _fields[i];
+      if (_templateFieldLabels.contains(field.label.text.trim()) &&
+          field.value.text.isEmpty) {
+        field.label.dispose();
+        field.value.dispose();
+        _fields.removeAt(i);
+      }
+    }
+    _templateFieldLabels = {};
+  }
+
+  /// 模板未声明的分区默认隐藏；已有内容的分区强制保留，避免模板切换导致内容不可见。
+  bool _shows(TemplateSection section) {
+    if (_template == null) return true;
+    final declared = _template!.shows(section);
+    return switch (section) {
+      TemplateSection.loginCredentials =>
+        declared ||
+            _username.text.isNotEmpty ||
+            _password.text.isNotEmpty ||
+            _totp.text.isNotEmpty,
+      TemplateSection.website =>
+        declared || _urls.any((url) => url.controller.text.trim().isNotEmpty),
+      TemplateSection.card =>
+        declared ||
+            _holder.text.isNotEmpty ||
+            _number.text.isNotEmpty ||
+            _expiry.text.isNotEmpty ||
+            _cvv.text.isNotEmpty ||
+            _pin.text.isNotEmpty,
+      TemplateSection.identity =>
+        declared ||
+            _fullName.text.isNotEmpty ||
+            _idEmail.text.isNotEmpty ||
+            _phone.text.isNotEmpty ||
+            _idNumber.text.isNotEmpty ||
+            _address.text.isNotEmpty ||
+            _company.text.isNotEmpty,
+      TemplateSection.customFields => declared || _fields.isNotEmpty,
+      TemplateSection.notes => declared || _notes.text.isNotEmpty,
+    };
+  }
+
+  List<Widget> _withGaps(List<Widget> groups) => [
+    for (var i = 0; i < groups.length; i++) ...[if (i > 0) _gap, groups[i]],
+  ];
+
   @override
   Widget build(BuildContext context) {
     final c = context.zo;
@@ -201,185 +328,332 @@ class _ItemEditorState extends State<ItemEditor> {
       ZoTextField(
         controller: _title,
         label: '标题',
-        hint: switch (kind) { ItemKind.login => '例如：GitHub', ItemKind.card => '例如：招商银行信用卡', ItemKind.note => '例如：服务器备忘', ItemKind.identity => '例如：本人' },
+        hint:
+            _template?.titleHint ??
+            switch (kind) {
+              ItemKind.login => '例如：GitHub',
+              ItemKind.card => '例如：招商银行信用卡',
+              ItemKind.note => '例如：服务器备忘',
+              ItemKind.identity => '例如：本人',
+            },
         autofocus: isNew,
         error: _titleError,
         onChanged: (_) => setState(() => _titleError = null),
       ),
+      if (isNew) ...[
+        _gap,
+        _TemplatePicker(
+          templates: itemTemplatesFor(kind),
+          selected: _template,
+          onSelected: _applyTemplate,
+          onClear: _clearTemplate,
+        ),
+      ],
     ];
 
     if (kind == ItemKind.login) {
-      body.addAll([
-        _gap,
-        _EditGroup(title: '登录凭据', children: [
-          ZoTextField(controller: _username, label: '用户名 / 邮箱', prefixIcon: Icons.person_outline_rounded),
-          _gapS,
-          ZoTextField(
-            controller: _password,
-            label: '密码',
-            obscure: true,
-            mono: true,
-            prefixIcon: Icons.password_rounded,
-            onChanged: (v) => setState(() => _strength = VaultApi.strength(v, inputs: [_title.text, _username.text])),
-            trailing: [ZoIconButton(icon: Icons.auto_awesome_outlined, tooltip: '生成强密码', size: 28, onPressed: _openGenerator)],
-          ),
-          const SizedBox(height: 8),
-          StrengthMeter(strength: _strength),
-          _gapS,
-          ZoTextField(
-            controller: _totp,
-            label: '两步验证（TOTP）',
-            hint: '粘贴 otpauth:// 链接或 Base32 密钥',
-            mono: true,
-            prefixIcon: Icons.timer_outlined,
-            error: _totpError,
-            onChanged: _parseTotp,
-            trailing: [
-              if (QrScanPage.supported)
-                ZoIconButton(
-                  icon: Icons.qr_code_scanner_rounded,
-                  tooltip: '扫描二维码',
-                  onPressed: () async {
-                    final raw = await Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const QrScanPage()));
-                    if (raw != null) {
-                      _totp.text = raw;
-                      _parseTotp(raw);
-                    }
-                  },
+      final groups = <Widget>[
+        if (_shows(TemplateSection.loginCredentials))
+          _EditGroup(
+            title: '登录凭据',
+            children: [
+              ZoTextField(
+                controller: _username,
+                label: '用户名 / 邮箱',
+                prefixIcon: Icons.person_outline_rounded,
+              ),
+              _gapS,
+              ZoTextField(
+                controller: _password,
+                label: '密码',
+                obscure: true,
+                mono: true,
+                prefixIcon: Icons.password_rounded,
+                onChanged: (v) => setState(
+                  () => _strength = VaultApi.strength(
+                    v,
+                    inputs: [_title.text, _username.text],
+                  ),
                 ),
+                trailing: [
+                  ZoIconButton(
+                    icon: Icons.auto_awesome_outlined,
+                    tooltip: '生成强密码',
+                    size: 28,
+                    onPressed: _openGenerator,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              StrengthMeter(strength: _strength),
+              _gapS,
+              ZoTextField(
+                controller: _totp,
+                label: '两步验证（TOTP）',
+                hint: '粘贴 otpauth:// 链接或 Base32 密钥',
+                mono: true,
+                prefixIcon: Icons.timer_outlined,
+                error: _totpError,
+                onChanged: _parseTotp,
+                trailing: [
+                  if (QrScanPage.supported)
+                    ZoIconButton(
+                      icon: Icons.qr_code_scanner_rounded,
+                      tooltip: '扫描二维码',
+                      onPressed: () async {
+                        final raw = await Navigator.of(context).push<String>(
+                          MaterialPageRoute(builder: (_) => const QrScanPage()),
+                        );
+                        if (raw != null) {
+                          _totp.text = raw;
+                          _parseTotp(raw);
+                        }
+                      },
+                    ),
+                ],
+              ),
+              if (_totpConfig != null) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Text('预览', style: context.text.labelMedium),
+                    const SizedBox(width: 12),
+                    TotpView(config: _totpConfig!),
+                    const Spacer(),
+                    Text(
+                      '${_totpConfig!.alg} · ${_totpConfig!.digits} 位 · ${_totpConfig!.period}s',
+                      style: context.text.bodySmall,
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
-          if (_totpConfig != null) ...[
-            const SizedBox(height: 10),
-            Row(children: [
-              Text('预览', style: context.text.labelMedium),
-              const SizedBox(width: 12),
-              TotpView(config: _totpConfig!),
-              const Spacer(),
-              Text('${_totpConfig!.alg} · ${_totpConfig!.digits} 位 · ${_totpConfig!.period}s', style: context.text.bodySmall),
-            ]),
-          ],
-        ]),
+        if (_shows(TemplateSection.website))
+          _EditGroup(
+            title: '网站',
+            action: ZoButton(
+              label: '添加',
+              icon: Icons.add_rounded,
+              variant: ZoButtonVariant.ghost,
+              dense: true,
+              onPressed: () =>
+                  setState(() => _urls.add(_UrlDraft('', UrlMatch.domain))),
+            ),
+            children: [
+              for (var i = 0; i < _urls.length; i++) ...[
+                if (i > 0) _gapS,
+                Row(
+                  children: [
+                    Expanded(
+                      child: ZoTextField(
+                        controller: _urls[i].controller,
+                        hint: 'https://example.com',
+                        prefixIcon: Icons.link_rounded,
+                        dense: true,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _MatchPicker(
+                      value: _urls[i].match,
+                      onChanged: (m) => setState(() => _urls[i].match = m),
+                    ),
+                    ZoIconButton(
+                      icon: Icons.remove_circle_outline_rounded,
+                      tooltip: '移除',
+                      onPressed: () => setState(
+                        () => _urls.removeAt(i).controller.dispose(),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+      ];
+      if (groups.isNotEmpty) body.addAll([_gap, ..._withGaps(groups)]);
+    }
+
+    if (kind == ItemKind.card && _shows(TemplateSection.card)) {
+      body.addAll([
         _gap,
         _EditGroup(
-          title: '网站',
+          title: '卡片信息',
+          children: [
+            ZoTextField(controller: _holder, label: '持卡人'),
+            _gapS,
+            ZoTextField(
+              controller: _number,
+              label: '卡号',
+              mono: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
+                LengthLimitingTextInputFormatter(23),
+              ],
+            ),
+            _gapS,
+            Row(
+              children: [
+                Expanded(
+                  child: ZoTextField(
+                    controller: _expiry,
+                    label: '有效期',
+                    hint: 'MM/YY',
+                    mono: true,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ZoTextField(
+                    controller: _cvv,
+                    label: '安全码',
+                    obscure: true,
+                    mono: true,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ZoTextField(
+                    controller: _pin,
+                    label: 'PIN',
+                    obscure: true,
+                    mono: true,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ]);
+    }
+
+    if (kind == ItemKind.identity && _shows(TemplateSection.identity)) {
+      body.addAll([
+        _gap,
+        _EditGroup(
+          title: '身份信息',
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: ZoTextField(controller: _fullName, label: '姓名'),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ZoTextField(controller: _company, label: '公司'),
+                ),
+              ],
+            ),
+            _gapS,
+            Row(
+              children: [
+                Expanded(
+                  child: ZoTextField(controller: _idEmail, label: '邮箱'),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ZoTextField(controller: _phone, label: '电话'),
+                ),
+              ],
+            ),
+            _gapS,
+            ZoTextField(
+              controller: _idNumber,
+              label: '证件号',
+              obscure: true,
+              mono: true,
+            ),
+            _gapS,
+            ZoTextField(controller: _address, label: '地址', maxLines: 2),
+          ],
+        ),
+      ]);
+    }
+
+    if (_shows(TemplateSection.customFields)) {
+      body.addAll([
+        _gap,
+        _EditGroup(
+          title: '自定义字段',
           action: ZoButton(
             label: '添加',
             icon: Icons.add_rounded,
             variant: ZoButtonVariant.ghost,
             dense: true,
-            onPressed: () => setState(() => _urls.add(_UrlDraft('', UrlMatch.domain))),
+            onPressed: () =>
+                setState(() => _fields.add(_FieldDraft('', '', false))),
           ),
           children: [
-            for (var i = 0; i < _urls.length; i++) ...[
+            if (_fields.isEmpty)
+              Text(
+                '例如：安全问题、U 盾编号、API Key',
+                style: context.text.bodySmall?.copyWith(color: c.textFaint),
+              ),
+            for (var i = 0; i < _fields.length; i++) ...[
               if (i > 0) _gapS,
-              Row(children: [
-                Expanded(child: ZoTextField(controller: _urls[i].controller, hint: 'https://example.com', prefixIcon: Icons.link_rounded, dense: true)),
-                const SizedBox(width: 8),
-                _MatchPicker(value: _urls[i].match, onChanged: (m) => setState(() => _urls[i].match = m)),
-                ZoIconButton(
-                  icon: Icons.remove_circle_outline_rounded,
-                  tooltip: '移除',
-                  onPressed: () => setState(() => _urls.removeAt(i).controller.dispose()),
-                ),
-              ]),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 150,
+                    child: ZoTextField(
+                      controller: _fields[i].label,
+                      hint: '名称',
+                      dense: true,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ZoTextField(
+                      controller: _fields[i].value,
+                      hint: '值',
+                      dense: true,
+                      obscure: _fields[i].sensitive,
+                    ),
+                  ),
+                  ZoIconButton(
+                    icon: _fields[i].sensitive
+                        ? Icons.lock_rounded
+                        : Icons.lock_open_rounded,
+                    tooltip: _fields[i].sensitive ? '敏感字段（默认隐藏）' : '普通字段',
+                    active: _fields[i].sensitive,
+                    onPressed: () => setState(
+                      () => _fields[i].sensitive = !_fields[i].sensitive,
+                    ),
+                  ),
+                  ZoIconButton(
+                    icon: Icons.remove_circle_outline_rounded,
+                    tooltip: '移除',
+                    onPressed: () => setState(() {
+                      final f = _fields.removeAt(i);
+                      f.label.dispose();
+                      f.value.dispose();
+                    }),
+                  ),
+                ],
+              ),
             ],
           ],
         ),
       ]);
     }
 
-    if (kind == ItemKind.card) {
+    if (_shows(TemplateSection.notes)) {
       body.addAll([
         _gap,
-        _EditGroup(title: '卡片信息', children: [
-          ZoTextField(controller: _holder, label: '持卡人'),
-          _gapS,
-          ZoTextField(
-            controller: _number,
-            label: '卡号',
-            mono: true,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')), LengthLimitingTextInputFormatter(23)],
-          ),
-          _gapS,
-          Row(children: [
-            Expanded(child: ZoTextField(controller: _expiry, label: '有效期', hint: 'MM/YY', mono: true)),
-            const SizedBox(width: 12),
-            Expanded(child: ZoTextField(controller: _cvv, label: '安全码', obscure: true, mono: true)),
-            const SizedBox(width: 12),
-            Expanded(child: ZoTextField(controller: _pin, label: 'PIN', obscure: true, mono: true)),
-          ]),
-        ]),
-      ]);
-    }
-
-    if (kind == ItemKind.identity) {
-      body.addAll([
-        _gap,
-        _EditGroup(title: '身份信息', children: [
-          Row(children: [
-            Expanded(child: ZoTextField(controller: _fullName, label: '姓名')),
-            const SizedBox(width: 12),
-            Expanded(child: ZoTextField(controller: _company, label: '公司')),
-          ]),
-          _gapS,
-          Row(children: [
-            Expanded(child: ZoTextField(controller: _idEmail, label: '邮箱')),
-            const SizedBox(width: 12),
-            Expanded(child: ZoTextField(controller: _phone, label: '电话')),
-          ]),
-          _gapS,
-          ZoTextField(controller: _idNumber, label: '证件号', obscure: true, mono: true),
-          _gapS,
-          ZoTextField(controller: _address, label: '地址', maxLines: 2),
-        ]),
-      ]);
-    }
-
-    body.addAll([
-      _gap,
-      _EditGroup(
-        title: '自定义字段',
-        action: ZoButton(
-          label: '添加',
-          icon: Icons.add_rounded,
-          variant: ZoButtonVariant.ghost,
-          dense: true,
-          onPressed: () => setState(() => _fields.add(_FieldDraft('', '', false))),
-        ),
-        children: [
-          if (_fields.isEmpty) Text('例如：安全问题、U 盾编号、API Key', style: context.text.bodySmall?.copyWith(color: c.textFaint)),
-          for (var i = 0; i < _fields.length; i++) ...[
-            if (i > 0) _gapS,
-            Row(children: [
-              SizedBox(width: 150, child: ZoTextField(controller: _fields[i].label, hint: '名称', dense: true)),
-              const SizedBox(width: 8),
-              Expanded(child: ZoTextField(controller: _fields[i].value, hint: '值', dense: true, obscure: _fields[i].sensitive)),
-              ZoIconButton(
-                icon: _fields[i].sensitive ? Icons.lock_rounded : Icons.lock_open_rounded,
-                tooltip: _fields[i].sensitive ? '敏感字段（默认隐藏）' : '普通字段',
-                active: _fields[i].sensitive,
-                onPressed: () => setState(() => _fields[i].sensitive = !_fields[i].sensitive),
-              ),
-              ZoIconButton(
-                icon: Icons.remove_circle_outline_rounded,
-                tooltip: '移除',
-                onPressed: () => setState(() {
-                  final f = _fields.removeAt(i);
-                  f.label.dispose();
-                  f.value.dispose();
-                }),
-              ),
-            ]),
+        _EditGroup(
+          title: kind == ItemKind.note ? '内容' : '备注',
+          children: [
+            ZoTextField(
+              controller: _notes,
+              maxLines: kind == ItemKind.note ? 16 : 5,
+              minLines: kind == ItemKind.note ? 10 : 3,
+              hint: '仅你可见，端到端加密',
+            ),
           ],
-        ],
-      ),
-      _gap,
-      _EditGroup(title: kind == ItemKind.note ? '内容' : '备注', children: [
-        ZoTextField(controller: _notes, maxLines: kind == ItemKind.note ? 16 : 5, minLines: kind == ItemKind.note ? 10 : 3, hint: '仅你可见，端到端加密'),
-      ]),
-    ]);
+        ),
+      ]);
+    }
 
     return CallbackShortcuts(
       bindings: {
@@ -391,18 +665,37 @@ class _ItemEditorState extends State<ItemEditor> {
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(32, 22, 24, 18),
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.border))),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: c.border)),
+            ),
             child: Row(
               children: [
                 Icon(kind.icon, size: 18, color: c.accent),
                 const SizedBox(width: 10),
-                Text(isNew ? '新建${kind.label}' : '编辑${kind.label}', style: context.text.headlineSmall),
+                Text(
+                  isNew ? '新建${kind.label}' : '编辑${kind.label}',
+                  style: context.text.headlineSmall,
+                ),
                 const Spacer(),
-                Text('Ctrl+S 保存 · Esc 取消', style: context.text.bodySmall?.copyWith(color: c.textFaint)),
+                Text(
+                  'Ctrl+S 保存 · Esc 取消',
+                  style: context.text.bodySmall?.copyWith(color: c.textFaint),
+                ),
                 const SizedBox(width: 16),
-                ZoButton(label: '取消', variant: ZoButtonVariant.ghost, dense: true, onPressed: widget.onCancel),
+                ZoButton(
+                  label: '取消',
+                  variant: ZoButtonVariant.ghost,
+                  dense: true,
+                  onPressed: widget.onCancel,
+                ),
                 const SizedBox(width: 8),
-                ZoButton(label: '保存', icon: Icons.check_rounded, dense: true, loading: _saving, onPressed: _save),
+                ZoButton(
+                  label: '保存',
+                  icon: Icons.check_rounded,
+                  dense: true,
+                  loading: _saving,
+                  onPressed: _save,
+                ),
               ],
             ),
           ),
@@ -410,7 +703,15 @@ class _ItemEditorState extends State<ItemEditor> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(32, 24, 32, 48),
               children: [
-                Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 680), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: body))),
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 680),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: body,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -422,6 +723,74 @@ class _ItemEditorState extends State<ItemEditor> {
 
 const _gap = SizedBox(height: 20);
 const _gapS = SizedBox(height: 14);
+
+class _TemplatePicker extends StatelessWidget {
+  const _TemplatePicker({
+    required this.templates,
+    required this.selected,
+    required this.onSelected,
+    required this.onClear,
+  });
+
+  final List<ItemTemplate> templates;
+  final ItemTemplate? selected;
+  final ValueChanged<ItemTemplate> onSelected;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zo;
+    return ZoPanel(
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 32,
+            child: SectionLabel(
+              '从模板开始',
+              trailing: selected == null
+                  ? null
+                  : TextButton(
+                      onPressed: onClear,
+                      style: TextButton.styleFrom(
+                        foregroundColor: c.textMuted,
+                        textStyle: const TextStyle(fontSize: 12.5),
+                      ),
+                      child: const Text('完整字段'),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '模板会预置字段并调整新建表单，已填写内容不会被覆盖。',
+            style: context.text.bodySmall?.copyWith(color: c.textFaint),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final template in templates)
+                Tooltip(
+                  message: template.description,
+                  child: ZoButton(
+                    label: template.name,
+                    icon: template.icon,
+                    dense: true,
+                    variant: selected?.id == template.id
+                        ? ZoButtonVariant.secondary
+                        : ZoButtonVariant.ghost,
+                    onPressed: () => onSelected(template),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _EditGroup extends StatelessWidget {
   const _EditGroup({required this.title, required this.children, this.action});
@@ -461,16 +830,28 @@ class _MatchPicker extends StatelessWidget {
       onSelected: onChanged,
       itemBuilder: (_) => [
         for (final m in UrlMatch.values)
-          PopupMenuItem(value: m, height: 36, child: Text('${m.label}匹配', style: context.text.bodyMedium)),
+          PopupMenuItem(
+            value: m,
+            height: 36,
+            child: Text('${m.label}匹配', style: context.text.bodyMedium),
+          ),
       ],
       child: Container(
         height: 36,
         padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(border: Border.all(color: c.border), borderRadius: BorderRadius.circular(8)),
-        child: Row(children: [
-          Text(value.label, style: context.text.bodySmall?.copyWith(color: c.text)),
-          Icon(Icons.expand_more_rounded, size: 16, color: c.textMuted),
-        ]),
+        decoration: BoxDecoration(
+          border: Border.all(color: c.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Text(
+              value.label,
+              style: context.text.bodySmall?.copyWith(color: c.text),
+            ),
+            Icon(Icons.expand_more_rounded, size: 16, color: c.textMuted),
+          ],
+        ),
       ),
     );
   }

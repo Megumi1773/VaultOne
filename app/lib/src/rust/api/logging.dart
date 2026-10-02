@@ -9,6 +9,12 @@ import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 /// 初始化日志（重复调用无副作用）。`verbose` 为诊断模式，输出 debug 级别。
+///
+/// Android 上 flutter_rust_bridge 的 `init_app` 会经 `setup_default_user_utils()`
+/// 调用 `android_logger::init_once`，抢先占用 `log` crate 的全局 logger。
+/// 因此这里用 `tracing::subscriber::set_global_default`（只设 tracing 的全局订阅者，
+/// 不触碰 `log` 桥接），而不是 `try_init`；后者在已有 logger 时必然失败，
+/// 会导致日志静默失效、文件恒为 0 字节。
 Future<void> initLogging({required String logDir, required bool verbose}) =>
     RustLib.instance.api.crateApiLoggingInitLogging(
       logDir: logDir,

@@ -498,6 +498,49 @@ impl Vault {
         self.set_deleted(id, false)
     }
 
+    /// 从回收站彻底删除条目：物理抹除本机密文行，不可恢复。
+    ///
+    /// 仅接受回收站条目，且要求其删除已同步（`dirty == 0`）：未同步的墓碑直接抹除会连同本机
+    /// 未推送的修改一起丢弃，下次同步还可能把服务端旧内容重新拉回。本操作只作用于本机，
+    /// 不通知服务端抹除已同步的数据。
+    pub fn purge_item(&mut self, id: &str) -> Result<()> {
+        self.session()?;
+        let row = self.store.get_item(id)?.ok_or(VaultError::ItemNotFound)?;
+        if row.deleted_at.is_none() {
+            return Err(VaultError::ItemNotFound);
+        }
+        if row.dirty {
+            return Err(VaultError::ItemUnsynced);
+        }
+        self.store.transaction(|store| {
+            store.check_item(Some(&row), id)?;
+            if !store.purge_item(id)? {
+                return Err(VaultError::ItemNotFound);
+            }
+            Ok(())
+        })
+    }
+
+    /// 清空回收站：逐条抹除已同步的回收站条目，未同步的保留。返回 (已抹除, 保留)。
+    pub fn empty_trash(&mut self) -> Result<(usize, usize)> {
+        let s = self.session()?;
+        let rows = self.store.list_items(&s.account.vault_id, true)?;
+        let (mut purged, mut kept) = (0usize, 0usize);
+        for row in rows {
+            if row.dirty {
+                kept += 1;
+                continue;
+            }
+            self.store.transaction(|store| {
+                store.check_item(Some(&row), &row.id)?;
+                store.purge_item(&row.id)?;
+                Ok(())
+            })?;
+            purged += 1;
+        }
+        Ok((purged, kept))
+    }
+
     fn set_deleted(&mut self, id: &str, deleted: bool) -> Result<()> {
         let row = self.store.get_item(id)?.ok_or(VaultError::ItemNotFound)?;
         let mut item = self.decrypt_row(&row)?;
@@ -1001,5 +1044,69 @@ mod tests {
         v.unlock(PW, &sk).unwrap();
         assert_eq!(v.list_items().unwrap()[0].data.title, "Persisted");
         assert_eq!(v.get_setting("auto_lock_minutes").unwrap().as_deref(), Some("5"));
+    }
+
+    /// 把当前行标记为已同步（模拟一次成功推送），使 `dirty` 归零。
+    fn sync_row(v: &mut Vault, id: &str) {
+        let row = v.store.get_item(id).unwrap().unwrap();
+        assert!(v.store.mark_synced_snapshot(&row).unwrap());
+    }
+
+    #[test]
+    fn purge_rejects_active_and_unsynced_items() {
+        let (mut v, _) = new_vault();
+        let item = v.create_item(login("A", "p")).unwrap();
+        // 活动条目不能彻底删除
+        assert!(matches!(v.purge_item(&item.id), Err(VaultError::ItemNotFound)));
+        // 回收站中未同步（dirty=1）的条目须先同步
+        v.delete_item(&item.id).unwrap();
+        assert!(matches!(v.purge_item(&item.id), Err(VaultError::ItemUnsynced)));
+        assert_eq!(v.list_trash().unwrap().len(), 1);
+        // 同步墓碑后可抹除
+        sync_row(&mut v, &item.id);
+        v.purge_item(&item.id).unwrap();
+        assert!(v.list_trash().unwrap().is_empty());
+        assert!(v.store.get_item(&item.id).unwrap().is_none());
+        // 已抹除的 ID 再次操作按不存在处理
+        assert!(matches!(v.purge_item(&item.id), Err(VaultError::ItemNotFound)));
+        assert!(matches!(v.restore_item(&item.id), Err(VaultError::ItemNotFound)));
+    }
+
+    #[test]
+    fn empty_trash_purges_synced_and_keeps_unsynced() {
+        let (mut v, _) = new_vault();
+        let a = v.create_item(login("A", "p1")).unwrap();
+        let b = v.create_item(login("B", "p2")).unwrap();
+        v.delete_item(&a.id).unwrap();
+        v.delete_item(&b.id).unwrap();
+        // 只同步 A 的墓碑
+        sync_row(&mut v, &a.id);
+        assert_eq!(v.empty_trash().unwrap(), (1, 1));
+        let trash = v.list_trash().unwrap();
+        assert_eq!(trash.len(), 1);
+        assert_eq!(trash[0].id, b.id);
+        assert!(v.store.get_item(&a.id).unwrap().is_none());
+        // 全部同步后可清空到 0
+        sync_row(&mut v, &b.id);
+        assert_eq!(v.empty_trash().unwrap(), (1, 0));
+        assert!(v.list_trash().unwrap().is_empty());
+        assert_eq!(v.empty_trash().unwrap(), (0, 0));
+    }
+
+    #[test]
+    fn purge_is_local_only_and_survives_service_side_vault() {
+        let (mut v, _) = new_vault();
+        let item = v.create_item(login("A", "p")).unwrap();
+        v.delete_item(&item.id).unwrap();
+        sync_row(&mut v, &item.id);
+        v.purge_item(&item.id).unwrap();
+        // 条目已从本机彻底消失，且不产生任何待推送的删除
+        assert!(v.list_items().unwrap().is_empty());
+        assert!(v.list_trash().unwrap().is_empty());
+        assert_eq!(v.pending_changes().unwrap(), 0);
+        assert!(v.store.get_item(&item.id).unwrap().is_none());
+        v.lock();
+        assert!(matches!(v.purge_item(&item.id), Err(VaultError::Locked)));
+        assert!(matches!(v.empty_trash(), Err(VaultError::Locked)));
     }
 }

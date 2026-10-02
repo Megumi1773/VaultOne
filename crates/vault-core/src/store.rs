@@ -268,6 +268,12 @@ impl Store {
         Ok(())
     }
 
+    /// 物理抹除回收站中某一行的整条记录（含密文与墓碑）。活动条目不会被删除。
+    /// `secure_delete=ON` 会覆写旧页，不留残留。返回是否确实删除了一行。
+    pub fn purge_item(&self, id: &str) -> Result<bool> {
+        Ok(self.conn.execute("DELETE FROM items WHERE id = ?1 AND deleted_at IS NOT NULL", params![id])? == 1)
+    }
+
     /// 完整行 CAS：核对密文、版本、墓碑、基线和 dirty，不能仅凭 revision 判定头未改变。
     pub(crate) fn check_item(&self, expected: Option<&ItemRow>, id: &str) -> Result<()> {
         if self.get_item(id)?.as_ref() != expected {

@@ -29,7 +29,7 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 
 ## 命令
 
-- 全量测试：`cargo test --locked --workspace`（2026-10-01 实测 160 项通过 / 0 失败 / 12 ignored；e2e 自启 SQLite 临时库，无需外部服务；ignored 为需真实 PG/Redis 或真实 Java 服务端的用例）。若 `target/debug` 下的服务端 exe 正被占用，加 `--target-dir target/xxx` 换输出目录。
+- 全量测试：`cargo test --locked --workspace`（2026-10-02 实测 148 项通过 / 0 失败 / 9 ignored；e2e 自启 SQLite 临时库，无需外部服务；ignored 为需真实 PG/Redis 或真实 Java 服务端的用例）。若 `target/debug` 下的服务端 exe 正被占用，加 `--target-dir target/xxx` 换输出目录。
 - 单 crate / 单测试：`cargo test -p vault-core` / `cargo test -p vault-core <name>`
 - 根 `cargo build`/`cargo test` 只构建 `default-members`（5 个 crate），**不含 `app/rust`**；要带桥用 `--workspace` 或 `-p vaultone_bridge`。桥的套接字端到端测试会调用 `target/debug/vaultone-nmhost(.exe)`，未构建时跳过这一段。
 - 覆盖率：`cargo llvm-cov -p vault-crypto --fail-under-lines 90`（CI 门禁）。
@@ -126,11 +126,11 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 - 同一进程可能有多个 Flutter 引擎（Android 自动填充界面），`open_vault` 对同一路径幂等、共用一个保险库实例。
 - 浏览器扩展的开发期 ID 由 `extension/manifest.json` 的 `key` 固定为 `pginfajjjgcjmijmddppkbhejjjcealc`；商店 ID 要追加到 `vault_proto::browser_ipc::EXTENSION_IDS`。
 
-## 当前状态（2026-10-01 逐域核对）
+## 当前状态（2026-10-02 实测）
 
-- **Flutter UI 已接通并可构建**：`app/lib/src/{core,state,ui,autofill}` 约 10300 行（不含生成代码）。14 个页面文件：cloud_setup / conflicts / feedback / generator / home / item_detail / item_editor / item_list / onboarding / qr_scan / security / settings / sign_in / unlock；另有 Android 自动填充独立界面。
-- **本机实测（2026-10-01）**：`cargo test --locked --workspace` **160 通过 / 0 失败 / 12 ignored**；`cargo clippy --workspace --all-targets -D warnings` 与 `cargo fmt --all --check` 通过；`app/` 下 `dart analyze` 无问题、`flutter test --no-pub` **48 通过**；`node --test extension/test/protocol.test.mjs` 2 通过。`server/` external 模式 `clean verify` **117 单测 + 42 真实 PG/Redis/Jetty IT 全绿**（含 `BackendContractIT` 真实 Rust 客户端互通）。详见 [docs/11](docs/11-计划执行与验收记录.md)。
-- `app/rust/src/api/**` 暴露约 77 个 FRB 函数（vault / sync / tools / clipboard / logging / browser / conflicts / cloud_account / feedback），与 UI 侧 `core/api.dart` 已对齐。
+- **Flutter UI 已接通并可构建**：`app/lib/src/{core,state,ui,autofill}` 约 10600 行（不含生成代码）。15 个页面文件：backup_dialog / cloud_setup / conflicts / feedback / generator / home / item_detail / item_editor / item_list / onboarding / qr_scan / security / settings / sign_in / unlock；另有 Android 自动填充独立界面。
+- **本机实测（2026-10-02）**：`cargo test --locked --workspace` **148 通过 / 0 失败 / 9 ignored**；`cargo clippy --workspace --all-targets -D warnings` 与 `cargo fmt --all --check` 通过；`app/` 下 `dart analyze` 无问题、`flutter test --no-pub` **70 通过**；`node --test extension/test/protocol.test.mjs` 2 通过。`server/` external 模式 `clean verify` **117 单测 + 42 真实 PG/Redis/Jetty IT 全绿**（含 `BackendContractIT` 真实 Rust 客户端互通）。详见 [docs/11](docs/11-计划执行与验收记录.md)。
+- `app/rust/src/api/**` 暴露约 79 个 FRB 函数（vault / sync / tools / clipboard / logging / browser / conflicts / cloud_account / feedback），与 UI 侧 `core/api.dart` 已对齐。
 - 服务端：Rust axum 保留（不再新增功能）；Java 21 + Spring Boot 4 已实现 19 个 `/v1` 端点 + `/healthz`、`/readyz`，Redis 会话主存、PG RLS + Envers 白名单、多环境 YAML 与安全门禁齐备。**未替换生产 Rust 服务端、未切流、未接管旧库。**
 - 已实现：云账户模式（注册/SRP 登录/设备批准/恢复/改密/注销直连 Java）；导出闭环（`.wljbak` + CSV + 导入）；本机加密冲突记录与裁决（候选快照、完整行 CAS、推送屏障、比较/裁决页）；导入（Chrome / Edge / Firefox / Bitwarden / LastPass / 1Password CSV + 1PIF）；桌面托盘 + 全局快捷键；浏览器扩展（配对 + HMAC + 按页面严格匹配 + 保存/更新 + TOTP）；Android AutofillService（填充 + 保存）；E11 首批文本反馈（Java 提交/历史/详情 + CLI 回复 + Rust/FRB/Flutter 接线）。
 - 有 CI（`ci.yml`：fmt + clippy + 测试 + 覆盖率门禁 + fuzz 冒烟 + 扩展测试与打包 + PG 冒烟 + cargo-deny + SBOM + Trivy + Flutter + 多平台构建，以及 Java `mvnw verify`；`fuzz.yml`：每晚每目标 5 h）；有 `deploy/`、`store/screenshots`、根 `LICENSE`（AGPL-3.0）。
@@ -138,7 +138,7 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 
 ## 功能进度
 
-> **详细逐条状态见 [docs/09-功能实现状态对照](docs/09-功能实现状态对照.md)**，本处只列概要。核对日期 2026-10-01，判定以代码为准。
+> **详细逐条状态见 [docs/09-功能实现状态对照](docs/09-功能实现状态对照.md)**，本处只列概要。最近核对 2026-10-02（见 docs/11 §12–§13），判定以代码为准。
 
 **已完成（主要调用链完整）**：身份主线（注册/SRP 登录/设备批准/恢复/改密/注销/生物识别解锁/审计日志）；条目 CRUD 与详情编辑（四类条目、自定义字段、TOTP、多 URL 匹配）；冲突处理与离线优先；导入导出（CSV/1PIF/`.wljbak`）；安全评分与 HIBP 泄露检测；浏览器扩展与 Android 自动填充（未真机验收）；Java 身份/同步/反馈服务端。
 
@@ -147,9 +147,9 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 - **国际化**（简中/繁中/英文）：locale 硬编码 `zh_CN`，无 `.arb` 资源与切换 UI；`supportedLocales` 的 `en` 只影响 Material 组件，会造成中英混排。
 - **账户级锁定与封禁**（§1.6/§1.7）、**密钥升级**（§1.8）：客户端、内核、Java 三层零命中。
 - **安全体检系统**（§5.2 整体）：无 0–100 健康报告、六维评分、Finding 模型、忽略项、环境探测、下钻详情。
-- **组织检索**（§3.3 模板、§3.6 分组/分类/标签及子列表、§3.11 排序）。
-- **密钥与备份**：备份卡图、字节级二次确认、备份状态与云端备份历史、私钥更换。
-- **回收站彻底删除 / 清空**；**导入预览 / 字段映射 / 覆盖策略 / 导入导出历史**；**动态 date/image 字段**。
+- **组织检索**（§3.6 分组/分类/标签及子列表、§3.11 排序）；条目模板（§3.3）已实现。
+- **密钥与备份**：云端备份历史与备份上报失败提示（Java 无端点）、私钥更换。备份卡图、字节级二次确认与备份状态已实现。
+- **导入预览 / 字段映射 / 覆盖策略 / 导入导出历史**；**动态 date/image 字段**。
 - **账户资料**（§8.1/§8.2 昵称/头像/手机/邀请码）、**邮箱手机绑定**（§5.7）、**剪贴板与截图保护开关**（§8.3）。
 - **SaaS 外围**：§6 通知与弹窗、§8.7 应用内更新、§9 积分/签到/邀请/商城（Java 侧零实现）；§8.5 反馈的图片附件与多轮线程。
 - **平台**：iOS Credential Provider；相册保存与系统分享。
@@ -159,6 +159,6 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 **建议优先级**：
 
 - **P0 收口**：iOS AutoFill 扩展；浏览器扩展与 Android 填充的真机验证；E1 / E4 真实跨端与 PG 综合验收。
-- **P1 核心体验**：国际化、分组/分类/标签、条目模板、备份卡图与二次确认、回收站彻底删除。
+- **P1 核心体验**：国际化、分组/分类/标签。
 - **P2 账户与资料**：账户总览与资料编辑（§8.1/§8.2）、联系方式绑定（§5.7）、安全体检系统（§5.2）。
 - **P3 SaaS 外围**：通知（§6）、应用内更新（§8.7）、反馈附件与线程、积分社区（§9）。

@@ -7,6 +7,7 @@ import '../../core/config.dart';
 import '../../core/api.dart';
 import '../../core/ffi.dart';
 import '../../core/models.dart';
+import '../../state/backup_card.dart';
 import '../../state/clipboard.dart';
 import '../../state/recovery_kit.dart';
 import '../../state/scope.dart';
@@ -256,10 +257,21 @@ class RecoveryKitView extends StatefulWidget {
 }
 
 class _RecoveryKitViewState extends State<RecoveryKitView> {
-  bool _saved = false;
+  final _confirm = TextEditingController();
+
   bool _confirmed = false;
+  bool _verified = false;
+  bool _checking = false;
   bool _busy = false;
+  String? _checkError;
   String? _savedPath;
+  String? _verifiedKey;
+
+  @override
+  void dispose() {
+    _confirm.dispose();
+    super.dispose();
+  }
 
   Future<void> _save() async {
     final state = AppScope.of(context);
@@ -268,13 +280,73 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
     try {
       final path = await RecoveryKit.save(widget.enrollment, canContinue: canContinue);
       if (path != null && canContinue()) {
+        await state.recordBackup('recovery_kit');
+        if (!canContinue()) return;
         setState(() {
-          _saved = true;
           _savedPath = path;
         });
       }
     } catch (_) {
       if (mounted && canContinue()) showZoMessage(context, '保存失败，请检查目录权限与可用空间。', error: true);
+    }
+  }
+
+  /// 导出 700×900 / 2x 的备份卡图（PNG）。与 PDF 互补：卡图适合存相册或打印成实体卡。
+  Future<void> _saveCard() async {
+    final state = AppScope.of(context);
+    final epoch = state.sessionEpoch;
+    bool canContinue() => mounted && epoch == state.sessionEpoch;
+    setState(() => _busy = true);
+    try {
+      final path = await BackupCard.save(
+        BackupCardData(
+          email: widget.enrollment.email,
+          secretKey: _verifiedKey ?? widget.enrollment.secretKey,
+          recoveryCode: widget.enrollment.recoveryCode,
+          generatedAt: DateTime.now(),
+        ),
+        canContinue: canContinue,
+      );
+      if (path != null && canContinue()) {
+        await state.recordBackup('backup_card');
+        if (!mounted || epoch != state.sessionEpoch) return;
+        showZoMessage(context, '备份卡已保存到 $path');
+      }
+    } catch (_) {
+      if (mounted && canContinue()) showZoMessage(context, '备份卡导出失败，请检查目录权限与可用空间。', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// 字节级二次确认：重输的 Secret Key 必须与本机保存的解析后 30 字节完全一致。
+  Future<void> _verify() async {
+    final state = AppScope.read(context);
+    final epoch = state.sessionEpoch;
+    setState(() {
+      _checking = true;
+      _checkError = null;
+    });
+    try {
+      final canonical = await state.confirmSecretKey(_confirm.text);
+      if (!mounted || epoch != state.sessionEpoch) return;
+      setState(() {
+        _verified = true;
+        _verifiedKey = canonical;
+      });
+    } on CoreException catch (e) {
+      if (!mounted || epoch != state.sessionEpoch) return;
+      setState(() {
+        _verified = false;
+        _verifiedKey = null;
+        _checkError = switch (e.code) {
+          'secret_key_mismatch' => '与本机保存的 Secret Key 不一致。请对照恢复套件逐组核对，注意易混字符 I/L/O 与数字 1/0。',
+          'locked' || 'session_expired' => '保险库已锁定，请解锁后重试。',
+          _ => '核对未完成，请稍后重试。',
+        };
+      });
+    } finally {
+      if (mounted) setState(() => _checking = false);
     }
   }
 
@@ -299,9 +371,9 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
           title: widget.title,
           subtitle: '换新设备或忘记主密码时，这是找回保险库的唯一方式。请打印或离线保存，不要存放在网盘或聊天记录里。',
         ),
-        _KeyBlock(label: 'Secret Key', value: e.secretKey, onCopied: () => setState(() => _saved = true)),
+        _KeyBlock(label: 'Secret Key', value: e.secretKey),
         const SizedBox(height: 12),
-        _KeyBlock(label: 'Recovery Code', value: e.recoveryCode, onCopied: () => setState(() => _saved = true)),
+        _KeyBlock(label: 'Recovery Code', value: e.recoveryCode),
         const SizedBox(height: 20),
         ZoButton(
           label: _savedPath == null ? '保存 Recovery Kit（PDF）' : '已保存 · 再次保存',
@@ -310,21 +382,46 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
           expand: true,
           onPressed: _save,
         ),
+        const SizedBox(height: 8),
+        ZoButton(
+          label: '导出备份卡（PNG · 700×900）',
+          icon: Icons.image_outlined,
+          variant: ZoButtonVariant.ghost,
+          expand: true,
+          onPressed: _busy ? null : _saveCard,
+        ),
         if (_savedPath != null) ...[
           const SizedBox(height: 8),
           Text(_savedPath!, style: context.text.bodySmall?.copyWith(color: c.textFaint), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
         const SizedBox(height: 20),
+        _VerifyBlock(
+          controller: _confirm,
+          verified: _verified,
+          checking: _checking,
+          error: _checkError,
+          onVerify: _verify,
+          onChanged: () {
+            if (_verified || _checkError != null) {
+              setState(() {
+                _verified = false;
+                _verifiedKey = null;
+                _checkError = null;
+              });
+            }
+          },
+        ),
+        const SizedBox(height: 14),
         Hover(
-          onTap: _saved ? () => setState(() => _confirmed = !_confirmed) : null,
+          onTap: _verified ? () => setState(() => _confirmed = !_confirmed) : null,
           builder: (context, _) => Row(
             children: [
-              Checkbox(value: _confirmed, onChanged: _saved ? (v) => setState(() => _confirmed = v ?? false) : null),
+              Checkbox(value: _confirmed, onChanged: _verified ? (v) => setState(() => _confirmed = v ?? false) : null),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  '我已妥善保存 Recovery Kit，并理解丢失后无人能帮我恢复数据。',
-                  style: context.text.bodyMedium?.copyWith(color: _saved ? c.text : c.textFaint),
+                  '我已妥善保存 Recovery Kit 与备份卡，并理解丢失后无人能帮我恢复数据。',
+                  style: context.text.bodyMedium?.copyWith(color: _verified ? c.text : c.textFaint),
                 ),
               ),
             ],
@@ -343,12 +440,91 @@ class _RecoveryKitViewState extends State<RecoveryKitView> {
   }
 }
 
+/// 逐字节二次确认区块：重输 Secret Key 与本机保存的比对，通过后才允许勾选确认。
+class _VerifyBlock extends StatelessWidget {
+  const _VerifyBlock({
+    required this.controller,
+    required this.verified,
+    required this.checking,
+    required this.error,
+    required this.onVerify,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final bool verified;
+  final bool checking;
+  final String? error;
+  final Future<void> Function() onVerify;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zo;
+    final ok = verified;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: ShapeDecoration(
+        color: c.surfaceRaised,
+        shape: BeveledRectangleBorder(
+          borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), bottomRight: Radius.circular(10)),
+          side: BorderSide(color: ok ? c.success : c.borderStrong),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(ok ? Icons.verified_rounded : Icons.spellcheck_rounded, size: 16, color: ok ? c.success : c.accent),
+              const SizedBox(width: 8),
+              Text('逐字节核对 Secret Key', style: context.text.labelSmall?.copyWith(color: ok ? c.success : c.accent)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '请把刚保存的 Secret Key 重新输入或粘贴一次。系统会逐字节比对（大小写、连字符与 I/L/O 的写法差异不影响结果），确认你手上的副本与本机一致。',
+            style: context.text.bodySmall?.copyWith(color: c.textFaint),
+          ),
+          const SizedBox(height: 12),
+          ZoTextField(
+            controller: controller,
+            label: '重新输入 Secret Key',
+            hint: 'V1-XXXXXX-XXXXXX-…',
+            mono: true,
+            enabled: !ok,
+            error: error,
+            onChanged: (_) => onChanged(),
+            onSubmitted: (_) => onVerify(),
+          ),
+          const SizedBox(height: 10),
+          if (ok)
+            Row(children: [
+              Icon(Icons.check_circle_rounded, size: 16, color: c.success),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text('与本机保存的 Secret Key 逐字节一致。', style: context.text.bodyMedium?.copyWith(color: c.success)),
+              ),
+            ])
+          else
+            ZoButton(
+              label: '核对',
+              icon: Icons.check_rounded,
+              dense: true,
+              loading: checking,
+              onPressed: checking ? null : onVerify,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _KeyBlock extends StatelessWidget {
-  const _KeyBlock({required this.label, required this.value, required this.onCopied});
+  const _KeyBlock({required this.label, required this.value});
 
   final String label;
   final String value;
-  final VoidCallback onCopied;
 
   @override
   Widget build(BuildContext context) {
@@ -375,7 +551,7 @@ class _KeyBlock extends StatelessWidget {
                 size: 28,
                 onPressed: () {
                   ClipboardService.copy(value, label: label, clearAfterSeconds: 60);
-                  onCopied();
+                  showZoMessage(context, '$label 已复制，60 秒后自动清空剪贴板');
                 },
               ),
             ],

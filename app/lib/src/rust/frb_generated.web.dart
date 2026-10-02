@@ -80,6 +80,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DeviceDto dco_decode_device_dto(dynamic raw);
 
   @protected
+  EmptyTrashResult dco_decode_empty_trash_result(dynamic raw);
+
+  @protected
   EnrollmentDto dco_decode_enrollment_dto(dynamic raw);
 
   @protected
@@ -216,6 +219,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   DeviceDto sse_decode_device_dto(SseDeserializer deserializer);
+
+  @protected
+  EmptyTrashResult sse_decode_empty_trash_result(SseDeserializer deserializer);
 
   @protected
   EnrollmentDto sse_decode_enrollment_dto(SseDeserializer deserializer);
@@ -387,6 +393,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_device_dto(DeviceDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_empty_trash_result(
+    EmptyTrashResult self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_enrollment_dto(EnrollmentDto self, SseSerializer serializer);

@@ -121,6 +121,21 @@ pub fn verify_master_password(password: String, secret_key: String) -> BridgeRes
     with_vault(|v| v.verify_master_password(&password, &secret_key))
 }
 
+/// 备份二次确认：把用户重输的 Secret Key 与本机保存的做逐字节比对（解析后 30 字节，常量时间）。
+///
+/// 大小写、分组连字符、空白与 I/L/O 的手抄差异被容忍，字节内容必须完全一致。成功时返回
+/// 本机 Secret Key 的规范形态，供备份卡与展示使用。格式错误与内容不符返回同一个
+/// `secret_key_mismatch`，不给出手抄位置信号。
+pub fn verify_secret_key(stored: String, candidate: String) -> BridgeResult<String> {
+    Ok(vault_crypto::keys::verify_secret_key(&stored, &candidate)?.to_string())
+}
+
+/// 恢复码规范化：本机不保存恢复码字节，只校验 Crockford Base32 格式并返回规范形态，
+/// 供备份卡与恢复套件重新导出使用。内容是否属于当前账户由服务端在真正恢复时判定。
+pub fn canonical_recovery_code(candidate: String) -> BridgeResult<String> {
+    Ok(vault_crypto::keys::canonical_recovery_code(&candidate)?.to_string())
+}
+
 pub fn lock() -> BridgeResult<()> {
     with_vault(|v| {
         v.lock();
@@ -185,6 +200,23 @@ pub fn delete_item(id: String) -> BridgeResult<()> {
 
 pub fn restore_item(id: String) -> BridgeResult<()> {
     with_vault(|v| v.restore_item(&id))
+}
+
+/// 从回收站彻底删除条目（本机物理抹除，不可恢复）。要求该条目的删除已同步。
+pub fn purge_item(id: String) -> BridgeResult<()> {
+    with_vault(|v| v.purge_item(&id))
+}
+
+/// 清空回收站：逐条抹除已同步条目，未同步的保留。返回 (已抹除, 保留)。
+pub fn empty_trash() -> BridgeResult<EmptyTrashResult> {
+    let (purged, kept) = with_vault(|v| v.empty_trash())?;
+    Ok(EmptyTrashResult { purged: purged as u32, kept: kept as u32 })
+}
+
+#[derive(Debug, Clone)]
+pub struct EmptyTrashResult {
+    pub purged: u32,
+    pub kept: u32,
 }
 
 /// 本地弱密码 / 重复密码审计。

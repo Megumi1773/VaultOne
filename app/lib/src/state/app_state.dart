@@ -139,6 +139,13 @@ class AppState extends ChangeNotifier {
   bool privacyAccepted = false;
   static const privacyVersion = VaultApi.privacyVersion;
 
+  /// 备份状态（本机可见，非敏感元数据，存在 settings 表）。
+  ///
+  /// `lastBackupAt` 为 Unix 秒，0 表示从未记录；`lastBackupKind` 取 recovery_kit / wljbak / csv。
+  /// 云端备份历史需要 Java 端点，尚未实现，因此这里只描述本机事实，不冒充云端已备份。
+  int lastBackupAt = 0;
+  String? lastBackupKind;
+
   int get sessionEpoch => VaultApi.sessionEpoch;
   bool isCurrentSession(int epoch) => phase == AppPhase.unlocked && epoch == sessionEpoch;
 
@@ -252,6 +259,42 @@ class AppState extends ChangeNotifier {
       browserIntegration: (await VaultApi.getSetting('browser_integration')) != '0',
     );
     privacyAccepted = (await VaultApi.getSetting('privacy_consent')) == privacyVersion;
+    lastBackupAt = intOr(await VaultApi.getSetting('backup_last_at'), 0);
+    lastBackupKind = await VaultApi.getSetting('backup_last_kind');
+  }
+
+  /// 记录一次本机备份事实。只写非敏感元数据，不记录路径与内容。
+  Future<void> recordBackup(String kind) async {
+    lastBackupAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    lastBackupKind = kind;
+    await VaultApi.setSetting('backup_last_at', '$lastBackupAt');
+    await VaultApi.setSetting('backup_last_kind', kind);
+    notifyListeners();
+  }
+
+  /// 备份二次确认：重输的 Secret Key 必须与本机保存的逐字节一致。
+  ///
+  /// 比对在 Rust 侧解析后做常量时间比较，因此大小写、分组连字符、空白与 I/L/O 的手抄
+  /// 差异被容忍，但字节内容必须完全一致。成功时把本机记录标为已核对并返回规范形态的
+  /// Secret Key，供备份卡与展示使用。
+  Future<String> confirmSecretKey(String candidate) async {
+    final stored = await _secretKey(null);
+    final canonical = await VaultApi.verifySecretKey(stored, candidate);
+    await VaultApi.setSetting('backup_verified_at', '${DateTime.now().millisecondsSinceEpoch ~/ 1000}');
+    return canonical;
+  }
+
+  /// 核对备份材料：Secret Key 与本机保存的逐字节比对（必须一致），恢复码只做格式规范化。
+  ///
+  /// 本机不保存恢复码字节（它只在生成时展示、由用户离线保管），因此恢复码的内容正确性
+  /// 无法在本机验证，只在真正恢复时由服务端判定；这里如实返回规范形态而不谎称已校验。
+  Future<({String secretKey, String recoveryCode})> verifyRecoveryMaterials({
+    required String secretKey,
+    required String recoveryCode,
+  }) async {
+    final sk = await confirmSecretKey(secretKey);
+    final rc = await VaultApi.canonicalRecoveryCode(recoveryCode);
+    return (secretKey: sk, recoveryCode: rc);
   }
 
   Future<void> acceptPrivacy() async {
@@ -388,13 +431,6 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     scheduleSync(immediate: true);
   }
-
-  /// 查看 Secret Key 前要求再次输入主密码，防止旁人趁未锁定时查看。
-  Future<String> revealSecretKey(String masterPassword) => _withSession(() async {
-    final sk = await _secretKey(null);
-    await VaultApi.verifyMasterPassword(masterPassword, sk);
-    return sk;
-  });
 
   Future<void> _enterUnlocked() async {
     final epoch = sessionEpoch;
@@ -684,6 +720,19 @@ class AppState extends ChangeNotifier {
   Future<void> restore(String id) => _withSession(() async {
     await VaultApi.restoreItem(id);
     await refresh();
+  });
+
+  /// 从回收站彻底删除（本机物理抹除，不可恢复）。
+  Future<void> purge(String id) => _withSession(() async {
+    await VaultApi.purgeItem(id);
+    await refresh();
+  });
+
+  /// 清空回收站。返回 (已抹除, 未同步而保留)。
+  Future<({int purged, int kept})> emptyTrash() => _withSession(() async {
+    final r = await VaultApi.emptyTrash();
+    await refresh();
+    return r;
   });
 
   Future<ImportSummary> importItems(String content) => _withSession(() async {

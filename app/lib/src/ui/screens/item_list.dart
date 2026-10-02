@@ -20,6 +20,7 @@ class ItemListPane extends StatelessWidget {
     this.onNew,
     this.compact = false,
     this.filterBar,
+    this.headerAction,
   });
 
   final String title;
@@ -38,6 +39,9 @@ class ItemListPane extends StatelessWidget {
 
   /// 手机端：搜索框下方的横向过滤条（分类 / 收藏 / 回收站）。
   final Widget? filterBar;
+
+  /// 标题行右侧的附加操作（如回收站的「清空」）。仅在非 compact 布局显示。
+  final Widget? headerAction;
 
   void _move(int delta) {
     if (items.isEmpty) return;
@@ -63,6 +67,7 @@ class ItemListPane extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text('${items.length}', style: monoStyle(context, size: 12, color: c.textFaint)),
                   const Spacer(),
+                  ?headerAction,
                   if (onNew != null)
                     PopupMenuButton<ItemKind>(
                       tooltip: '新建',

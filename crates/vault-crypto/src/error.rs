@@ -17,4 +17,7 @@ pub enum CryptoError {
     Memory,
     #[error("SRP 认证失败")]
     SrpAuth,
+    /// 两个 Secret Key 的字节内容不一致（备份二次确认用；不区分格式错误与内容不符）。
+    #[error("Secret Key 不一致")]
+    SecretKeyMismatch,
 }

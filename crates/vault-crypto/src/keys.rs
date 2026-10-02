@@ -12,6 +12,7 @@ use std::sync::OnceLock;
 use data_encoding::{Encoding, Specification};
 use hkdf::Hkdf;
 use sha2::Sha256;
+use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 
 use crate::secret::{random_bytes, Key32};
@@ -84,6 +85,32 @@ impl SecretKey {
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
+}
+
+/// 备份二次确认：比对用户重输的 Secret Key 与本机保存的是否为同一把密钥。
+///
+/// 比对发生在 Crockford Base32 解码之后的 30 字节上，因此大小写、分组连字符、空白以及
+/// I/L/O 的手抄差异都被容忍（沿用 [`SecretKey::parse`] 的规范），但字节内容必须完全一致——
+/// 这正是「抄错一位」要拦住的情况。比对为常量时间，不按字节提前返回，避免泄露差异位置。
+/// 解析失败与内容不符返回同一个 [`CryptoError::SecretKeyMismatch`]，不给出手抄位置信号。
+/// 成功时返回本机密钥的规范形态，便于调用方展示或写进备份卡。
+pub fn verify_secret_key(stored: &str, candidate: &str) -> Result<Zeroizing<String>> {
+    let stored = SecretKey::parse(stored).map_err(|_| CryptoError::SecretKeyMismatch)?;
+    let candidate = SecretKey::parse(candidate).map_err(|_| CryptoError::SecretKeyMismatch)?;
+    if bool::from(stored.as_bytes().ct_eq(candidate.as_bytes())) {
+        Ok(candidate.format())
+    } else {
+        Err(CryptoError::SecretKeyMismatch)
+    }
+}
+
+/// 恢复码的格式校验与规范化。
+///
+/// 本机不保存恢复码的字节（恢复码只在生成时展示、由用户离线保管），因此这里只做
+/// Crockford Base32 解析与规范化，不声称它一定属于当前账户——内容正确性由服务端在
+/// 实际恢复时判定。返回规范形态，供备份卡与恢复套件重新导出使用。
+pub fn canonical_recovery_code(candidate: &str) -> Result<Zeroizing<String>> {
+    Ok(RecoveryCode::parse(candidate).map_err(|_| CryptoError::InvalidInput("恢复码格式不正确".into()))?.format())
 }
 
 /// Recovery Code（256-bit）。
@@ -159,5 +186,62 @@ mod tests {
         let rc = RecoveryCode::generate();
         assert_ne!(rc.wrap_key("a").unwrap(), rc.auth_token("a").unwrap());
         assert_ne!(rc.wrap_key("a").unwrap(), rc.wrap_key("b").unwrap());
+    }
+
+    #[test]
+    fn verify_secret_key_compares_bytes_after_normalizing() {
+        let sk = SecretKey::generate();
+        let text = sk.format();
+
+        // 原样与规范化写法都通过，返回值是本机密钥的规范形态
+        assert_eq!(*verify_secret_key(&text, &text).unwrap(), *text);
+        let sloppy = format!(" {} ", text.to_lowercase().replace('-', "  "));
+        assert_eq!(*verify_secret_key(&text, &sloppy).unwrap(), *text);
+
+        // 手抄易混字符 I/L/O 按 Crockford 规范等价
+        let confused = text.replace('1', "l").replace('0', "O");
+        assert_eq!(*verify_secret_key(&text, &confused).unwrap(), *text);
+    }
+
+    #[test]
+    fn verify_secret_key_rejects_mismatch_without_leaking_position() {
+        let a = SecretKey::generate();
+        let b = SecretKey::generate();
+        assert!(matches!(verify_secret_key(&a.format(), &b.format()), Err(CryptoError::SecretKeyMismatch)));
+
+        // 只错一位：必须被拦住
+        let text = a.format();
+        let mut chars: Vec<char> = text.chars().collect();
+        let last = chars.len() - 1;
+        chars[last] = if chars[last] == '2' { '3' } else { '2' };
+        let off_by_one: String = chars.into_iter().collect();
+        assert_ne!(off_by_one, *text);
+        assert!(matches!(verify_secret_key(&text, &off_by_one), Err(CryptoError::SecretKeyMismatch)));
+
+        // 格式非法与内容不符返回同一个错误，不给出手抄位置信号
+        assert!(matches!(verify_secret_key(&text, "V1-ABC"), Err(CryptoError::SecretKeyMismatch)));
+        assert!(matches!(verify_secret_key(&text, ""), Err(CryptoError::SecretKeyMismatch)));
+        assert!(matches!(verify_secret_key("garbage", &text), Err(CryptoError::SecretKeyMismatch)));
+
+        // Recovery Code 不是 Secret Key
+        assert!(matches!(verify_secret_key(&text, &RecoveryCode::generate().format()), Err(CryptoError::SecretKeyMismatch)));
+    }
+
+    #[test]
+    fn canonical_recovery_code_normalizes_and_rejects() {
+        let rc = RecoveryCode::generate();
+        let text = rc.format();
+        assert_eq!(*canonical_recovery_code(&text).unwrap(), *text);
+
+        // 小写、空格分隔与 I/L/O 手抄差异都归一到同一规范形态
+        let sloppy = format!(" {} ", text.to_lowercase().replace('-', " "));
+        assert_eq!(*canonical_recovery_code(&sloppy).unwrap(), *text);
+        let confused = text.replace('1', "l").replace('0', "O");
+        assert_eq!(*canonical_recovery_code(&confused).unwrap(), *text);
+
+        // 格式错误被拒绝；Secret Key 不能当作恢复码
+        assert!(canonical_recovery_code("R1-XXXX").is_err());
+        assert!(canonical_recovery_code("").is_err());
+        assert!(canonical_recovery_code(&SecretKey::generate().format()).is_err());
     }
 }

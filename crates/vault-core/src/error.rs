@@ -19,12 +19,17 @@ pub enum VaultError {
     AlreadyInitialized,
     #[error("条目不存在")]
     ItemNotFound,
+    #[error("该条目尚未同步到云端，彻底删除会连带丢弃本机未同步的修改，请先完成同步后重试")]
+    ItemUnsynced,
     #[error("存在未完成的同步冲突，请先裁决并完成同步后再导出")]
     ConflictPending,
     #[error("冲突候选已变化，请重新加载")]
     ConflictStale,
     #[error("数据完整性校验失败")]
     Integrity,
+    /// 重输的 Secret Key 与本机保存的不一致（备份二次确认）。
+    #[error("Secret Key 与本机保存的不一致，请核对 Recovery Kit 后重试")]
+    SecretKeyMismatch,
     #[error("参数不合法: {0}")]
     InvalidInput(String),
     #[error("密码学运算失败")]
@@ -52,9 +57,11 @@ impl VaultError {
             VaultError::NotInitialized => "not_initialized",
             VaultError::AlreadyInitialized => "already_initialized",
             VaultError::ItemNotFound => "not_found",
+            VaultError::ItemUnsynced => "item_unsynced",
             VaultError::ConflictPending => "conflict_pending",
             VaultError::ConflictStale => "conflict_stale",
             VaultError::Integrity => "integrity",
+            VaultError::SecretKeyMismatch => "secret_key_mismatch",
             VaultError::InvalidInput(_) => "invalid_input",
             VaultError::Crypto(_) => "crypto",
             VaultError::Storage(_) => "storage",
@@ -71,6 +78,7 @@ impl From<CryptoError> for VaultError {
     fn from(e: CryptoError) -> Self {
         match e {
             CryptoError::Integrity => VaultError::Integrity,
+            CryptoError::SecretKeyMismatch => VaultError::SecretKeyMismatch,
             CryptoError::InvalidInput(m) => VaultError::InvalidInput(m),
             other => VaultError::Crypto(other),
         }

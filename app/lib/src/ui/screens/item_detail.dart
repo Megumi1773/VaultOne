@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api.dart';
+import '../../core/ffi.dart';
 import '../../core/models.dart';
 import '../../state/clipboard.dart';
 import '../../state/scope.dart';
@@ -36,6 +37,24 @@ class ItemDetail extends StatelessWidget {
     await AppScope.read(context).delete(item.id);
     onDeleted();
     if (context.mounted) showZoMessage(context, '已移入回收站');
+  }
+
+  Future<void> _purge(BuildContext context) async {
+    final ok = await confirmDialog(
+      context,
+      title: '彻底删除？',
+      body: '「${item.data.title}」将从本机永久删除，无法恢复。已同步到云端的数据不会在其他设备上被抹除。',
+      confirm: '彻底删除',
+      danger: true,
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await AppScope.read(context).purge(item.id);
+      onDeleted();
+      if (context.mounted) showZoMessage(context, '已彻底删除「${item.data.title}」');
+    } on CoreException catch (e) {
+      if (context.mounted) showZoMessage(context, purgeErrorMessage(e), error: true);
+    }
   }
 
   @override
@@ -165,7 +184,7 @@ class ItemDetail extends StatelessWidget {
                   ],
                 ),
               ),
-              if (inTrash)
+              if (inTrash) ...[
                 ZoButton(
                   label: '恢复',
                   icon: Icons.restore_rounded,
@@ -175,8 +194,16 @@ class ItemDetail extends StatelessWidget {
                     await state.restore(item.id);
                     if (context.mounted) showZoMessage(context, '已恢复「${d.title}」');
                   },
-                )
-              else ...[
+                ),
+                const SizedBox(width: 8),
+                ZoButton(
+                  label: '彻底删除',
+                  icon: Icons.delete_forever_rounded,
+                  variant: ZoButtonVariant.danger,
+                  dense: true,
+                  onPressed: () => _purge(context),
+                ),
+              ] else ...[
                 ZoIconButton(
                   icon: d.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
                   tooltip: d.favorite ? '取消收藏' : '收藏',
@@ -490,6 +517,14 @@ class _CardVisual extends StatelessWidget {
     );
   }
 }
+
+/// 彻底删除 / 清空回收站失败时按稳定错误码给出安全中文提示，不展示原始 message。
+String purgeErrorMessage(CoreException e) => switch (e.code) {
+      'item_unsynced' => '该条目尚未同步到云端，请先完成同步后再彻底删除。',
+      'not_found' => '条目已不存在，请刷新回收站。',
+      'locked' || 'session_expired' => '保险库已锁定，请解锁后重试。',
+      _ => '暂时无法彻底删除，请稍后重试。',
+    };
 
 /// 通用确认对话框。
 Future<bool?> confirmDialog(

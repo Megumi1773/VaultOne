@@ -53,6 +53,13 @@ impl From<serde_json::Error> for BridgeError {
     }
 }
 
+/// 密码学层的直接错误（不经过 `VaultError` 包装的调用，如备份二次确认）。
+impl From<vault_crypto::CryptoError> for BridgeError {
+    fn from(e: vault_crypto::CryptoError) -> Self {
+        BridgeError::from(VaultError::from(e))
+    }
+}
+
 pub type BridgeResult<T> = Result<T, BridgeError>;
 
 #[flutter_rust_bridge::frb(init)]

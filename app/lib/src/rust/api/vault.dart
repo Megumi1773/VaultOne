@@ -9,7 +9,7 @@ import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `item_value`, `items_json`, `slot`, `with_vault`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
 
 /// 打开（不存在则创建）本地保险库文件。
 ///
@@ -53,6 +53,26 @@ Future<void> verifyMasterPassword({
   secretKey: secretKey,
 );
 
+/// 备份二次确认：把用户重输的 Secret Key 与本机保存的做逐字节比对（解析后 30 字节，常量时间）。
+///
+/// 大小写、分组连字符、空白与 I/L/O 的手抄差异被容忍，字节内容必须完全一致。成功时返回
+/// 本机 Secret Key 的规范形态，供备份卡与展示使用。格式错误与内容不符返回同一个
+/// `secret_key_mismatch`，不给出手抄位置信号。
+Future<String> verifySecretKey({
+  required String stored,
+  required String candidate,
+}) => RustLib.instance.api.crateApiVaultVerifySecretKey(
+  stored: stored,
+  candidate: candidate,
+);
+
+/// 恢复码规范化：本机不保存恢复码字节，只校验 Crockford Base32 格式并返回规范形态，
+/// 供备份卡与恢复套件重新导出使用。内容是否属于当前账户由服务端在真正恢复时判定。
+Future<String> canonicalRecoveryCode({required String candidate}) => RustLib
+    .instance
+    .api
+    .crateApiVaultCanonicalRecoveryCode(candidate: candidate);
+
 Future<void> lock() => RustLib.instance.api.crateApiVaultLock();
 
 Future<AccountInfo> accountInfo() =>
@@ -94,6 +114,14 @@ Future<void> deleteItem({required String id}) =>
 
 Future<void> restoreItem({required String id}) =>
     RustLib.instance.api.crateApiVaultRestoreItem(id: id);
+
+/// 从回收站彻底删除条目（本机物理抹除，不可恢复）。要求该条目的删除已同步。
+Future<void> purgeItem({required String id}) =>
+    RustLib.instance.api.crateApiVaultPurgeItem(id: id);
+
+/// 清空回收站：逐条抹除已同步条目，未同步的保留。返回 (已抹除, 保留)。
+Future<EmptyTrashResult> emptyTrash() =>
+    RustLib.instance.api.crateApiVaultEmptyTrash();
 
 /// 本地弱密码 / 重复密码审计。
 Future<List<AuditFindingDto>> auditLocal() =>
@@ -210,6 +238,24 @@ class BreachResult {
           runtimeType == other.runtimeType &&
           itemId == other.itemId &&
           count == other.count;
+}
+
+class EmptyTrashResult {
+  final int purged;
+  final int kept;
+
+  const EmptyTrashResult({required this.purged, required this.kept});
+
+  @override
+  int get hashCode => purged.hashCode ^ kept.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is EmptyTrashResult &&
+          runtimeType == other.runtimeType &&
+          purged == other.purged &&
+          kept == other.kept;
 }
 
 class EnrollmentDto {

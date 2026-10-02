@@ -113,6 +113,17 @@ abstract final class VaultApi {
   static Future<void> verifyMasterPassword(String password, String secretKey) =>
       _session(() => rvault.verifyMasterPassword(password: password, secretKey: secretKey));
 
+  /// 备份二次确认：把用户重输的 Secret Key 与本机保存的做逐字节比对。
+  ///
+  /// 解析后的 30 字节必须完全一致；大小写、分组连字符、空白与 I/L/O 的手抄差异被容忍。
+  /// 不一致抛 `secret_key_mismatch`。成功返回本机 Secret Key 的规范形态。
+  static Future<String> verifySecretKey(String stored, String candidate) =>
+      _session(() => rvault.verifySecretKey(stored: stored, candidate: candidate));
+
+  /// 恢复码规范化：本机不保存恢复码字节，只校验 Crockford Base32 格式并返回规范形态。
+  static Future<String> canonicalRecoveryCode(String candidate) =>
+      _session(() => rvault.canonicalRecoveryCode(candidate: candidate));
+
   static Future<void> lock() => guard(rvault.lock);
 
   static Future<AccountInfo> account() => _session(() async {
@@ -146,6 +157,15 @@ abstract final class VaultApi {
   static Future<void> deleteItem(String id) => _session(() => rvault.deleteItem(id: id));
 
   static Future<void> restoreItem(String id) => _session(() => rvault.restoreItem(id: id));
+
+  /// 从回收站彻底删除（本机物理抹除，不可恢复）。要求该条目的删除已同步。
+  static Future<void> purgeItem(String id) => _session(() => rvault.purgeItem(id: id));
+
+  /// 清空回收站：逐条抹除已同步条目，未同步的保留。返回 (已抹除, 保留)。
+  static Future<({int purged, int kept})> emptyTrash() => _session(() async {
+        final r = await rvault.emptyTrash();
+        return (purged: r.purged.toInt(), kept: r.kept.toInt());
+      });
 
   static Future<List<AuditFinding>> audit() => _session(() async => [
         for (final f in await rvault.auditLocal())

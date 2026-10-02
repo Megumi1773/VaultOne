@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/ffi.dart';
 import '../../core/models.dart';
 import '../../state/app_state.dart';
 import '../../state/scope.dart';
 import '../theme.dart';
 import '../widgets/brand.dart';
 import '../widgets/controls.dart';
+import '../widgets/vault_widgets.dart';
 import 'generator_page.dart';
 import 'item_detail.dart';
 import 'item_editor.dart';
@@ -165,6 +167,27 @@ class _HomeScreenState extends State<HomeScreen> {
         _editing = EditTarget.create(kind ?? _section.kind ?? ItemKind.login);
       });
 
+  /// 清空回收站：已同步条目抹除，未同步的保留并如实告知。
+  Future<void> _emptyTrash() async {
+    final state = AppScope.read(context);
+    final ok = await confirmDialog(
+      context,
+      title: '清空回收站？',
+      body: '回收站中已同步的条目将从本机永久删除，无法恢复；尚未同步的条目会保留。已同步到云端的数据不会在其他设备上被抹除。',
+      confirm: '清空',
+      danger: true,
+    );
+    if (ok != true || !mounted) return;
+    try {
+      final r = await state.emptyTrash();
+      if (!mounted) return;
+      final keptNote = r.kept == 0 ? '' : '，${r.kept} 条未同步已保留';
+      showZoMessage(context, r.purged == 0 ? '没有可清空的条目$keptNote' : '已彻底删除 ${r.purged} 条$keptNote', error: r.purged == 0 && r.kept > 0);
+    } on CoreException catch (e) {
+      if (mounted) showZoMessage(context, purgeErrorMessage(e), error: true);
+    }
+  }
+
   /// 窄屏（手机）：底部导航 + 列表，详情与编辑以新页面推入。
   Widget _buildMobile(BuildContext context, List<VaultItem> visible, Map<Section, int> counts) {
     final state = AppScope.of(context);
@@ -229,6 +252,8 @@ class _HomeScreenState extends State<HomeScreen> {
         surfaceTintColor: Colors.transparent,
         title: const ZoWordmark(size: 14),
         actions: [
+          if (isTrash && state.trash.isNotEmpty)
+            IconButton(tooltip: '清空回收站', onPressed: _emptyTrash, icon: const Icon(Icons.delete_sweep_outlined)),
           if (state.remote != null)
             IconButton(
               tooltip: '立即同步',
@@ -340,6 +365,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 _editing = null;
               }),
               onNew: _section == Section.trash ? null : _newItem,
+              headerAction: _section == Section.trash && state.trash.isNotEmpty
+                  ? ZoIconButton(icon: Icons.delete_sweep_outlined, tooltip: '清空回收站', onPressed: _emptyTrash)
+                  : null,
             ),
           ),
           VerticalDivider(width: 1, color: c.border),
