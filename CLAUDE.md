@@ -134,7 +134,7 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 ## 当前状态（2026-10-02 实测）
 
 - **Flutter UI 已接通并可构建**：`app/lib/src/{core,state,ui,autofill}` 约 10600 行（不含生成代码）。15 个页面文件：backup_dialog / cloud_setup / conflicts / feedback / generator / home / item_detail / item_editor / item_list / onboarding / qr_scan / security / settings / sign_in / unlock；另有 Android 自动填充独立界面。
-- **本机实测（2026-10-02）**：`cargo test --locked --workspace` **148 通过 / 0 失败 / 9 ignored**；`cargo clippy --workspace --all-targets -D warnings` 与 `cargo fmt --all --check` 通过；`app/` 下 `dart analyze` 无问题、`flutter test --no-pub` **80 通过**；`node --test extension/test/protocol.test.mjs` 2 通过。`server/` external 模式 `clean verify` **117 单测 + 42 真实 PG/Redis/Jetty IT 全绿**（含 `BackendContractIT` 真实 Rust 客户端互通）。详见 [docs/11](docs/11-计划执行与验收记录.md)。
+- **本机实测（2026-10-02）**：`cargo test --locked --workspace` **156 通过 / 0 失败 / 9 ignored**；`cargo clippy --workspace --all-targets -D warnings` 与 `cargo fmt --all --check` 通过；`app/` 下 `dart analyze` 无问题、`flutter test --no-pub` **100 通过**；`node --test extension/test/protocol.test.mjs` 2 通过。`server/` external 模式 `clean verify` **117 单测 + 42 真实 PG/Redis/Jetty IT 全绿**（含 `BackendContractIT` 真实 Rust 客户端互通）。详见 [docs/11](docs/11-计划执行与验收记录.md)。
 - `app/rust/src/api/**` 暴露约 79 个 FRB 函数（vault / sync / tools / clipboard / logging / browser / conflicts / cloud_account / feedback），与 UI 侧 `core/api.dart` 已对齐。
 - 服务端：Rust axum 保留（不再新增功能）；Java 21 + Spring Boot 4 已实现 19 个 `/v1` 端点 + `/healthz`、`/readyz`，Redis 会话主存、PG RLS + Envers 白名单、多环境 YAML 与安全门禁齐备。**未替换生产 Rust 服务端、未切流、未接管旧库。**
 - 已实现：云账户模式（注册/SRP 登录/设备批准/恢复/改密/注销直连 Java）；导出闭环（`.wljbak` + CSV + 导入）；本机加密冲突记录与裁决（候选快照、完整行 CAS、推送屏障、比较/裁决页）；导入（Chrome / Edge / Firefox / Bitwarden / LastPass / 1Password CSV + 1PIF）；桌面托盘 + 全局快捷键；浏览器扩展（配对 + HMAC + 按页面严格匹配 + 保存/更新 + TOTP）；Android AutofillService（填充 + 保存）；E11 首批文本反馈（Java 提交/历史/详情 + CLI 回复 + Rust/FRB/Flutter 接线）。
@@ -152,7 +152,7 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 - **国际化**（简中/繁中/英文）：基础已就绪（`l10n/strings.dart` 文案表 + `LocaleScope` + 设置页三语切换 + 持久化）。**全部客户端界面已迁移**，含 Android 自动填充独立界面、托盘菜单、生物识别系统弹窗，以及按语言渲染的恢复套件 PDF 与备份卡图（内嵌简中/繁中两套字体子集）；`ItemKind` / `UrlMatch` / `ConflictField` / `FeedbackCategory` / `FeedbackStatus` / `Strength` 等枚举标签改为引用文案表常量。内核与状态层构造的提示在显示点统一取词，未登记原文原样回退。三道门禁已接入 CI：`tools/check_l10n.py`、`tools/check_duplicates.py`、`tools/check_fonts.py`。docs/09 记为「部分」（繁中/英文为自译，未经母语审校）。
 - **账户级锁定与封禁**（§1.6/§1.7）、**密钥升级**（§1.8）：客户端、内核、Java 三层零命中。
 - **安全体检系统**（§5.2 整体）：无 0–100 健康报告、六维评分、Finding 模型、忽略项、环境探测、下钻详情。
-- **组织检索**（§3.6 分组/分类/标签及子列表、§3.11 排序）；条目模板（§3.3）已实现。
+- **组织检索**（§3.6）：**多标签与单选分类已实现**（内核 `ItemData.tags`/`category` + 规范化 + 三方合并/冲突 + CSV 导入导出 + 编辑器输入 + 列表筛选 + 详情展示）；**树形分组与独立子列表页仍缺失**（无 `groupId`、无层级）。§3.11 排序缺失；条目模板（§3.3）已实现。
 - **密钥与备份**：云端备份历史与备份上报失败提示（Java 无端点）、私钥更换。备份卡图、字节级二次确认与备份状态已实现。
 - **导入预览 / 字段映射 / 覆盖策略 / 导入导出历史**；**动态 date/image 字段**。
 - **账户资料**（§8.1/§8.2 昵称/头像/手机/邀请码）、**邮箱手机绑定**（§5.7）、**剪贴板与截图保护开关**（§8.3）。
@@ -164,6 +164,6 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 **建议优先级**：
 
 - **P0 收口**：iOS AutoFill 扩展；浏览器扩展与 Android 填充的真机验证；E1 / E4 真实跨端与 PG 综合验收。
-- **P1 核心体验**：国际化页面文案迁移、分组/分类/标签。
+- **P1 核心体验**：树形分组与独立子列表页（§3.6 剩余部分）；§3.11 排序。
 - **P2 账户与资料**：账户总览与资料编辑（§8.1/§8.2）、联系方式绑定（§5.7）、安全体检系统（§5.2）。
 - **P3 SaaS 外围**：通知（§6）、应用内更新（§8.7）、反馈附件与线程、积分社区（§9）。
