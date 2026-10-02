@@ -46,7 +46,7 @@ class StrengthMeter extends StatelessWidget {
           SizedBox(
             width: 34,
             child: Text(
-              strength.guessesLog10 > 0 ? strength.label : '',
+              strength.guessesLog10 > 0 ? strength.label(context) : '',
               style: context.text.labelMedium?.copyWith(color: color),
               textAlign: TextAlign.right,
             ),

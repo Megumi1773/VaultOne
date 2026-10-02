@@ -1,0 +1,9 @@
+[
+  {
+    "file": "app/lib/src/state/desktop_shell.dart",
+    "replace": [
+      ["  Future<void> _menu() async {\n    final unlocked = state.phase == AppPhase.unlocked;\n    try {\n      await trayManager.setContextMenu(Menu(items: [\n        MenuItem(key: 'show', label: '打开 VaultOne'),\n        MenuItem(key: 'search', label: '快速搜索    $hotKeyLabel'),\n        MenuItem.separator(),\n        MenuItem(key: 'lock', label: '立即锁定', disabled: !unlocked),\n        MenuItem.separator(),\n        MenuItem(key: 'quit', label: '退出'),\n      ]));",
+       "  Future<void> _menu() async {\n    final unlocked = state.phase == AppPhase.unlocked;\n    // 托盘菜单由原生层渲染，没有 BuildContext，按当前设置的语言直接取词。\n    String t(String source) => AppStrings.translate(source, state.settings.language);\n    try {\n      await trayManager.setContextMenu(Menu(items: [\n        MenuItem(key: 'show', label: t(AppStrings.trayOpen)),\n        MenuItem(key: 'search', label: '${t(AppStrings.trayQuickSearch)}    $hotKeyLabel'),\n        MenuItem.separator(),\n        MenuItem(key: 'lock', label: t(AppStrings.lockNow), disabled: !unlocked),\n        MenuItem.separator(),\n        MenuItem(key: 'quit', label: t(AppStrings.trayQuit)),\n      ]));"]
+    ]
+  }
+]

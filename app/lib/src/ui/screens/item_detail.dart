@@ -388,7 +388,7 @@ class _StrengthBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = VaultApi.strength(password, inputs: inputs);
-    return ZoTag(s.label, color: StrengthMeter.colorFor(context, s.score));
+    return ZoTag(s.label(context), color: StrengthMeter.colorFor(context, s.score));
   }
 }
 

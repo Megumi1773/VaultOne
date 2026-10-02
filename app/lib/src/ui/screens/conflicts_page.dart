@@ -132,14 +132,14 @@ class _ConflictsPageState extends State<ConflictsPage> {
         ];
         _choices.clear();
         _reveal = false;
-        _notice = '选择已保存到本机，等待同步。远端确认前仍可能产生新的冲突。';
+        _notice = context.tr(AppStrings.conflictSavedLocal);
       });
       widget.onResolved();
     } catch (e) {
       if (!mounted) return;
       if (e is CoreException && e.code == 'conflict_stale') {
         await _select(detail.id, refresh: true);
-        if (mounted) setState(() => _notice = '候选已发生变化，请检查刷新后的版本并重新选择。');
+        if (mounted) setState(() => _notice = context.tr(AppStrings.conflictCandidateChanged));
       } else {
         setState(() => _detailError = _message(e));
       }

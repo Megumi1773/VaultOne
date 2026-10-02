@@ -497,7 +497,10 @@ class _SyncSectionState extends State<_SyncSection> {
 
     final (label, color) = switch (state.syncState) {
       SyncState.syncing => (context.tr(AppStrings.syncing), context.zo.accent),
-      SyncState.error => (context.trf(AppStrings.syncFailed, {'reason': state.syncError ?? ''}), context.zo.danger),
+      SyncState.error => (
+        context.trf(AppStrings.syncFailed, {'reason': context.tr(state.syncError ?? '')}),
+        context.zo.danger,
+      ),
       SyncState.needsReconnect => (context.tr(AppStrings.sessionExpired), context.zo.warning),
       _ => (context.tr(AppStrings.autoSync), context.zo.success),
     };

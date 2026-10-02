@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/api.dart';
 import '../core/models.dart';
+import '../l10n/strings.dart';
 import '../state/app_state.dart';
 import '../state/clipboard.dart';
 import '../state/scope.dart';
@@ -39,8 +40,8 @@ class AutofillRequest {
   final String? username;
   final String? password;
 
-  /// 展示用的来源名称
-  String get source => webDomain ?? packageName ?? '未知应用';
+  /// 展示用的来源名称；没有来源时由调用方补当前语言的兜底文案。
+  String? get source => webDomain ?? packageName;
 
   /// 应用内表单：从包名推测搜索词（com.taobao.taobao → taobao）
   String get searchHint {
@@ -91,19 +92,23 @@ class _AutofillAppState extends State<AutofillApp> {
       state: _state,
       child: ListenableBuilder(
         listenable: _state,
-        builder: (context, _) => MaterialApp(
+        // 自动填充界面是独立引擎与独立入口，同样要跟随设置里的语言。
+        builder: (context, _) => LocaleScope(
+          language: _state.settings.language,
+          child: MaterialApp(
           title: 'VaultOne',
           debugShowCheckedModeBanner: false,
           theme: buildTheme(Brightness.light),
           darkTheme: buildTheme(Brightness.dark),
-          locale: const Locale('zh', 'CN'),
-          supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
+          locale: _state.settings.language.locale,
+          supportedLocales: [for (final l in AppStrings.supported) l.locale],
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          home: Scaffold(body: SafeArea(child: _body())),
+            home: Scaffold(body: SafeArea(child: _body())),
+          ),
         ),
       ),
     );
@@ -115,8 +120,8 @@ class _AutofillAppState extends State<AutofillApp> {
     return switch (_state.phase) {
       AppPhase.unlocked => r.save ? _SavePage(request: r) : _PickPage(request: r),
       AppPhase.locked when _state.pendingEnrollment == null => const UnlockScreen(),
-      AppPhase.error => _Message(text: _state.fatalError ?? '无法打开保险库'),
-      _ => const _Message(text: '请先打开 VaultOne 完成保险库设置，再使用自动填充。'),
+      AppPhase.error => _Message(text: _state.fatalError ?? context.tr(AppStrings.fatalOpenVaultFailed)),
+      _ => _Message(text: context.tr(AppStrings.autofillSetupFirst)),
     };
   }
 }
@@ -137,7 +142,11 @@ class _Message extends StatelessWidget {
             const SizedBox(height: 16),
             Text(text, textAlign: TextAlign.center, style: context.text.bodyMedium),
             const SizedBox(height: 20),
-            ZoButton(label: '关闭', variant: ZoButtonVariant.secondary, onPressed: _cancel),
+            ZoButton(
+              label: context.tr(AppStrings.close),
+              variant: ZoButtonVariant.secondary,
+              onPressed: _cancel,
+            ),
           ]),
         ),
       );
@@ -179,7 +188,11 @@ class _PickPageState extends State<_PickPage> {
     final totp = item.data.totp;
     if (totp != null) {
       // 两步验证码通常在下一步输入，填充时顺带复制
-      await ClipboardService.copy(VaultApi.totp(totp).code, label: '验证码', clearAfterSeconds: state.settings.clipboardSeconds);
+      await ClipboardService.copy(
+        VaultApi.totp(totp).code,
+        label: context.tr(AppStrings.fieldTotp),
+        clearAfterSeconds: state.settings.clipboardSeconds,
+      );
     }
     await const MethodChannel('vaultone/autofill').invokeMethod('fill', {
       'username': item.data.username ?? '',
@@ -200,7 +213,11 @@ class _PickPageState extends State<_PickPage> {
     Widget tile(VaultItem i) => ListTile(
           leading: Icon(i.data.kind.icon, color: context.zo.textMuted),
           title: Text(i.data.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text(i.data.username ?? '（无用户名）', maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text(
+            i.data.username ?? context.tr(AppStrings.autofillNoUsername),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           trailing: i.data.totp != null ? Icon(Icons.timer_outlined, size: 18, color: context.zo.textFaint) : null,
           onTap: () => _fill(i),
         );
@@ -211,15 +228,27 @@ class _PickPageState extends State<_PickPage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 8, 4),
           child: Row(children: [
-            Expanded(child: Text('填充到 ${widget.request.source}', style: context.text.titleLarge, overflow: TextOverflow.ellipsis)),
-            IconButton(icon: const Icon(Icons.close_rounded), tooltip: '取消', onPressed: _cancel),
+            Expanded(
+              child: Text(
+                context.trf(AppStrings.autofillFillTo, {
+                  'source': widget.request.source ?? context.tr(AppStrings.autofillUnknownApp),
+                }),
+                style: context.text.titleLarge,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded),
+              tooltip: context.tr(AppStrings.cancel),
+              onPressed: _cancel,
+            ),
           ]),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: ZoTextField(
             controller: _query,
-            hint: '搜索标题、用户名或网址',
+            hint: context.tr(AppStrings.searchItemsHint),
             prefixIcon: Icons.search_rounded,
             onChanged: (_) => setState(() {}),
           ),
@@ -227,20 +256,36 @@ class _PickPageState extends State<_PickPage> {
         Expanded(
           child: ListView(children: [
             if (matched.isNotEmpty) ...[
-              const Padding(padding: EdgeInsets.fromLTRB(20, 8, 20, 4), child: SectionLabel('与此网站匹配')),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                child: SectionLabel(context.tr(AppStrings.autofillMatchedSite)),
+              ),
               for (final i in matched) tile(i),
             ],
             if (widget.request.webDomain == null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                child: Text('应用内的登录表单不做自动匹配，请确认所选条目属于该应用。', style: context.text.bodySmall),
+                child: Text(
+                  context.tr(AppStrings.autofillAppNoMatch),
+                  style: context.text.bodySmall,
+                ),
               ),
             if (others.isNotEmpty) ...[
-              Padding(padding: const EdgeInsets.fromLTRB(20, 8, 20, 4), child: SectionLabel(matched.isEmpty ? '全部登录条目' : '其他条目')),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                child: SectionLabel(
+                  context.tr(
+                    matched.isEmpty ? AppStrings.autofillAllLogins : AppStrings.autofillOtherItems,
+                  ),
+                ),
+              ),
               for (final i in others) tile(i),
             ],
             if (matched.isEmpty && others.isEmpty)
-              const Padding(padding: EdgeInsets.all(32), child: Center(child: Text('没有找到登录条目'))),
+              Padding(
+                padding: const EdgeInsets.all(32),
+                child: Center(child: Text(context.tr(AppStrings.autofillNoLogins))),
+              ),
           ]),
         ),
       ],
@@ -288,7 +333,7 @@ class _SavePageState extends State<_SavePage> {
           null,
           ItemData(
             kind: ItemKind.login,
-            title: r.source,
+            title: r.source ?? context.tr(AppStrings.autofillUnknownApp),
             urls: [if (r.pageUrl != null) ItemUrl(url: r.pageUrl!)],
             username: r.username,
             password: r.password,
@@ -299,7 +344,7 @@ class _SavePageState extends State<_SavePage> {
     } catch (e) {
       if (mounted) {
         setState(() => _busy = false);
-        showZoMessage(context, '保存失败', error: true);
+        showZoMessage(context, context.tr(AppStrings.autofillSaveFailed), error: true);
       }
     }
   }
@@ -316,13 +361,32 @@ class _SavePageState extends State<_SavePage> {
         children: [
           const Center(child: ZoMark(size: 40)),
           const SizedBox(height: 20),
-          Text(update ? '更新「${_existing!.data.title}」的密码？' : '保存到 VaultOne？', textAlign: TextAlign.center, style: context.text.headlineSmall),
+          Text(
+            update
+                ? context.trf(AppStrings.autofillUpdatePassword, {'title': _existing!.data.title})
+                : context.tr(AppStrings.autofillSaveToVault),
+            textAlign: TextAlign.center,
+            style: context.text.headlineSmall,
+          ),
           const SizedBox(height: 8),
-          Text('${r.username ?? '（无用户名）'} · ${r.source}', textAlign: TextAlign.center, style: context.text.bodyMedium?.copyWith(color: context.zo.textMuted)),
+          Text(
+            '${r.username ?? context.tr(AppStrings.autofillNoUsername)} · '
+            '${r.source ?? context.tr(AppStrings.autofillUnknownApp)}',
+            textAlign: TextAlign.center,
+            style: context.text.bodyMedium?.copyWith(color: context.zo.textMuted),
+          ),
           const SizedBox(height: 28),
-          ZoButton(label: update ? '更新' : '保存', loading: _busy, onPressed: _save),
+          ZoButton(
+            label: context.tr(update ? AppStrings.autofillUpdate : AppStrings.save),
+            loading: _busy,
+            onPressed: _save,
+          ),
           const SizedBox(height: 8),
-          ZoButton(label: '不保存', variant: ZoButtonVariant.ghost, onPressed: _cancel),
+          ZoButton(
+            label: context.tr(AppStrings.autofillDontSave),
+            variant: ZoButtonVariant.ghost,
+            onPressed: _cancel,
+          ),
         ],
       ),
     );

@@ -1,0 +1,10 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/item_editor.dart",
+    "replace": [
+      ["        hint: _template?.titleHint ??", "        hint: _template?.titleHint(context) ??"],
+      ["                  message: template.description,\n                  child: ZoButton(\n                    label: template.name,",
+       "                  message: template.description(context),\n                  child: ZoButton(\n                    label: template.name(context),"]
+    ]
+  }
+]

@@ -160,7 +160,9 @@ class _CloudSetupScreenState extends State<CloudSetupScreen> {
           if (_error ?? state.cloudSetupError case final error?) ...[
             const SizedBox(height: 12),
             Text(
-              error,
+              // 状态层与内核构造的提示没有 BuildContext，此处统一按当前语言取词；
+              // 未登记的文本（例如内核新增错误码）原样显示，不会变成空白。
+              context.tr(error),
               style: context.text.bodyMedium?.copyWith(
                 color: context.zo.danger,
               ),

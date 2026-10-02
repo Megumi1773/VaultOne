@@ -617,6 +617,66 @@ abstract final class AppStrings {
   static const autofillUpdate = '更新';
   static const autofillDontSave = '不保存';
 
+  // ───────── 条目模板名称与说明 ─────────
+  //
+  // 模板的**名称 / 说明 / 标题提示**属于界面文案，随语言切换；
+  // 模板预置的**自定义字段名与默认标题**属于条目内容（会存入保险库并同步），
+  // 保持中文源文本不变，与「条目内容不被翻译」的承诺一致。
+
+  static const tplLoginWebsite = '网站账号';
+  static const tplLoginWebsiteDesc = '用户名、密码、网址与两步验证';
+  static const tplLoginApi = 'API / 开发者账号';
+  static const tplLoginApiDesc = '登录凭据与 API Key、Secret 等敏感字段';
+  static const tplLoginApiHint = '例如：OpenAI API';
+  static const tplLoginDevice = '服务器 / 设备';
+  static const tplLoginDeviceDesc = '主机、端口、账号与设备凭据';
+  static const tplLoginDeviceHint = '例如：生产服务器';
+  static const tplCardBank = '银行卡';
+  static const tplCardBankDesc = '卡号、有效期、安全码与 PIN';
+  static const tplCardMembership = '会员 / 积分卡';
+  static const tplCardMembershipDesc = '会员号、等级与积分信息';
+  static const tplCardMembershipHint = '例如：航空公司会员卡';
+  static const tplNoteSecureDesc = '自由文本，适合恢复码与配置说明';
+  static const tplNoteApi = '服务器 / API 密钥';
+  static const tplNoteApiDesc = '主机、账号、密钥与备注';
+  static const tplNoteApiHint = '例如：生产 API 密钥';
+  static const tplNoteWifi = 'Wi-Fi 信息';
+  static const tplNoteWifiDesc = '网络名称、密码与安全类型';
+  static const tplNoteWifiHint = '例如：家里 Wi-Fi';
+  static const tplIdentityPersonal = '个人信息';
+  static const tplIdentityPersonalDesc = '姓名、邮箱、电话、证件号与地址';
+  static const tplIdentityWork = '公司 / 工作身份';
+  static const tplIdentityWorkDesc = '公司、职位、工号与联系方式';
+  static const tplIdentityWorkHint = '例如：公司邮箱身份';
+
+  // ───────── 内核 / 状态层抛出的提示 ─────────
+  //
+  // 这些文本由 Rust 桥接层与状态层构造后直接展示给用户。文案表以原文为键，
+  // 展示点统一经 `context.tr(e.message)` 取词：已登记则按当前语言输出，
+  // 未登记（例如内核新增的 code）则原样回退中文，不会显示空白。
+
+  static const coreVaultLocked = '保险库已锁定，请重新解锁后操作';
+  static const corePrivacyRequired = '请先阅读并同意隐私政策与用户协议';
+  static const coreServerMismatch = '本机账户绑定的服务器与 Java 配置不同，请先重新验证并确认连接';
+  static const configProdHttpsRequired = '发布构建需要显式配置有效的 HTTPS Java 服务地址';
+  static const configServerInvalid = '服务器地址无效；真机 HTTP 调试需开启 VAULTONE_ALLOW_LAN_HTTP 并指定私网 IP';
+  static const accountCancelled = '账户操作已取消';
+  static const secureStorageIncomplete = '安全存储或注册未完成，请保留恢复材料后重试';
+  static const unlockDraftFirst = '请先解锁账户草稿';
+  static const finishCloudFirst = '请先完成云账户注册';
+  static const missingSecretKey = '本设备未保存 Secret Key，请输入 Recovery Kit 上的 Secret Key';
+  static const unlockVaultPrompt = '解锁 VaultOne 保险库';
+  static const changePasswordUnconfirmed = '改密结果尚未确认。旧本机密码仍可解锁，请使用相同的新密码重试；其他设备可能已采用新密码。';
+  static const reverifyKeepData = '请重新验证 Java 服务连接；原数据与待同步条目已保留';
+  static const reverifyNoRequest = '请重新验证 Java 服务连接；不会自动向旧服务器发送请求';
+  static const accountDeletedLocally = '云账户已注销。本机加密数据保留，可先导出备份或明确清除本机数据。';
+
+  // ───────── 桌面托盘 ─────────
+
+  static const trayOpen = '打开 VaultOne';
+  static const trayQuickSearch = '快速搜索';
+  static const trayQuit = '退出';
+
   // ───────── 条目字段与操作 ─────────
 
   static const moveToTrash = '移入回收站';
@@ -1265,6 +1325,49 @@ abstract final class AppStrings {
     autofillUpdatePassword: '更新「{title}」的密碼？',
     autofillUpdate: '更新',
     autofillDontSave: '不儲存',
+    tplLoginWebsite: '網站帳號',
+    tplLoginWebsiteDesc: '使用者名稱、密碼、網址與兩步驗證',
+    tplLoginApi: 'API / 開發者帳號',
+    tplLoginApiDesc: '登入憑據與 API Key、Secret 等敏感欄位',
+    tplLoginApiHint: '例如：OpenAI API',
+    tplLoginDevice: '伺服器 / 裝置',
+    tplLoginDeviceDesc: '主機、連接埠、帳號與裝置憑據',
+    tplLoginDeviceHint: '例如：生產伺服器',
+    tplCardBank: '金融卡',
+    tplCardBankDesc: '卡號、有效期限、安全碼與 PIN',
+    tplCardMembership: '會員 / 積分卡',
+    tplCardMembershipDesc: '會員號、等級與積分資訊',
+    tplCardMembershipHint: '例如：航空公司會員卡',
+    tplNoteSecureDesc: '自由文字，適合恢復碼與設定說明',
+    tplNoteApi: '伺服器 / API 金鑰',
+    tplNoteApiDesc: '主機、帳號、金鑰與備註',
+    tplNoteApiHint: '例如：生產 API 金鑰',
+    tplNoteWifi: 'Wi-Fi 資訊',
+    tplNoteWifiDesc: '網路名稱、密碼與安全類型',
+    tplNoteWifiHint: '例如：家裡 Wi-Fi',
+    tplIdentityPersonal: '個人資訊',
+    tplIdentityPersonalDesc: '姓名、電子郵件、電話、證件號與地址',
+    tplIdentityWork: '公司 / 工作身分',
+    tplIdentityWorkDesc: '公司、職位、員工編號與聯絡方式',
+    tplIdentityWorkHint: '例如：公司電子郵件身分',
+    coreVaultLocked: '保險庫已鎖定，請重新解鎖後操作',
+    corePrivacyRequired: '請先閱讀並同意隱私政策與使用者條款',
+    coreServerMismatch: '本機帳戶綁定的伺服器與 Java 設定不同，請先重新驗證並確認連線',
+    configProdHttpsRequired: '發行組建需明確設定有效的 HTTPS Java 服務位址',
+    configServerInvalid: '伺服器位址無效；真機 HTTP 偵錯需開啟 VAULTONE_ALLOW_LAN_HTTP 並指定私網 IP',
+    accountCancelled: '帳戶操作已取消',
+    secureStorageIncomplete: '安全儲存或註冊未完成，請保留恢復材料後重試',
+    unlockDraftFirst: '請先解鎖帳戶草稿',
+    finishCloudFirst: '請先完成雲端帳戶註冊',
+    missingSecretKey: '本裝置未儲存 Secret Key，請輸入 Recovery Kit 上的 Secret Key',
+    unlockVaultPrompt: '解鎖 VaultOne 保險庫',
+    changePasswordUnconfirmed: '改密結果尚未確認。舊本機密碼仍可解鎖，請使用相同的新密碼重試；其他裝置可能已採用新密碼。',
+    reverifyKeepData: '請重新驗證 Java 服務連線；原資料與待同步項目已保留',
+    reverifyNoRequest: '請重新驗證 Java 服務連線；不會自動向舊伺服器傳送請求',
+    accountDeletedLocally: '雲端帳戶已註銷。本機加密資料保留，可先匯出備份或明確清除本機資料。',
+    trayOpen: '開啟 VaultOne',
+    trayQuickSearch: '快速搜尋',
+    trayQuit: '結束',
     moveToTrash: '移至回收筒',
     moveToTrashConfirmTitle: '移至回收筒？',
     moveToTrashConfirmBody: '「{title}」將移至回收筒，可隨時恢復。',
@@ -1891,6 +1994,49 @@ abstract final class AppStrings {
     autofillUpdatePassword: 'Update the password for “{title}”?',
     autofillUpdate: 'Update',
     autofillDontSave: 'Do not save',
+    tplLoginWebsite: 'Website account',
+    tplLoginWebsiteDesc: 'Username, password, URLs and two-factor',
+    tplLoginApi: 'API / developer account',
+    tplLoginApiDesc: 'Login credentials plus API keys, secrets and other sensitive fields',
+    tplLoginApiHint: 'For example: OpenAI API',
+    tplLoginDevice: 'Server / device',
+    tplLoginDeviceDesc: 'Host, port, account and device credentials',
+    tplLoginDeviceHint: 'For example: production server',
+    tplCardBank: 'Bank card',
+    tplCardBankDesc: 'Card number, expiry, security code and PIN',
+    tplCardMembership: 'Membership / loyalty card',
+    tplCardMembershipDesc: 'Member number, tier and points',
+    tplCardMembershipHint: 'For example: airline membership card',
+    tplNoteSecureDesc: 'Free text, good for recovery codes and configuration notes',
+    tplNoteApi: 'Server / API keys',
+    tplNoteApiDesc: 'Host, account, key and notes',
+    tplNoteApiHint: 'For example: production API key',
+    tplNoteWifi: 'Wi-Fi details',
+    tplNoteWifiDesc: 'Network name, password and security type',
+    tplNoteWifiHint: 'For example: home Wi-Fi',
+    tplIdentityPersonal: 'Personal details',
+    tplIdentityPersonalDesc: 'Name, email, phone, ID number and address',
+    tplIdentityWork: 'Company / work identity',
+    tplIdentityWorkDesc: 'Company, role, employee number and contact details',
+    tplIdentityWorkHint: 'For example: work email identity',
+    coreVaultLocked: 'The vault is locked. Unlock it again to continue.',
+    corePrivacyRequired: 'Read and accept the Privacy Policy and Terms of Service first.',
+    coreServerMismatch: 'The server bound to this account differs from the Java configuration. Verify the connection again.',
+    configProdHttpsRequired: 'Release builds require an explicit, valid HTTPS Java service URL.',
+    configServerInvalid: 'Invalid server URL. On-device HTTP debugging needs VAULTONE_ALLOW_LAN_HTTP plus a private-network IP.',
+    accountCancelled: 'The account operation was cancelled',
+    secureStorageIncomplete: 'Secure storage or registration did not finish. Keep your recovery material and try again.',
+    unlockDraftFirst: 'Unlock the account draft first',
+    finishCloudFirst: 'Finish cloud account registration first',
+    missingSecretKey: 'This device has no stored Secret Key. Enter the one from the Recovery Kit.',
+    unlockVaultPrompt: 'Unlock the VaultOne vault',
+    changePasswordUnconfirmed: 'The password change is unconfirmed. The old local password still unlocks; retry with the same new password. Other devices may already use the new one.',
+    reverifyKeepData: 'Verify the Java service connection again; your data and pending items are kept',
+    reverifyNoRequest: 'Verify the Java service connection again; no request is sent to the old server automatically',
+    accountDeletedLocally: 'The cloud account is deleted. Local encrypted data is kept; export a backup or erase it explicitly.',
+    trayOpen: 'Open VaultOne',
+    trayQuickSearch: 'Quick search',
+    trayQuit: 'Quit',
     moveToTrash: 'Move to trash',
     moveToTrashConfirmTitle: 'Move to trash?',
     moveToTrashConfirmBody: '“{title}” moves to the trash and can be restored at any time.',

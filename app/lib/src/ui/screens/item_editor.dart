@@ -331,7 +331,7 @@ class _ItemEditorState extends State<ItemEditor> {
       ZoTextField(
         controller: _title,
         label: context.tr(AppStrings.titleLabel),
-        hint: _template?.titleHint ??
+        hint: _template?.titleHint(context) ??
             switch (kind) {
               ItemKind.login => context.tr(AppStrings.hintLoginTitle),
               ItemKind.card => context.tr(AppStrings.hintCardTitle),
@@ -784,9 +784,9 @@ class _TemplatePicker extends StatelessWidget {
             children: [
               for (final template in templates)
                 Tooltip(
-                  message: template.description,
+                  message: template.description(context),
                   child: ZoButton(
-                    label: template.name,
+                    label: template.name(context),
                     icon: template.icon,
                     dense: true,
                     variant: selected?.id == template.id

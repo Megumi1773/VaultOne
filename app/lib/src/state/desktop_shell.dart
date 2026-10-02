@@ -7,6 +7,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../core/api.dart';
+import '../l10n/strings.dart';
 import 'app_state.dart';
 
 /// 桌面端外壳（计划书 §2.3 系统托盘 / P1 全局快捷键）：
@@ -106,14 +107,16 @@ class DesktopShell with TrayListener, WindowListener {
 
   Future<void> _menu() async {
     final unlocked = state.phase == AppPhase.unlocked;
+    // 托盘菜单由原生层渲染，没有 BuildContext，按当前设置的语言直接取词。
+    String t(String source) => AppStrings.translate(source, state.settings.language);
     try {
       await trayManager.setContextMenu(Menu(items: [
-        MenuItem(key: 'show', label: '打开 VaultOne'),
-        MenuItem(key: 'search', label: '快速搜索    $hotKeyLabel'),
+        MenuItem(key: 'show', label: t(AppStrings.trayOpen)),
+        MenuItem(key: 'search', label: '${t(AppStrings.trayQuickSearch)}    $hotKeyLabel'),
         MenuItem.separator(),
-        MenuItem(key: 'lock', label: '立即锁定', disabled: !unlocked),
+        MenuItem(key: 'lock', label: t(AppStrings.lockNow), disabled: !unlocked),
         MenuItem.separator(),
-        MenuItem(key: 'quit', label: '退出'),
+        MenuItem(key: 'quit', label: t(AppStrings.trayQuit)),
       ]));
     } catch (_) {}
   }

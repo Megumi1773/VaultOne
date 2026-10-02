@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/strings.dart';
 import 'models.dart';
 
 /// 模板可控制显隐的编辑分区。`null` 模板表示展示当前类型的全部字段。
@@ -13,6 +14,10 @@ enum TemplateSection {
 }
 
 /// 模板预置的自定义字段。
+///
+/// `label` 与 `hint` 是**条目内容**：应用模板后会写入保险库并参与同步，因此保持中文
+/// 源文本，不随界面语言切换（与「条目内容不被翻译」的承诺一致）。界面层的模板**名称、
+/// 说明、标题提示**才是可翻译文案，通过 `AppStrings` 常量按当前语言解析。
 class TemplateField {
   const TemplateField(this.label, {this.sensitive = false, this.hint});
 
@@ -26,24 +31,39 @@ class ItemTemplate {
   const ItemTemplate({
     required this.id,
     required this.kind,
-    required this.name,
-    required this.description,
+    required this.nameKey,
+    required this.descriptionKey,
     required this.icon,
     required this.sections,
-    this.titleHint,
+    this.titleHintKey,
     this.defaultTitle,
     this.fields = const [],
   });
 
   final String id;
   final ItemKind kind;
-  final String name;
-  final String description;
+
+  /// 名称与说明的文案表常量；展示时经 `context.tr` 解析为当前语言。
+  final String nameKey;
+  final String descriptionKey;
   final IconData icon;
   final Set<TemplateSection> sections;
-  final String? titleHint;
+
+  /// 标题输入框的提示文案常量；与类型级默认提示同文案时复用同一常量。
+  final String? titleHintKey;
+
+  /// 模板预置的默认标题，属于条目内容，保持中文源文本。
   final String? defaultTitle;
   final List<TemplateField> fields;
+
+  String name(BuildContext context) => context.tr(nameKey);
+
+  String description(BuildContext context) => context.tr(descriptionKey);
+
+  String? titleHint(BuildContext context) {
+    final key = titleHintKey;
+    return key == null ? null : context.tr(key);
+  }
 
   bool shows(TemplateSection section) => sections.contains(section);
 }
@@ -52,28 +72,28 @@ const _loginTemplates = <ItemTemplate>[
   ItemTemplate(
     id: 'login.website',
     kind: ItemKind.login,
-    name: '网站账号',
-    description: '用户名、密码、网址与两步验证',
+    nameKey: AppStrings.tplLoginWebsite,
+    descriptionKey: AppStrings.tplLoginWebsiteDesc,
     icon: Icons.language_rounded,
     sections: {
       TemplateSection.loginCredentials,
       TemplateSection.website,
       TemplateSection.notes,
     },
-    titleHint: '例如：GitHub',
+    titleHintKey: AppStrings.hintLoginTitle,
   ),
   ItemTemplate(
     id: 'login.api',
     kind: ItemKind.login,
-    name: 'API / 开发者账号',
-    description: '登录凭据与 API Key、Secret 等敏感字段',
+    nameKey: AppStrings.tplLoginApi,
+    descriptionKey: AppStrings.tplLoginApiDesc,
     icon: Icons.code_rounded,
     sections: {
       TemplateSection.loginCredentials,
       TemplateSection.customFields,
       TemplateSection.notes,
     },
-    titleHint: '例如：OpenAI API',
+    titleHintKey: AppStrings.tplLoginApiHint,
     defaultTitle: 'API 凭据',
     fields: [
       TemplateField('API Key', sensitive: true),
@@ -84,8 +104,8 @@ const _loginTemplates = <ItemTemplate>[
   ItemTemplate(
     id: 'login.device',
     kind: ItemKind.login,
-    name: '服务器 / 设备',
-    description: '主机、端口、账号与设备凭据',
+    nameKey: AppStrings.tplLoginDevice,
+    descriptionKey: AppStrings.tplLoginDeviceDesc,
     icon: Icons.dns_outlined,
     sections: {
       TemplateSection.loginCredentials,
@@ -93,7 +113,7 @@ const _loginTemplates = <ItemTemplate>[
       TemplateSection.customFields,
       TemplateSection.notes,
     },
-    titleHint: '例如：生产服务器',
+    titleHintKey: AppStrings.tplLoginDeviceHint,
     fields: [
       TemplateField('主机'),
       TemplateField('端口'),
@@ -107,24 +127,24 @@ const _cardTemplates = <ItemTemplate>[
   ItemTemplate(
     id: 'card.bank',
     kind: ItemKind.card,
-    name: '银行卡',
-    description: '卡号、有效期、安全码与 PIN',
+    nameKey: AppStrings.tplCardBank,
+    descriptionKey: AppStrings.tplCardBankDesc,
     icon: Icons.credit_card_rounded,
     sections: {TemplateSection.card, TemplateSection.notes},
-    titleHint: '例如：招商银行信用卡',
+    titleHintKey: AppStrings.hintCardTitle,
   ),
   ItemTemplate(
     id: 'card.membership',
     kind: ItemKind.card,
-    name: '会员 / 积分卡',
-    description: '会员号、等级与积分信息',
+    nameKey: AppStrings.tplCardMembership,
+    descriptionKey: AppStrings.tplCardMembershipDesc,
     icon: Icons.card_membership_rounded,
     sections: {
       TemplateSection.card,
       TemplateSection.customFields,
       TemplateSection.notes,
     },
-    titleHint: '例如：航空公司会员卡',
+    titleHintKey: AppStrings.tplCardMembershipHint,
     fields: [TemplateField('会员号'), TemplateField('等级'), TemplateField('积分')],
   ),
 ];
@@ -133,20 +153,20 @@ const _noteTemplates = <ItemTemplate>[
   ItemTemplate(
     id: 'note.secure',
     kind: ItemKind.note,
-    name: '安全笔记',
-    description: '自由文本，适合恢复码与配置说明',
+    nameKey: AppStrings.sectionNote,
+    descriptionKey: AppStrings.tplNoteSecureDesc,
     icon: Icons.sticky_note_2_outlined,
     sections: {TemplateSection.notes},
-    titleHint: '例如：服务器备忘',
+    titleHintKey: AppStrings.hintNoteTitle,
   ),
   ItemTemplate(
     id: 'note.api',
     kind: ItemKind.note,
-    name: '服务器 / API 密钥',
-    description: '主机、账号、密钥与备注',
+    nameKey: AppStrings.tplNoteApi,
+    descriptionKey: AppStrings.tplNoteApiDesc,
     icon: Icons.vpn_key_outlined,
     sections: {TemplateSection.customFields, TemplateSection.notes},
-    titleHint: '例如：生产 API 密钥',
+    titleHintKey: AppStrings.tplNoteApiHint,
     fields: [
       TemplateField('主机'),
       TemplateField('端口'),
@@ -157,11 +177,11 @@ const _noteTemplates = <ItemTemplate>[
   ItemTemplate(
     id: 'note.wifi',
     kind: ItemKind.note,
-    name: 'Wi-Fi 信息',
-    description: '网络名称、密码与安全类型',
+    nameKey: AppStrings.tplNoteWifi,
+    descriptionKey: AppStrings.tplNoteWifiDesc,
     icon: Icons.wifi_rounded,
     sections: {TemplateSection.customFields, TemplateSection.notes},
-    titleHint: '例如：家里 Wi-Fi',
+    titleHintKey: AppStrings.tplNoteWifiHint,
     fields: [
       TemplateField('网络名称'),
       TemplateField('密码', sensitive: true),
@@ -174,24 +194,24 @@ const _identityTemplates = <ItemTemplate>[
   ItemTemplate(
     id: 'identity.personal',
     kind: ItemKind.identity,
-    name: '个人信息',
-    description: '姓名、邮箱、电话、证件号与地址',
+    nameKey: AppStrings.tplIdentityPersonal,
+    descriptionKey: AppStrings.tplIdentityPersonalDesc,
     icon: Icons.badge_outlined,
     sections: {TemplateSection.identity, TemplateSection.notes},
-    titleHint: '例如：本人',
+    titleHintKey: AppStrings.hintIdentityTitle,
   ),
   ItemTemplate(
     id: 'identity.work',
     kind: ItemKind.identity,
-    name: '公司 / 工作身份',
-    description: '公司、职位、工号与联系方式',
+    nameKey: AppStrings.tplIdentityWork,
+    descriptionKey: AppStrings.tplIdentityWorkDesc,
     icon: Icons.business_center_outlined,
     sections: {
       TemplateSection.identity,
       TemplateSection.customFields,
       TemplateSection.notes,
     },
-    titleHint: '例如：公司邮箱身份',
+    titleHintKey: AppStrings.tplIdentityWorkHint,
     fields: [TemplateField('职位'), TemplateField('工号')],
   ),
 ];

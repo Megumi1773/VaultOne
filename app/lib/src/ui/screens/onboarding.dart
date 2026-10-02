@@ -549,7 +549,7 @@ class _KeyBlock extends StatelessWidget {
               const Spacer(),
               ZoIconButton(
                 icon: Icons.copy_rounded,
-                tooltip: '复制',
+                tooltip: context.tr(AppStrings.copy),
                 size: 28,
                 onPressed: () {
                   ClipboardService.copy(value, label: label, clearAfterSeconds: 60);

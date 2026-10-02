@@ -1,0 +1,16 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/conflicts_page.dart",
+    "replace": [
+      ["        _notice = '选择已保存到本机，等待同步。远端确认前仍可能产生新的冲突。';", "        _notice = context.tr(AppStrings.conflictSavedLocal);"],
+      ["        if (mounted) setState(() => _notice = '候选已发生变化，请检查刷新后的版本并重新选择。');",
+       "        if (mounted) setState(() => _notice = context.tr(AppStrings.conflictCandidateChanged));"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/onboarding.dart",
+    "replace": [
+      ["                tooltip: '复制',", "                tooltip: context.tr(AppStrings.copy),"]
+    ]
+  }
+]

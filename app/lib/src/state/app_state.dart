@@ -383,7 +383,11 @@ class AppState extends ChangeNotifier {
   /// 生物识别快速解锁（Touch ID / Face ID / Windows Hello / Android BiometricPrompt）。
   Future<bool> unlockWithBiometrics() async {
     if (!quickUnlockEnabled || accountId == null) return false;
-    final ok = await _auth.authenticate(localizedReason: '解锁 VaultOne 保险库', biometricOnly: false);
+    final ok = await _auth.authenticate(
+      // 系统弹窗没有 BuildContext，按当前设置的语言直接取词。
+      localizedReason: AppStrings.translate(AppStrings.unlockVaultPrompt, settings.language),
+      biometricOnly: false,
+    );
     if (!ok) return false;
     final hex = await SecureStore.readQuickKey(accountId!);
     if (hex == null) {
@@ -406,7 +410,10 @@ class AppState extends ChangeNotifier {
 
   Future<void> setQuickUnlock(bool enabled) async {
     if (enabled) {
-      final ok = await _auth.authenticate(localizedReason: '启用生物识别解锁', biometricOnly: false);
+      final ok = await _auth.authenticate(
+        localizedReason: AppStrings.translate(AppStrings.biometricEnable, settings.language),
+        biometricOnly: false,
+      );
       if (!ok) return;
       final key = await VaultApi.enableQuickUnlock();
       await SecureStore.writeQuickKey(accountId!, _hex(key));

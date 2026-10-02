@@ -1,0 +1,23 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/cloud_setup.dart",
+    "replace": [
+      ["          if (_error ?? state.cloudSetupError case final error?) ...[\n            const SizedBox(height: 12),\n            Text(\n              error,",
+       "          if (_error ?? state.cloudSetupError case final error?) ...[\n            const SizedBox(height: 12),\n            Text(\n              // 状态层与内核构造的提示没有 BuildContext，此处统一按当前语言取词；\n              // 未登记的文本（例如内核新增错误码）原样显示，不会变成空白。\n              context.tr(error),"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/home.dart",
+    "replace": [
+      ["                        SyncState.error => context.trf(AppStrings.syncFailed, {'reason': state.syncError ?? ''}),",
+       "                        SyncState.error => context.trf(AppStrings.syncFailed, {\n                          'reason': context.tr(state.syncError ?? ''),\n                        }),"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/settings_page.dart",
+    "replace": [
+      ["      SyncState.error => (context.trf(AppStrings.syncFailed, {'reason': state.syncError ?? ''}), context.zo.danger),",
+       "      SyncState.error => (\n        context.trf(AppStrings.syncFailed, {'reason': context.tr(state.syncError ?? '')}),\n        context.zo.danger,\n      ),"]
+    ]
+  }
+]

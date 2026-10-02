@@ -356,7 +356,16 @@ class Strength {
 
   static const empty = Strength(0, 0, null);
 
-  String get label => const ['极弱', '弱', '一般', '强', '很强'][score.clamp(0, 4)];
+  /// 强度标签的**唯一来源**是文案表；此处只持常量引用，避免同一文案再写一份。
+  static const _labelKeys = [
+    AppStrings.strengthVeryWeak,
+    AppStrings.strengthWeak,
+    AppStrings.strengthFair,
+    AppStrings.strengthStrong,
+    AppStrings.strengthVeryStrong,
+  ];
+
+  String label(BuildContext context) => context.tr(_labelKeys[score.clamp(0, 4)]);
 }
 
 class AuditFinding {

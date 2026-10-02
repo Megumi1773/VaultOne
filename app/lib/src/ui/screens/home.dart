@@ -680,7 +680,9 @@ class _Sidebar extends StatelessWidget {
                       message: switch (state.syncState) {
                         SyncState.off => context.tr(AppStrings.cloudSetupPending),
                         SyncState.syncing => context.tr(AppStrings.syncing),
-                        SyncState.error => context.trf(AppStrings.syncFailed, {'reason': state.syncError ?? ''}),
+                        SyncState.error => context.trf(AppStrings.syncFailed, {
+                          'reason': context.tr(state.syncError ?? ''),
+                        }),
                         SyncState.needsReconnect => context.tr(AppStrings.cloudNeedsRevalidate),
                         SyncState.idle => context.tr(AppStrings.autoSync),
                       },
