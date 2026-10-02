@@ -44,7 +44,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
     try {
       await state.unlockWithBiometrics();
     } on CoreException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) setState(() => _error = context.tr(e.message));
     } catch (_) {
       // 用户取消或系统不可用：回退到主密码
     } finally {
@@ -74,7 +74,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = e.message;
+        _error = context.tr(e.message);
         _shake++;
       });
       _focus.requestFocus();
@@ -207,7 +207,7 @@ class _RecoverFlowState extends State<_RecoverFlow> {
     } on CoreException catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.message;
+        _error = context.tr(e.message);
         _shake++;
       });
     } finally {

@@ -63,7 +63,7 @@ class _SignInFormState extends State<SignInForm> {
       VaultApi.log('signIn failed: ${e.code}', level: 'error');
       if (mounted) {
         setState(() {
-          _error = e.message;
+          _error = context.tr(e.message);
           _shake++;
         });
       }
@@ -149,7 +149,7 @@ class _DeviceApprovalViewState extends State<DeviceApprovalView> {
       try {
         await AppScope.read(context).pollDeviceApproved();
       } on CoreException catch (e) {
-        if (mounted) setState(() => _error = e.message);
+        if (mounted) setState(() => _error = context.tr(e.message));
       } finally {
         _polling = false;
       }
@@ -172,7 +172,7 @@ class _DeviceApprovalViewState extends State<DeviceApprovalView> {
     try {
       await AppScope.read(context).verifyDevice(_code.text.trim());
     } on CoreException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) setState(() => _error = context.tr(e.message));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -268,7 +268,7 @@ class _CloudRecoverFormState extends State<CloudRecoverForm> {
       final server = AppConfig.allowCustomServer ? _server.text : AppConfig.defaultServerUrl;
       await AppScope.read(context).recoverFromServer(server, _email.text, _rc.text, _sk.text, _pw.text, _device.text);
     } on CoreException catch (e) {
-      if (mounted) _fail(e.message);
+      if (mounted) _fail(context.tr(e.message));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

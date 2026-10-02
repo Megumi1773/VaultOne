@@ -149,7 +149,7 @@ VaultOne：零知识、本地优先的密码保险库。Rust 工作区（加密�
 
 **未实现**：
 
-- **国际化**（简中/繁中/英文）：基础已就绪（`l10n/strings.dart` 文案表 + `LocaleScope` + 设置页三语切换 + 持久化）。除 Android 自动填充界面、条目模板名与备份卡/PDF 文本外，**全部客户端页面（应用壳、设置、首页、解锁、引导、条目列表/详情/编辑器、登录、云注册、生成器、安全中心、冲突页、反馈页、备份对话框、扫码页）与全部部件已迁移**；`ItemKind` / `UrlMatch` / `ConflictField` / `FeedbackCategory` / `FeedbackStatus` 等枚举标签改为引用文案表常量，不再各自持一份。新增 `tools/check_l10n.py`（已接入 CI）与 `tools/check_duplicates.py` 两道门禁。docs/09 记为「部分」。
+- **国际化**（简中/繁中/英文）：基础已就绪（`l10n/strings.dart` 文案表 + `LocaleScope` + 设置页三语切换 + 持久化）。**全部客户端界面已迁移**，含 Android 自动填充独立界面、托盘菜单、生物识别系统弹窗，以及按语言渲染的恢复套件 PDF 与备份卡图（内嵌简中/繁中两套字体子集）；`ItemKind` / `UrlMatch` / `ConflictField` / `FeedbackCategory` / `FeedbackStatus` / `Strength` 等枚举标签改为引用文案表常量。内核与状态层构造的提示在显示点统一取词，未登记原文原样回退。三道门禁已接入 CI：`tools/check_l10n.py`、`tools/check_duplicates.py`、`tools/check_fonts.py`。docs/09 记为「部分」（繁中/英文为自译，未经母语审校）。
 - **账户级锁定与封禁**（§1.6/§1.7）、**密钥升级**（§1.8）：客户端、内核、Java 三层零命中。
 - **安全体检系统**（§5.2 整体）：无 0–100 健康报告、六维评分、Finding 模型、忽略项、环境探测、下钻详情。
 - **组织检索**（§3.6 分组/分类/标签及子列表、§3.11 排序）；条目模板（§3.3）已实现。

@@ -360,7 +360,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
       await AppScope.read(context).changePassword(_cur.text, _next.text);
       if (mounted) Navigator.pop(context, true);
     } on CoreException catch (e) {
-      setState(() => _error = e.message);
+      setState(() => _error = context.tr(e.message));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

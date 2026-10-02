@@ -299,7 +299,12 @@ class _ToastBody extends StatelessWidget {
 }
 
 /// 轻量提示（非剪贴板）。
+///
+/// `message` 可能来自内核或状态层（例如 `e.message`），那些文本没有 BuildContext，
+/// 因此在**这个共同出口**统一按当前语言取词：已登记则输出译文，未登记（例如内核新增
+/// 错误码）原样回退中文，不会变成空白。
 void showZoMessage(BuildContext context, String message, {bool error = false}) {
+  final text = context.tr(message);
   final c = context.zo;
   final messenger = ScaffoldMessenger.maybeOf(context);
   messenger?.hideCurrentSnackBar();
@@ -315,7 +320,7 @@ void showZoMessage(BuildContext context, String message, {bool error = false}) {
         children: [
           Icon(error ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded, size: 18, color: error ? c.danger : c.accent),
           const SizedBox(width: 10),
-          Expanded(child: Text(message, style: context.text.bodyMedium)),
+          Expanded(child: Text(text, style: context.text.bodyMedium)),
         ],
       ),
     ),

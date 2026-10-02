@@ -187,8 +187,38 @@ void main() {
     }
   });
 
-  test('设置项默认语言为简体中文，copyWith 可切换且不影响其他字段', () {
-    const s = Settings();
+  // 内核与状态层构造的错误提示没有 BuildContext，原先在中英文界面会漏出中文原文。
+  // 现在统一在显示点（showZoMessage 与各页面的 _error 赋值）经 `context.tr` 取词，
+  // 这里锁定该约定：已登记的提示必须给出译文，未登记的原文必须原样回退而不是变空。
+  test('内核与状态层的提示按语言取词，未登记的原文原样回退', () {
+    const coreMessages = [
+      AppStrings.coreVaultLocked,
+      AppStrings.corePrivacyRequired,
+      AppStrings.coreServerMismatch,
+      AppStrings.configProdHttpsRequired,
+      AppStrings.configServerInvalid,
+      AppStrings.secureStorageIncomplete,
+      AppStrings.missingSecretKey,
+      AppStrings.changePasswordUnconfirmed,
+      AppStrings.reverifyKeepData,
+      AppStrings.reverifyNoRequest,
+      AppStrings.accountDeletedLocally,
+    ];
+    for (final source in coreMessages) {
+      final hant = AppStrings.translate(source, AppLanguage.zhHant);
+      final en = AppStrings.translate(source, AppLanguage.en);
+      expect(hant, isNot(source), reason: '「$source」缺少繁体中文译文');
+      expect(en, isNot(source), reason: '「$source」缺少英文译文');
+    }
+
+    // 内核将来新增、文案表尚未登记的原文：回退为原文，绝不返回空串。
+    const unknown = '内核新错误码的兜底原文';
+    for (final language in AppLanguage.values) {
+      expect(AppStrings.translate(unknown, language), unknown);
+    }
+  });
+
+  test('设置项默认语言为简体中文，copyWith 可切换且不影响其他字段', () {    const s = Settings();
     expect(s.language, AppLanguage.zhHans);
 
     final en = s.copyWith(language: AppLanguage.en);

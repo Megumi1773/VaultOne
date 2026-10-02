@@ -1,0 +1,25 @@
+[
+  {
+    "file": "app/lib/src/ui/screens/sign_in.dart",
+    "replace": [
+      ["          _error = e.message;\n          _shake++;", "          _error = context.tr(e.message);\n          _shake++;"],
+      ["        if (mounted) setState(() => _error = e.message);", "        if (mounted) setState(() => _error = context.tr(e.message));"],
+      ["      if (mounted) setState(() => _error = e.message);", "      if (mounted) setState(() => _error = context.tr(e.message));"],
+      ["      if (mounted) _fail(e.message);", "      if (mounted) _fail(context.tr(e.message));"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/unlock.dart",
+    "replace": [
+      ["      if (mounted) setState(() => _error = e.message);", "      if (mounted) setState(() => _error = context.tr(e.message));"],
+      ["        _busy = false;\n        _error = e.message;\n        _shake++;", "        _busy = false;\n        _error = context.tr(e.message);\n        _shake++;"],
+      ["      if (!mounted) return;\n      setState(() {\n        _error = e.message;\n        _shake++;", "      if (!mounted) return;\n      setState(() {\n        _error = context.tr(e.message);\n        _shake++;"]
+    ]
+  },
+  {
+    "file": "app/lib/src/ui/screens/settings_page.dart",
+    "replace": [
+      ["      setState(() => _error = e.message);", "      setState(() => _error = context.tr(e.message));"]
+    ]
+  }
+]
