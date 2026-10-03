@@ -194,3 +194,21 @@ pub fn update_account_profile(nickname: String, avatar: String) -> BridgeResult<
 pub fn bind_invite(code: String) -> BridgeResult<AccountProfileDto> {
     with_vault(|v| Ok(profile_dto(v.bind_invite(&code)?, true)))
 }
+
+// ───────── 服务端通知（§6.1）─────────
+
+/// 拉取服务端通知（游标分页）。返回 `{ notifications, nextCursor, unread }` 的 JSON。
+///
+/// `cursor` 为空表示第一页。分页与未读统计都在服务端算好，客户端不做二次聚合——
+/// 否则「列表里看到的」与「角标上的」迟早对不上。
+pub fn notifications(cursor: String, limit: u32) -> BridgeResult<String> {
+    with_vault(|v| {
+        let page = v.notifications(Some(&cursor), limit)?;
+        Ok(serde_json::to_string(&page)?)
+    })
+}
+
+/// 标记一条服务端通知为已读（§6.1）。幂等。
+pub fn mark_notification_read(id: String) -> BridgeResult<String> {
+    with_vault(|v| Ok(serde_json::to_string(&v.mark_notification_read(&id)?)?))
+}

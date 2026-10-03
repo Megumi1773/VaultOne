@@ -165,7 +165,7 @@ Future<List<BreachResult>> checkBreaches({required List<String> itemIds}) =>
 /// `notRun` / `ok` / `unavailable` / `skipped`；`settings_json` 为安全设置快照。
 /// 全部计算在内核完成（`vault_core::health`），界面只负责展示。
 ///
-/// 报告与任务清单**一次算完一起返回**：分两次调用会各读一次设置，可能拿到不一致的快照
+/// 报告、任务清单与通知**一次算完一起返回**：分两次调用会各读一次设置，可能拿到不一致的快照
 /// （例如刚改完自动锁定，报告用旧值、清单用新值）。
 Future<String> healthCheckup({
   required String breachesJson,

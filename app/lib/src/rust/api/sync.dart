@@ -122,6 +122,20 @@ Future<AccountProfileDto> updateAccountProfile({
 Future<AccountProfileDto> bindInvite({required String code}) =>
     RustLib.instance.api.crateApiSyncBindInvite(code: code);
 
+/// 拉取服务端通知（游标分页）。返回 `{ notifications, nextCursor, unread }` 的 JSON。
+///
+/// `cursor` 为空表示第一页。分页与未读统计都在服务端算好，客户端不做二次聚合——
+/// 否则「列表里看到的」与「角标上的」迟早对不上。
+Future<String> notifications({required String cursor, required int limit}) =>
+    RustLib.instance.api.crateApiSyncNotifications(
+      cursor: cursor,
+      limit: limit,
+    );
+
+/// 标记一条服务端通知为已读（§6.1）。幂等。
+Future<String> markNotificationRead({required String id}) =>
+    RustLib.instance.api.crateApiSyncMarkNotificationRead(id: id);
+
 /// 账户资料。`online` 表示本次是否成功从服务端刷新；失败时返回的是本机缓存。
 class AccountProfileDto {
   final String nickname;

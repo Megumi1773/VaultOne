@@ -214,6 +214,59 @@ pub struct BindInviteRequest {
     pub code: String,
 }
 
+// ───────── 通知（计划书 §6.1）─────────
+
+/// 通知上的动作按钮。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationAction {
+    /// `none` / `route` / `url`。
+    pub kind: String,
+    pub value: String,
+    pub label: String,
+}
+
+/// 一条服务端通知（§6.1）。正文是纯文本，客户端不渲染 HTML。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationItem {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub level: String,
+    pub title: String,
+    pub body: String,
+    /// 发布时间（Unix 秒）。
+    pub published_at: i64,
+    /// 服务端记录的已读状态。本机提醒不用这个字段（它们的已读存在本机设置里）。
+    #[serde(default)]
+    pub read: bool,
+    #[serde(default)]
+    pub action: NotificationAction,
+}
+
+/// 未读分类计数（§6.1）。弹窗与服务端公告合并计入 `announcement`。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationUnread {
+    #[serde(default)]
+    pub total: u32,
+    #[serde(default)]
+    pub announcement: u32,
+    #[serde(default)]
+    pub personal: u32,
+    #[serde(default)]
+    pub security: u32,
+}
+
+/// 通知列表响应。`next_cursor` 为 `None` 表示没有下一页。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationPage {
+    #[serde(default)]
+    pub notifications: Vec<NotificationItem>,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub unread: NotificationUnread,
+}
+
 /// 更新账户资料（§8.2）。两个字段都是全量替换。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateProfileRequest {

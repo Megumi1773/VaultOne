@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -657875116;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -2045742659;
 
 // Section: executor
 
@@ -1407,6 +1407,32 @@ fn wire__crate__api__cloud_account__logout_impl(
         },
     )
 }
+fn wire__crate__api__sync__mark_notification_read_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "mark_notification_read",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::sync::mark_notification_read(api_id)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__vault__match_items_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1452,6 +1478,33 @@ fn wire__crate__api__feedback__new_feedback_id_impl(
             move |context| {
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Ok::<_, ()>(crate::api::feedback::new_feedback_id())?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__sync__notifications_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "notifications",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_cursor = <String>::sse_decode(&mut deserializer);
+            let api_limit = <u32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let output_ok = crate::api::sync::notifications(api_cursor, api_limit)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -3117,46 +3170,48 @@ fn pde_ffi_dispatcher_primary_impl(
         50 => wire__crate__api__logging__log_event_impl(port, ptr, rust_vec_len, data_len),
         51 => wire__crate__api__sync__login_existing_impl(port, ptr, rust_vec_len, data_len),
         52 => wire__crate__api__cloud_account__logout_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__vault__match_items_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__feedback__new_feedback_id_impl(port, ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__vault__open_vault_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__cloud_account__pending_enrollment_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__cloud_account__pending_operation_impl(port, ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__sync__ping_server_impl(port, ptr, rust_vec_len, data_len),
-        61 => wire__crate__api__cloud_account__prepare_registration_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__vault__purge_item_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__cloud_account__reconnect_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__sync__reconnect_impl(port, ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__cloud_account__recover_impl(port, ptr, rust_vec_len, data_len),
-        66 => wire__crate__api__sync__recover_from_server_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__vault__recover_local_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__api__conflicts__refresh_conflict_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__browser__register_native_host_impl(port, ptr, rust_vec_len, data_len),
-        70 => wire__crate__api__sync__remote_status_impl(port, ptr, rust_vec_len, data_len),
-        71 => wire__crate__api__browser__remove_browser_client_impl(port, ptr, rust_vec_len, data_len),
-        72 => wire__crate__api__conflicts__resolve_conflict_impl(port, ptr, rust_vec_len, data_len),
-        73 => wire__crate__api__browser__respond_pairing_impl(port, ptr, rust_vec_len, data_len),
-        74 => wire__crate__api__vault__restore_item_impl(port, ptr, rust_vec_len, data_len),
-        75 => wire__crate__api__sync__revoke_device_impl(port, ptr, rust_vec_len, data_len),
-        77 => wire__crate__api__vault__set_setting_impl(port, ptr, rust_vec_len, data_len),
-        78 => wire__crate__api__browser__start_browser_bridge_impl(port, ptr, rust_vec_len, data_len),
-        79 => wire__crate__api__vault__status_impl(port, ptr, rust_vec_len, data_len),
-        80 => wire__crate__api__browser__stop_browser_bridge_impl(port, ptr, rust_vec_len, data_len),
-        81 => wire__crate__api__feedback__submit_feedback_impl(port, ptr, rust_vec_len, data_len),
-        82 => wire__crate__api__sync__sync_now_impl(port, ptr, rust_vec_len, data_len),
-        83 => wire__crate__api__vault__taxonomy_clear_category_impl(port, ptr, rust_vec_len, data_len),
-        84 => wire__crate__api__vault__taxonomy_delete_tag_impl(port, ptr, rust_vec_len, data_len),
-        85 => wire__crate__api__vault__taxonomy_rename_category_impl(port, ptr, rust_vec_len, data_len),
-        86 => wire__crate__api__vault__taxonomy_rename_tag_impl(port, ptr, rust_vec_len, data_len),
-        88 => wire__crate__api__vault__transfer_history_impl(port, ptr, rust_vec_len, data_len),
-        89 => wire__crate__api__vault__unlock_impl(port, ptr, rust_vec_len, data_len),
-        90 => wire__crate__api__vault__unlock_with_quick_key_impl(port, ptr, rust_vec_len, data_len),
-        91 => wire__crate__api__sync__update_account_profile_impl(port, ptr, rust_vec_len, data_len),
-        92 => wire__crate__api__vault__update_item_impl(port, ptr, rust_vec_len, data_len),
-        93 => wire__crate__api__vault__verify_master_password_impl(port, ptr, rust_vec_len, data_len),
-        94 => wire__crate__api__sync__verify_new_device_impl(port, ptr, rust_vec_len, data_len),
-        95 => wire__crate__api__vault__verify_secret_key_impl(port, ptr, rust_vec_len, data_len),
-        96 => wire__crate__api__vault__wipe_local_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__sync__mark_notification_read_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__vault__match_items_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__feedback__new_feedback_id_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__sync__notifications_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__vault__open_vault_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__cloud_account__pending_enrollment_impl(port, ptr, rust_vec_len, data_len),
+        61 => wire__crate__api__cloud_account__pending_operation_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__sync__ping_server_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__cloud_account__prepare_registration_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__vault__purge_item_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__cloud_account__reconnect_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__sync__reconnect_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__cloud_account__recover_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__sync__recover_from_server_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__vault__recover_local_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__conflicts__refresh_conflict_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__browser__register_native_host_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__sync__remote_status_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__browser__remove_browser_client_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__conflicts__resolve_conflict_impl(port, ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__browser__respond_pairing_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__vault__restore_item_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__sync__revoke_device_impl(port, ptr, rust_vec_len, data_len),
+        79 => wire__crate__api__vault__set_setting_impl(port, ptr, rust_vec_len, data_len),
+        80 => wire__crate__api__browser__start_browser_bridge_impl(port, ptr, rust_vec_len, data_len),
+        81 => wire__crate__api__vault__status_impl(port, ptr, rust_vec_len, data_len),
+        82 => wire__crate__api__browser__stop_browser_bridge_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__feedback__submit_feedback_impl(port, ptr, rust_vec_len, data_len),
+        84 => wire__crate__api__sync__sync_now_impl(port, ptr, rust_vec_len, data_len),
+        85 => wire__crate__api__vault__taxonomy_clear_category_impl(port, ptr, rust_vec_len, data_len),
+        86 => wire__crate__api__vault__taxonomy_delete_tag_impl(port, ptr, rust_vec_len, data_len),
+        87 => wire__crate__api__vault__taxonomy_rename_category_impl(port, ptr, rust_vec_len, data_len),
+        88 => wire__crate__api__vault__taxonomy_rename_tag_impl(port, ptr, rust_vec_len, data_len),
+        90 => wire__crate__api__vault__transfer_history_impl(port, ptr, rust_vec_len, data_len),
+        91 => wire__crate__api__vault__unlock_impl(port, ptr, rust_vec_len, data_len),
+        92 => wire__crate__api__vault__unlock_with_quick_key_impl(port, ptr, rust_vec_len, data_len),
+        93 => wire__crate__api__sync__update_account_profile_impl(port, ptr, rust_vec_len, data_len),
+        94 => wire__crate__api__vault__update_item_impl(port, ptr, rust_vec_len, data_len),
+        95 => wire__crate__api__vault__verify_master_password_impl(port, ptr, rust_vec_len, data_len),
+        96 => wire__crate__api__sync__verify_new_device_impl(port, ptr, rust_vec_len, data_len),
+        97 => wire__crate__api__vault__verify_secret_key_impl(port, ptr, rust_vec_len, data_len),
+        98 => wire__crate__api__vault__wipe_local_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -3174,10 +3229,10 @@ fn pde_ffi_dispatcher_sync_impl(
         30 => wire__crate__api__tools__generate_passphrase_impl(ptr, rust_vec_len, data_len),
         31 => wire__crate__api__tools__generate_password_impl(ptr, rust_vec_len, data_len),
         42 => wire__crate__api__screenshot__is_supported_impl(ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__tools__parse_totp_impl(ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__tools__password_strength_impl(ptr, rust_vec_len, data_len),
-        76 => wire__crate__api__screenshot__set_protection_impl(ptr, rust_vec_len, data_len),
-        87 => wire__crate__api__tools__totp_code_impl(ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__tools__parse_totp_impl(ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__tools__password_strength_impl(ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__screenshot__set_protection_impl(ptr, rust_vec_len, data_len),
+        89 => wire__crate__api__tools__totp_code_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

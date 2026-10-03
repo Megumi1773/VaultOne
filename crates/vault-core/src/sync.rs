@@ -41,6 +41,32 @@ pub struct ApiClient {
 
 static DEVELOPMENT_HTTP_SERVER: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
+/// 百分号编码。只放行 RFC 3986 的 unreserved 字符（字母、数字、`-._~`），其余一律编码。
+///
+/// 用**白名单**而不是黑名单：黑名单总会漏掉某个字符，而漏掉的那个就会变成一次注入或一次
+/// 拼坏的 query。这个函数只用于我们自己拼的 URL，输入量很小，逐字节检查足够。
+fn percent_encode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+/// query 参数值编码。
+fn encode_query(s: &str) -> String {
+    percent_encode(s)
+}
+
+/// 路径段编码。与 query 用同一张白名单——`/` 也必须被编码，否则一个 id 就能改变路径结构。
+fn encode_path_segment(s: &str) -> String {
+    percent_encode(s)
+}
+
 /// 只为调试构建登记一个明确的私网 HTTP 端点；发布构建不能启用。
 pub fn configure_development_http_server(server: Option<&str>) -> Result<()> {
     let configured = match server {
@@ -597,6 +623,27 @@ impl Vault {
         Ok(profile)
     }
 
+    // ───────── 通知（§6.1）─────────
+
+    /// 拉取服务端通知（游标分页）。`cursor` 为空表示第一页。
+    pub fn notifications(&self, cursor: Option<&str>, limit: u32) -> Result<NotificationPage> {
+        let path = match cursor.filter(|c| !c.is_empty()) {
+            // 游标是不透明字符串（Base64URL），但仍要编码后再拼进 query：
+            // 客户端不该假设服务端永远只发字母数字，拼坏一个 query 比多一行编码难查得多。
+            Some(c) => format!("/v1/notifications?limit={limit}&cursor={}", encode_query(c)),
+            None => format!("/v1/notifications?limit={limit}"),
+        };
+        self.remote_api()?.0.get(&path)
+    }
+
+    /// 标记一条服务端通知为已读（§6.1「进入详情即标记」）。返回最新的未读统计。
+    ///
+    /// 幂等：重复标记不会报错，服务端返回的仍是当前统计。
+    pub fn mark_notification_read(&self, id: &str) -> Result<NotificationUnread> {
+        let path = format!("/v1/notifications/{}/read", encode_path_segment(id));
+        self.remote_api()?.0.post(&path, &serde_json::json!({}))
+    }
+
     /// 本机缓存的资料。**离线时账户总览仍要有东西可显示**，因此缓存不是可选项。    ///
     /// 以 Vault Key 密封存放（复用 `set_sealed_setting`）：昵称与头像地址是用户自选的展示信息，
     /// 但不该明文躺在磁盘上。锁定时读不到——账户总览本来也只在解锁后可见。
@@ -908,6 +955,30 @@ pub fn ping(server_url: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn percent_encoding_is_a_strict_allowlist() {
+        // unreserved 原样保留。
+        assert_eq!(percent_encode("abcXYZ0189-._~"), "abcXYZ0189-._~");
+        // query 里会拆参数、路径里会拆层级的字符必须被编码。
+        assert_eq!(percent_encode("a&b=c"), "a%26b%3Dc");
+        assert_eq!(percent_encode("a/b"), "a%2Fb");
+        assert_eq!(percent_encode("a b"), "a%20b");
+        assert_eq!(percent_encode("a?b#c"), "a%3Fb%23c");
+        // 非 ASCII 按 UTF-8 逐字节编码。
+        assert_eq!(percent_encode("中"), "%E4%B8%AD");
+        // 空串是空串，不是 "%"。
+        assert_eq!(percent_encode(""), "");
+    }
+
+    #[test]
+    fn cursor_is_encoded_before_being_put_in_the_query() {
+        // 服务端发的是 Base64URL，本来就不会有特殊字符；但客户端不该假设这一点，
+        // 否则服务端哪天换个游标编码就会拼出一个坏 query。
+        assert_eq!(encode_query("YWJj"), "YWJj");
+        assert_eq!(encode_query("a&b"), "a%26b");
+        assert_eq!(encode_path_segment("a/b"), "a%2Fb");
+    }
 
     #[test]
     fn lan_http_requires_debug_and_exact_explicit_origin() {

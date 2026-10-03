@@ -374,6 +374,45 @@ class WireJsonTest {
         .isInstanceOf(RuntimeException.class);
   }
 
+  // ── 通知（§6.1）──
+
+  @Test
+  void notificationPageUsesSnakeCaseAndKeepsNullCursor() {
+    NotificationDtos.Page page =
+        new NotificationDtos.Page(
+            List.of(
+                new NotificationDtos.Item(
+                    "n1",
+                    "announcement",
+                    "important",
+                    "维护通知",
+                    "今晚 02:00 例行维护。",
+                    1_700_000_000L,
+                    false,
+                    new NotificationDtos.Action("route", "openCheckup", "去看看"))),
+            "Y3Vyc29y",
+            new NotificationDtos.Unread(3, 1, 1, 1));
+    String json = MAPPER.writeValueAsString(page);
+    assertThat(json)
+        .contains("\"published_at\":1700000000")
+        .contains("\"next_cursor\":\"Y3Vyc29y\"")
+        .contains("\"action\":{\"kind\":\"route\",\"value\":\"openCheckup\",\"label\":\"去看看\"}")
+        .contains("\"unread\":{\"total\":3,\"announcement\":1,\"personal\":1,\"security\":1}");
+    // 字段名是 camelCase 的 Java 名，由全局策略输出成 snake_case；这里钉住的是**输出**，
+    // 不是 Java 侧的命名习惯。
+    assertThat(json).doesNotContain("nextCursor").doesNotContain("publishedAt");
+  }
+
+  @Test
+  void notificationPageOmitsNullCursorAsNull() {
+    // 最后一页没有 next_cursor：显式输出 null，而不是把字段整个藏起来——
+    // 客户端按「字段存在且为 null」判断到底，藏起来会与「服务端版本旧」混淆。
+    String json =
+        MAPPER.writeValueAsString(
+            new NotificationDtos.Page(List.of(), null, NotificationDtos.Unread.EMPTY));
+    assertThat(json).contains("\"next_cursor\":null").contains("\"notifications\":[]");
+  }
+
   private static AccountKeys keys() {
     return new AccountKeys(
         "00000000-0000-4000-8000-000000000001",
