@@ -618,6 +618,18 @@ abstract final class AppStrings {
   static const backupReminder = '备份提醒';
   static const backupReminderHint = '关掉后体检清单里不再出现备份项。';
 
+  // ---------- 通知（§6）----------
+  static const notifications = '通知';
+  static const notificationsCenter = '通知中心';
+  static const notificationsEmpty = '暂无通知';
+  static const notificationsEmptyHint = '这里会出现安全提醒与官方公告。';
+  static const notificationsMarkAllRead = '全部标为已读';
+  static const notificationsUnread = '未读';
+  static const notificationCategoryAnnouncement = '公告';
+  static const notificationCategoryPersonal = '个人消息';
+  static const notificationCategorySecurity = '安全提醒';
+  static const notificationOnlyUnread = '仅显示未读';
+
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
   static const breachCheckDone = '检测完成：{count} 个条目的密码出现在公开泄露数据中。';
@@ -1523,6 +1535,16 @@ abstract final class AppStrings {
     backupNow: '立即備份',
     backupReminder: '備份提醒',
     backupReminderHint: '關掉後體檢清單裡不再出現備份項。',
+    notifications: '通知',
+    notificationsCenter: '通知中心',
+    notificationsEmpty: '暫無通知',
+    notificationsEmptyHint: '這裡會出現安全提醒與官方公告。',
+    notificationsMarkAllRead: '全部標為已讀',
+    notificationsUnread: '未讀',
+    notificationCategoryAnnouncement: '公告',
+    notificationCategoryPersonal: '個人訊息',
+    notificationCategorySecurity: '安全提醒',
+    notificationOnlyUnread: '僅顯示未讀',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2361,6 +2383,16 @@ abstract final class AppStrings {
     backupNow: 'Back up now',
     backupReminder: 'Backup reminder',
     backupReminderHint: 'Turning this off removes the backup item from the checkup list.',
+    notifications: 'Notifications',
+    notificationsCenter: 'Notification center',
+    notificationsEmpty: 'No notifications',
+    notificationsEmptyHint: 'Security reminders and announcements will appear here.',
+    notificationsMarkAllRead: 'Mark all as read',
+    notificationsUnread: 'Unread',
+    notificationCategoryAnnouncement: 'Announcements',
+    notificationCategoryPersonal: 'Personal',
+    notificationCategorySecurity: 'Security',
+    notificationOnlyUnread: 'Unread only',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',

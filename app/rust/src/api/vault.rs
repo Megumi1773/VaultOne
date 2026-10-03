@@ -317,10 +317,11 @@ extern "system" {
 /// `notRun` / `ok` / `unavailable` / `skipped`；`settings_json` 为安全设置快照。
 /// 全部计算在内核完成（`vault_core::health`），界面只负责展示。
 ///
-/// 报告与任务清单**一次算完一起返回**：分两次调用会各读一次设置，可能拿到不一致的快照
+/// 报告、任务清单与通知**一次算完一起返回**：分两次调用会各读一次设置，可能拿到不一致的快照
 /// （例如刚改完自动锁定，报告用旧值、清单用新值）。
 pub fn health_checkup(breaches_json: String, breach_status: String, settings_json: String) -> BridgeResult<String> {
     use vault_core::health::{checklist, checkup, BreachStatus, HealthInputs, SecuritySettings};
+    use vault_core::notify;
 
     let breaches: std::collections::HashMap<String, u64> = serde_json::from_str(&breaches_json)?;
     let settings: SecuritySettings = serde_json::from_str(&settings_json)?;
@@ -342,7 +343,13 @@ pub fn health_checkup(breaches_json: String, breach_status: String, settings_jso
         now: vault_core::vault::now(),
     });
     let tasks = checklist(&settings, &report);
-    Ok(serde_json::to_string(&serde_json::json!({ "report": report, "checklist": tasks }))?)
+    // 通知由任务清单投影而来（`notify::from_checklist`），不另写一套「何时该提醒」。
+    let notifications = notify::from_checklist(&tasks, &report);
+    Ok(serde_json::to_string(&serde_json::json!({
+        "report": report,
+        "checklist": tasks,
+        "notifications": notifications,
+    }))?)
 }
 
 #[derive(Debug, Clone)]

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 
@@ -11,7 +12,9 @@ import '../core/config.dart';
 import '../core/ffi.dart';
 import '../core/feedback_models.dart';
 import '../core/import_models.dart';
+import '../core/health_models.dart';
 import '../core/models.dart';
+import '../core/notifications.dart';
 import '../l10n/strings.dart';
 import 'clipboard.dart';
 
@@ -166,6 +169,14 @@ class AppState extends ChangeNotifier {
   /// 账户资料（§8.1）。**不在 `refresh()` 里自动拉取**：那是网络调用，不该塞进每次刷新；
   /// 账户总览进入时显式调 [`refreshProfile`]。
   AccountProfile? profile;
+
+  /// 本机安全提醒（§6.1）。由最近一次体检投影而来；服务端公告不在其中。
+  List<AppNotification> notifications = const [];
+
+  /// 已读通知 id（本机、不同步）。
+  Set<String> _readNotifications = {};
+
+  static const _readNotificationsKey = 'notifications_read';
 
   bool hasStoredSecretKey = false;
   bool quickUnlockEnabled = false;
@@ -331,6 +342,78 @@ class AppState extends ChangeNotifier {
     privacyAccepted = (await VaultApi.getSetting('privacy_consent')) == privacyVersion;
     lastBackupAt = intOr(await VaultApi.getSetting('backup_last_at'), 0);
     lastBackupKind = await VaultApi.getSetting('backup_last_kind');
+    _readNotifications = await _loadReadNotifications();
+  }
+
+  /// 已读通知 id 集合（§6.1）。存在本机设置里：已读是**每台设备各自**的状态，
+  /// 与通知内容本身无关，同步它只会让「我在手机上读过了」变成「电脑上也没了」。
+  Future<Set<String>> _loadReadNotifications() async {
+    final raw = await VaultApi.getSetting(_readNotificationsKey);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      return {for (final id in jsonDecode(raw) as List) id.toString()};
+    } catch (_) {
+      // 记录损坏时当作「全都没读过」，比抛异常好：最坏结果是多提醒一次。
+      return {};
+    }
+  }
+
+  Future<void> _saveReadNotifications() async {
+    // 只保留当前仍存在的通知：`task.*` 这类 id 稳定且有界，但服务端公告会不断新增，
+    // 不裁剪的话这个集合会无限长大。
+    final alive = {for (final n in notifications) n.id};
+    _readNotifications = _readNotifications.where(alive.contains).toSet();
+    await VaultApi.setSetting(_readNotificationsKey, jsonEncode(_readNotifications.toList()));
+  }
+
+  /// 体检设置快照（§5.2）。放在状态层而不是界面：体检页与通知刷新都要用同一份，
+  /// 写在界面就会变成两份，然后开始互相矛盾。
+  Map<String, Object?> healthSettingsSnapshot() => {
+        'autoLockMinutes': settings.autoLockMinutes,
+        'lockOnExit': settings.lockOnExit,
+        'clipboardClearSeconds': settings.clipboardSeconds,
+        'biometricsAvailable': biometricsAvailable,
+        'biometricsEnabled': quickUnlockEnabled,
+        'verboseLogs': settings.verboseLogs,
+        'backupReminder': settings.backupReminder,
+        'lastBackupAt': lastBackupAt,
+      };
+
+  /// 刷新本机安全提醒（§6.1）。
+  ///
+  /// 只跑**轻量**体检：不做联网的泄露查询（`notRun`），否则每次解锁都会发一批 HIBP 请求。
+  /// 代价是泄露相关的提醒要等用户主动跑一次带查询的体检才会出现——这比偷偷联网好。
+  Future<void> refreshNotifications() async {
+    final overview = await VaultApi.healthCheckup(
+      breaches: const {},
+      breachStatus: BreachStatus.notRun,
+      settings: healthSettingsSnapshot(),
+    );
+    await setNotifications(overview.notifications);
+  }
+
+  /// 用一次体检的结果替换通知列表。体检页跑完也会调这里，铃铛因此与总览始终一致。
+  Future<void> setNotifications(List<AppNotification> list) async {
+    notifications = list;
+    await _saveReadNotifications();
+    notifyListeners();
+  }
+
+  bool isNotificationRead(String id) => _readNotifications.contains(id);
+
+  /// 未读分类计数（§6.1）。
+  UnreadCounts get unreadNotifications => countUnread(notifications, _readNotifications);
+
+  Future<void> markNotificationRead(String id) async {
+    if (!_readNotifications.add(id)) return;
+    notifyListeners();
+    await _saveReadNotifications();
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    _readNotifications = {for (final n in notifications) n.id};
+    notifyListeners();
+    await _saveReadNotifications();
   }
 
   /// 记录一次本机备份事实。只写非敏感元数据，不记录路径与内容。

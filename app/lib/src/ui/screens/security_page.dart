@@ -126,17 +126,8 @@ class _SecurityPageState extends State<SecurityPage> {
     _persistSnoozes();
   }
 
-  /// 动作 → 设置页分区。应用内没有对应分区的项（系统设置）返回 null，停在设置页顶部。
-  static SettingsSection? _sectionFor(FindingAction action) => switch (action) {
-        FindingAction.autoLock => SettingsSection.security,
-        FindingAction.biometrics => SettingsSection.security,
-        FindingAction.autofill => SettingsSection.browser,
-        FindingAction.privateKey => SettingsSection.keyBackup,
-        FindingAction.openBackup => SettingsSection.keyBackup,
-        FindingAction.generalSettings => SettingsSection.appearance,
-        FindingAction.systemSettings => null,
-        FindingAction.openItem || FindingAction.openCheckup || FindingAction.none => null,
-      };
+  /// 动作 → 设置页分区。见顶层 [settingsSectionForFindingAction]。
+  static SettingsSection? _sectionFor(FindingAction action) => settingsSectionForFindingAction(action);
 
   void _goSettings(FindingAction action) {
     final go = widget.onOpenSettings;
@@ -741,6 +732,21 @@ class _FindingTile extends StatelessWidget {
     );
   }
 }
+
+/// 动作 → 设置页分区。应用内没有对应分区的项（系统设置）返回 null，停在设置页顶部。
+///
+/// 顶层函数而不是 `_SecurityPageState` 的私有方法：通知中心也要按同一套规则跳转，
+/// 各写一份迟早会出现「总览跳到 A、通知跳到 B」。
+SettingsSection? settingsSectionForFindingAction(FindingAction action) => switch (action) {
+      FindingAction.autoLock => SettingsSection.security,
+      FindingAction.biometrics => SettingsSection.security,
+      FindingAction.autofill => SettingsSection.browser,
+      FindingAction.privateKey => SettingsSection.keyBackup,
+      FindingAction.openBackup => SettingsSection.keyBackup,
+      FindingAction.generalSettings => SettingsSection.appearance,
+      FindingAction.systemSettings => null,
+      FindingAction.openItem || FindingAction.openCheckup || FindingAction.none => null,
+    };
 
 String _actionLabel(BuildContext context, FindingAction a) => context.tr(switch (a) {
       FindingAction.openItem => AppStrings.healthOpenItem,

@@ -27,6 +27,7 @@ pub mod history;
 pub mod import;
 pub mod item;
 pub mod merge;
+pub mod notify;
 pub mod security;
 pub mod store;
 pub mod sync;

@@ -4,6 +4,8 @@
 /// 这里只做反序列化与展示辅助，不重复任何扣分口径。
 library;
 
+import 'notifications.dart';
+
 /// 体检维度。每个维度有独立扣分上限。
 enum HealthDimension {
   breach('breach'),
@@ -257,12 +259,12 @@ class ChecklistItem {
   final FindingAction action;
 }
 
-/// 一次体检的完整结果：健康报告 + 任务清单。
+/// 一次体检的完整结果：健康报告 + 任务清单 + 本机通知。
 ///
-/// 两者由内核**同一次调用一起算出**（同一份设置快照），所以不会出现「报告用旧值、
-/// 清单用新值」的不一致。
+/// 三者由内核**同一次调用一起算出**（同一份设置快照），所以不会出现「报告用旧值、
+/// 清单用新值」的不一致；通知也是由清单投影来的，不会再出现「总览说该备份、通知中心不吭声」。
 class HealthOverview {
-  const HealthOverview({required this.report, required this.checklist});
+  const HealthOverview({required this.report, required this.checklist, this.notifications = const []});
 
   factory HealthOverview.fromJson(Map<String, dynamic> j) => HealthOverview(
         report: HealthReport.fromJson(((j['report'] as Map?) ?? const {}).cast()),
@@ -270,10 +272,17 @@ class HealthOverview {
           for (final t in (j['checklist'] as List? ?? const []))
             ChecklistItem.fromJson((t as Map).cast()),
         ],
+        notifications: [
+          for (final n in (j['notifications'] as List? ?? const []))
+            AppNotification.fromJson((n as Map).cast()),
+        ],
       );
 
   final HealthReport report;
   final List<ChecklistItem> checklist;
+
+  /// 本机安全提醒（计划书 §6.1 的 SECURITY 类型）。服务端公告不在其中。
+  final List<AppNotification> notifications;
 
   /// 已完成的任务数。
   int get doneCount => checklist.where((t) => t.done).length;

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/notifications.dart';
 import '../../core/api.dart';
 import '../../core/ffi.dart';
 import '../../core/health_models.dart';
@@ -22,6 +24,8 @@ import 'security_page.dart';
 import 'settings_page.dart';
 import 'sidebar_layout.dart';
 import 'taxonomy_list_page.dart';
+import 'notifications_page.dart';
+import 'backup_dialog.dart';
 
 enum Section {
   all(AppStrings.sectionAll, Icons.grid_view_rounded, AppStrings.sectionAllShort),
@@ -211,6 +215,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final _search = TextEditingController();
   AppState? _state;
 
+  /// 解锁后是否已经跑过那次填充通知的轻量体检。
+  bool _notificationsLoaded = false;
+
   /// 标签 / 分类筛选（计划书 §3.6）。null 表示不筛选；两者可叠加，与搜索词也是与关系。
   String? _tagFilter;
   String? _categoryFilter;
@@ -233,6 +240,45 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!identical(s, _state)) {
       _state?.quickSearchRequests.removeListener(_focusSearch);
       _state = s..quickSearchRequests.addListener(_focusSearch);
+    }
+    // 解锁后跑一次轻量体检填充通知（§6.1）。只做一次：`didChangeDependencies` 会因为主题、
+    // 语言等变化反复触发，每次都读一遍全部条目没必要。
+    if (!_notificationsLoaded && s.phase == AppPhase.unlocked) {
+      _notificationsLoaded = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_loadNotifications());
+      });
+    }
+  }
+
+  Future<void> _loadNotifications() async {
+    try {
+      await AppScope.read(context).refreshNotifications();
+    } catch (e) {
+      // 通知只是提醒，拉不到不该影响首页渲染。
+      VaultApi.log('notification refresh failed: ${e is CoreException ? e.code : e.runtimeType}', level: 'warn');
+    }
+  }
+
+  /// 打开通知中心（§6.1）。动作按钮按与体检清单同一套规则分发，不另写一份跳转逻辑。
+  void _openNotifications(BuildContext context) {
+    showNotifications(context, onAct: (action) => _actOnNotificationAction(action));
+  }
+
+  void _actOnNotificationAction(NotificationAction action) {
+    if (!action.isRoute) return;
+    final target = FindingAction.parse(action.value);
+    switch (target) {
+      case FindingAction.openCheckup:
+        _go(Section.security);
+      case FindingAction.openBackup:
+        showBackupManager(context);
+      case FindingAction.openItem:
+      case FindingAction.none:
+        break;
+      default:
+        // 其余动作都落在设置页的某个分区上，与安全总览用的是同一个映射。
+        _goSettings(settingsSectionForFindingAction(target));
     }
   }
 
@@ -385,18 +431,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, int> _breaches = const {};
   BreachStatus _breachStatus = BreachStatus.notRun;
 
-  /// 安全体检（§5.2）的输入：只取与本体检相关的设置项，由内核的「设置项」维度消费。
-  Map<String, Object?> _healthSettings(AppState state) => {
-        'autoLockMinutes': state.settings.autoLockMinutes,
-        'lockOnExit': state.settings.lockOnExit,
-        'clipboardClearSeconds': state.settings.clipboardSeconds,
-        'biometricsAvailable': state.biometricsAvailable,
-        'biometricsEnabled': state.quickUnlockEnabled,
-        'verboseLogs': state.settings.verboseLogs,
-        // 备份提醒（§8.3）：开关与最近备份时间一起给内核，过期判定只在内核里写一份。
-        'backupReminder': state.settings.backupReminder,
-        'lastBackupAt': state.lastBackupAt,
-      };
+  /// 安全体检（§5.2）的输入。快照由状态层提供（`AppState.healthSettingsSnapshot`）：
+  /// 体检页与通知刷新都要用同一份，界面自己拼一份就会变成两份。
+  Map<String, Object?> _healthSettings(AppState state) => state.healthSettingsSnapshot();
 
   /// 跑一次体检。`withBreachCheck` 为真时先做 k-匿名泄露查询（会联网）。
   ///
@@ -421,11 +458,14 @@ class _HomeScreenState extends State<HomeScreen> {
       _breaches = breaches;
       _breachStatus = status;
     }
-    return VaultApi.healthCheckup(
+    final overview = await VaultApi.healthCheckup(
       breaches: breaches,
       breachStatus: status,
       settings: _healthSettings(state),
     );
+    // 通知由同一份报告与清单投影而来，顺手刷新，铃铛才不会与刚看到的总览对不上。
+    await state.setNotifications(overview.notifications);
+    return overview;
   }
 
   /// 忽略记录存在本机设置里（非敏感、不同步）：换设备后重新体检即可，不必同步。
@@ -605,6 +645,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
                   : Icon(state.syncState == SyncState.error ? Icons.sync_problem_rounded : Icons.sync_rounded),
             ),
+          NotificationBell(onOpen: () => _openNotifications(context)),
           IconButton(tooltip: context.tr(AppStrings.lockNow), onPressed: state.lock, icon: const Icon(Icons.lock_outline_rounded)),
         ],
       ),
@@ -812,6 +853,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onSelect: _go,
               onNew: () => _newItem(),
               onLock: state.lock,
+              onNotifications: () => _openNotifications(context),
               categoryTree: state.categoryTree,
               selectedCategory: _categoryFilter,
               onSelectCategory: _filterByCategory,
@@ -965,6 +1007,7 @@ class _Sidebar extends StatelessWidget {
     required this.onSelect,
     required this.onNew,
     required this.onLock,
+    required this.onNotifications,
     required this.categoryTree,
     required this.selectedCategory,
     required this.onSelectCategory,
@@ -976,6 +1019,7 @@ class _Sidebar extends StatelessWidget {
   final ValueChanged<Section> onSelect;
   final VoidCallback onNew;
   final VoidCallback onLock;
+  final VoidCallback onNotifications;
   final List<CategoryNode> categoryTree;
   final String? selectedCategory;
   final ValueChanged<String> onSelectCategory;
@@ -1074,6 +1118,14 @@ class _Sidebar extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    UnreadBadge(
+                      child: ZoIconButton(
+                        icon: Icons.notifications_none_rounded,
+                        tooltip: context.tr(AppStrings.notificationsCenter),
+                        onPressed: onNotifications,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
                     ZoIconButton(
                       icon: Icons.lock_outline_rounded,
                       tooltip: context.tr(AppStrings.lockNowWithHotkey),
