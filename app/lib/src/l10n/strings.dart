@@ -629,6 +629,8 @@ abstract final class AppStrings {
   static const notificationCategoryPersonal = '个人消息';
   static const notificationCategorySecurity = '安全提醒';
   static const notificationOnlyUnread = '仅显示未读';
+  static const notificationsLoadMore = '加载更多';
+  static const notificationsLoadFailed = '加载失败，请稍后重试';
 
   static const breachCheck = '泄露密码检测';
   static const breachCheckSubtitle = '对照 Have I Been Pwned 数据库（k-匿名），需要联网。';
@@ -1545,6 +1547,8 @@ abstract final class AppStrings {
     notificationCategoryPersonal: '個人訊息',
     notificationCategorySecurity: '安全提醒',
     notificationOnlyUnread: '僅顯示未讀',
+    notificationsLoadMore: '載入更多',
+    notificationsLoadFailed: '載入失敗，請稍後重試',
     breachCheck: '洩漏密碼檢測',
     breachCheckSubtitle: '對照 Have I Been Pwned 資料庫（k-匿名），需要連線。',
     breachCheckDone: '檢測完成：{count} 個項目的密碼出現在公開洩漏資料中。',
@@ -2393,6 +2397,8 @@ abstract final class AppStrings {
     notificationCategoryPersonal: 'Personal',
     notificationCategorySecurity: 'Security',
     notificationOnlyUnread: 'Unread only',
+    notificationsLoadMore: 'Load more',
+    notificationsLoadFailed: 'Could not load. Try again later.',
     breachCheck: 'Breached password check',
     breachCheckSubtitle: 'Compares against Have I Been Pwned with k-anonymity; needs a network connection.',
     breachCheckDone: 'Check finished: {count} items have a password found in public breaches.',

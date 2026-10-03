@@ -18,6 +18,7 @@ import 'ffi.dart';
 import 'health_models.dart';
 import 'import_models.dart';
 import 'models.dart';
+import 'notifications.dart';
 
 export '../rust/api/sync.dart' show DeviceDto, AuditEventDto, RemoteStatusDto, SyncReportDto;
 
@@ -231,6 +232,24 @@ abstract final class VaultApi {
       });
 
   static Future<List<String>> matchItems(String pageUrl) => _session(() => rvault.matchItems(pageUrl: pageUrl));
+
+  // ---------- 服务端通知（§6.1）----------
+
+  /// 拉取服务端通知一页。`cursor` 为空表示第一页。
+  ///
+  /// 走 `_network`：通知中心是**在线业务**，未同意隐私条款或未绑定账户时不该发请求。
+  static Future<NotificationPage> notifications({String cursor = '', int limit = 20}) => _network(
+        () async => NotificationPage.fromJson(
+          jsonDecode(await rsync.notifications(cursor: cursor, limit: limit)) as Map<String, dynamic>,
+        ),
+      );
+
+  /// 标记一条服务端通知为已读。返回服务端给出的全量未读统计。
+  static Future<NotificationUnread> markNotificationRead(String id) => _network(
+        () async => NotificationUnread.fromJson(
+          jsonDecode(await rsync.markNotificationRead(id: id)) as Map<String, dynamic>,
+        ),
+      );
 
   static Future<String?> getSetting(String key) => guard(() => rvault.getSetting(key: key));
 

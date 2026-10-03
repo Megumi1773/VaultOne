@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/ffi.dart';
 import '../../core/notifications.dart';
 import '../../l10n/strings.dart';
 import '../../state/app_state.dart';
 import '../../state/scope.dart';
 import '../theme.dart';
 import '../widgets/controls.dart';
+import '../widgets/vault_widgets.dart';
 
 /// 通知中心（计划书 §6.1 / §6.2）。
 ///
@@ -30,6 +33,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
   bool _onlyUnread = false;
 
   @override
+  void initState() {
+    super.initState();
+    // 进页面时拉一次服务端通知。**失败不提示**：离线也要能看本机提醒，
+    // 一进来就弹一个「网络不可用」只会让人以为通知坏了。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(AppScope.read(context).refreshServerNotifications());
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final all = state.notifications;
@@ -37,7 +50,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final visible = [
       for (final n in all)
         if ((_category == null || n.category == _category!.name) &&
-            (!_onlyUnread || !state.isNotificationRead(n.id)))
+            (!_onlyUnread || !n.read))
           n,
     ];
 
@@ -69,13 +82,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 ? _Empty()
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                    itemCount: visible.length,
+                    // 末尾多一格「加载更多」：只在服务端还有下一页时出现。
+                    itemCount: visible.length + (state.hasMoreNotifications ? 1 : 0),
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) => _NotificationTile(
-                      notification: visible[i],
-                      read: state.isNotificationRead(visible[i].id),
-                      onOpen: () => _open(state, visible[i]),
-                    ),
+                    itemBuilder: (_, i) => i == visible.length
+                        ? _LoadMore(onTap: state.loadMoreNotifications)
+                        : _NotificationTile(
+                            notification: visible[i],
+                            read: visible[i].read,
+                            onOpen: () => _open(state, visible[i]),
+                          ),
                   ),
           ),
         ],
@@ -142,8 +158,48 @@ class _FilterBar extends StatelessWidget {
       );
 }
 
-class _Empty extends StatelessWidget {
+/// 分页加载入口。服务端通知用游标分页，本机提醒一次给全，所以这一格只在还有下一页时出现。
+class _LoadMore extends StatefulWidget {
+  const _LoadMore({required this.onTap});
+
+  final Future<void> Function() onTap;
+
   @override
+  State<_LoadMore> createState() => _LoadMoreState();
+}
+
+class _LoadMoreState extends State<_LoadMore> {
+  bool _busy = false;
+
+  Future<void> _run() async {
+    setState(() => _busy = true);
+    try {
+      await widget.onTap();
+    } catch (e) {
+      if (mounted) {
+        showZoMessage(
+          context,
+          e is CoreException ? e.message : context.tr(AppStrings.notificationsLoadFailed),
+          error: true,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: TextButton(
+          onPressed: _busy ? null : _run,
+          child: _busy
+              ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : Text(context.tr(AppStrings.notificationsLoadMore)),
+        ),
+      );
+}
+
+class _Empty extends StatelessWidget {  @override
   Widget build(BuildContext context) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

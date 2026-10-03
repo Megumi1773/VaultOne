@@ -68,6 +68,9 @@ class NotificationAction {
 }
 
 /// 一条通知（计划书 §6.1）。正文是纯文本，不渲染 HTML。
+///
+/// 一个类型同时承载**本机提醒**与**服务端通知**：两者字段完全相同，唯一的差别是已读状态由谁维护。
+/// 拆成两个类型会让通知中心的每处渲染都写两遍分支，而那两遍迟早会走偏。
 class AppNotification {
   const AppNotification({
     required this.id,
@@ -77,6 +80,7 @@ class AppNotification {
     required this.body,
     required this.at,
     required this.action,
+    this.read = false,
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
@@ -85,9 +89,18 @@ class AppNotification {
         level: NotificationLevel.parse(j['level'] as String?),
         title: j['title'] as String? ?? '',
         body: j['body'] as String? ?? '',
-        at: (j['at'] as num?)?.toInt() ?? 0,
+        // 服务端字段是 `published_at`，本机提醒是 `at`。两个名字都认，免得为了统一名字
+        // 在两处各写一次映射。
+        at: ((j['at'] ?? j['publishedAt']) as num?)?.toInt() ?? 0,
         action: NotificationAction.fromJson(((j['action'] as Map?) ?? const {}).cast()),
+        read: j['read'] == true,
       );
+
+  /// 本机提醒的 id 前缀。用它区分「已读存在本机」还是「已读存在服务端」。
+  static const localPrefix = 'local.';
+
+  /// 是否是本机提醒（已读状态存本机设置，不参与同步）。
+  bool get isLocal => id.startsWith(localPrefix);
 
   final String id;
   final NotificationType type;
@@ -98,6 +111,18 @@ class AppNotification {
   /// 产生时间（Unix 秒）。
   final int at;
   final NotificationAction action;
+
+  /// 已读状态。
+  ///
+  /// 本机提醒恒为 false——它的已读存在本机设置里，由状态层在合并时覆盖；
+  /// 服务端通知则由服务端返回的 `read` 决定。合并后的列表里这个字段一定是权威值。
+  final bool read;
+
+  /// 同一内容的已读副本。合并时用来把「本机已读集合」应用到本机提醒上。
+  AppNotification asRead() => read
+      ? this
+      : AppNotification(
+          id: id, type: type, level: level, title: title, body: body, at: at, action: action, read: true);
 
   /// 是否必须确认才能关掉（计划书 §6.3 的 `mustAck`）。与内核 `AppNotification::must_ack` 同一规则：
   /// **只有严重级别**。把「弱密码」也做成关不掉的弹窗，用户会直接学会无视弹窗，那比不弹更糟。
@@ -128,15 +153,57 @@ class UnreadCounts {
   bool get isEmpty => total == 0;
 }
 
-/// 按已读集合统计未读。
+/// 服务端返回的未读统计（计划书 §6.1）。
 ///
-/// 与内核 `notify::unread_counts` 同一规则；这里保留一份是因为界面要在**不重跑体检**的情况下
-/// 随已读状态实时刷新角标。内核那份用于服务端合并后的口径，两份的输入都是同一组通知与已读集合，
-/// 规则本身只有一条：**在已读集合里就不算未读**。
-UnreadCounts countUnread(List<AppNotification> notifications, Set<String> read) {
+/// 与本地 [countUnread] 的结果分开：服务端统计覆盖**全部**通知（含尚未翻到的页），
+/// 本地计数只覆盖已加载的部分。两者用途不同，不能互相顶替。
+class NotificationUnread {
+  const NotificationUnread({
+    this.total = 0,
+    this.announcement = 0,
+    this.personal = 0,
+    this.security = 0,
+  });
+
+  factory NotificationUnread.fromJson(Map<String, dynamic> j) => NotificationUnread(
+        total: (j['total'] as num?)?.toInt() ?? 0,
+        announcement: (j['announcement'] as num?)?.toInt() ?? 0,
+        personal: (j['personal'] as num?)?.toInt() ?? 0,
+        security: (j['security'] as num?)?.toInt() ?? 0,
+      );
+
+  final int total;
+  final int announcement;
+  final int personal;
+  final int security;
+}
+
+/// 服务端通知的一页（计划书 §6.1）。
+class NotificationPage {
+  const NotificationPage({required this.items, this.nextCursor});
+
+  factory NotificationPage.fromJson(Map<String, dynamic> j) => NotificationPage(
+        items: [
+          for (final n in (j['notifications'] as List? ?? const []))
+            AppNotification.fromJson((n as Map).cast()),
+        ],
+        nextCursor: j['nextCursor'] as String?,
+      );
+
+  final List<AppNotification> items;
+
+  /// null / 空表示没有下一页。
+  final String? nextCursor;
+}
+
+/// 按合并后的已读状态统计未读（计划书 §6.1「总未读 / 公告 / 个人 / 安全」）。
+///
+/// 只看每条的 `read`：本机提醒的已读由状态层在合并时写好，服务端通知的已读由服务端返回。
+/// **不在这里查本机已读集合**——那等于把「已读从哪来」这个知识复制到渲染路径上。
+UnreadCounts countUnread(List<AppNotification> notifications) {
   var total = 0, announcement = 0, personal = 0, security = 0;
   for (final n in notifications) {
-    if (read.contains(n.id)) continue;
+    if (n.read) continue;
     total++;
     switch (n.category) {
       case 'announcement':

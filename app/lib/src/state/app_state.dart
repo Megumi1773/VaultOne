@@ -170,10 +170,28 @@ class AppState extends ChangeNotifier {
   /// 账户总览进入时显式调 [`refreshProfile`]。
   AccountProfile? profile;
 
-  /// 本机安全提醒（§6.1）。由最近一次体检投影而来；服务端公告不在其中。
+  /// 合并后的通知列表（本机提醒 + 服务端通知），每条的已读都已是权威值。
   List<AppNotification> notifications = const [];
 
-  /// 已读通知 id（本机、不同步）。
+  /// 本机安全提醒（§6.1）：由体检任务清单投影而来。已读状态存本机设置。
+  List<AppNotification> _localNotifications = const [];
+
+  /// 服务端通知（§6.1）。已读状态由服务端维护。
+  List<AppNotification> _serverNotifications = const [];
+
+  /// 服务端通知的下一页游标；null 表示没有下一页。
+  String? _nextCursor;
+
+  /// 服务端返回的未读统计。与本地合并后的计数分开存：前者是全量的，后者只覆盖已加载的部分。
+  NotificationUnread? _serverUnread;
+
+  /// 服务端返回的全量未读统计；还没拉过时为 null。
+  NotificationUnread? get serverUnread => _serverUnread;
+
+  /// 单页条数。取 20 是与服务端默认值一致，翻页节奏也适合通知这种低频内容。
+  static const _notificationPageSize = 20;
+
+  /// 已读通知 id（本机提醒的，不同步）。
   Set<String> _readNotifications = {};
 
   static const _readNotificationsKey = 'notifications_read';
@@ -359,9 +377,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _saveReadNotifications() async {
-    // 只保留当前仍存在的通知：`task.*` 这类 id 稳定且有界，但服务端公告会不断新增，
+    // 只保留当前仍存在的**本机**提醒：`task.*` 这类 id 稳定且有界，但服务端公告会不断新增，
     // 不裁剪的话这个集合会无限长大。
-    final alive = {for (final n in notifications) n.id};
+    final alive = {for (final n in _localNotifications) n.id};
     _readNotifications = _readNotifications.where(alive.contains).toSet();
     await VaultApi.setSetting(_readNotificationsKey, jsonEncode(_readNotifications.toList()));
   }
@@ -392,26 +410,122 @@ class AppState extends ChangeNotifier {
     await setNotifications(overview.notifications);
   }
 
-  /// 用一次体检的结果替换通知列表。体检页跑完也会调这里，铃铛因此与总览始终一致。
+  /// 用一次体检的结果替换**本机**提醒列表。体检页跑完也会调这里，铃铛因此与总览始终一致。
   Future<void> setNotifications(List<AppNotification> list) async {
-    notifications = list;
+    _localNotifications = list;
+    _rebuildNotifications();
     await _saveReadNotifications();
     notifyListeners();
   }
 
-  bool isNotificationRead(String id) => _readNotifications.contains(id);
+  /// 合并本机提醒与服务端通知，并把已读状态解析成每条的 `read`。
+  ///
+  /// 合并只在这里做一次：界面拿到的一定是「每条的已读都是权威值」的列表，
+  /// 渲染路径上不需要知道已读存在哪。
+  void _rebuildNotifications() {
+    final merged = <AppNotification>[
+      for (final n in _localNotifications)
+        _readNotifications.contains(n.id) ? n.asRead() : n,
+      ..._serverNotifications,
+    ];
+    // 时间倒序；同一秒内按 id 稳定排序，避免每次重建时顺序抖动。
+    merged.sort((a, b) {
+      final byTime = b.at.compareTo(a.at);
+      return byTime != 0 ? byTime : a.id.compareTo(b.id);
+    });
+    notifications = merged;
+  }
+
+  /// 拉取服务端通知第一页（§6.1）。
+  ///
+  /// **失败不抛错**：服务端不可达时通知中心仍要显示本机提醒，这本来就是本地优先的意思。
+  /// 返回是否成功，界面据此决定要不要提示。
+  Future<bool> refreshServerNotifications() async {
+    try {
+      final page = await VaultApi.notifications(cursor: '', limit: _notificationPageSize);
+      _serverNotifications = page.items;
+      _nextCursor = page.nextCursor;
+      _rebuildNotifications();
+      notifyListeners();
+      return true;
+    } on CoreException catch (e) {
+      VaultApi.log('server notifications unavailable: ${e.code}', level: 'warn');
+      return false;
+    }
+  }
+
+  /// 是否还有下一页服务端通知。
+  bool get hasMoreNotifications => _nextCursor != null && _nextCursor!.isNotEmpty;
+
+  /// 加载下一页（游标分页）。重复调用是安全的：没有下一页时直接返回。
+  Future<void> loadMoreNotifications() async {
+    final cursor = _nextCursor;
+    if (cursor == null || cursor.isEmpty) return;
+    final page = await VaultApi.notifications(cursor: cursor, limit: _notificationPageSize);
+    // 按 id 去重再追加：分页边界上重复返回同一条（服务端并发新增时）不该在列表里出现两次。
+    final known = {for (final n in _serverNotifications) n.id};
+    _serverNotifications = [
+      ..._serverNotifications,
+      for (final n in page.items)
+        if (known.add(n.id)) n,
+    ];
+    _nextCursor = page.nextCursor;
+    _rebuildNotifications();
+    notifyListeners();
+  }
+
+  bool isNotificationRead(String id) =>
+      notifications.any((n) => n.id == id && n.read);
 
   /// 未读分类计数（§6.1）。
-  UnreadCounts get unreadNotifications => countUnread(notifications, _readNotifications);
+  UnreadCounts get unreadNotifications => countUnread(notifications);
 
+  /// 标记一条已读。
+  ///
+  /// **本机提醒写本机、服务端通知写服务端**：本机提醒的已读同步出去没有意义（换设备的提醒本来
+  /// 就不同），服务端通知的已读不写回去则会在别的设备上重新变未读。
   Future<void> markNotificationRead(String id) async {
-    if (!_readNotifications.add(id)) return;
+    final target = notifications.where((n) => n.id == id).firstOrNull;
+    if (target == null || target.read) return;
+    if (target.isLocal) {
+      _readNotifications.add(id);
+      _rebuildNotifications();
+      notifyListeners();
+      await _saveReadNotifications();
+      return;
+    }
+    final unread = await VaultApi.markNotificationRead(id);
+    // 用服务端返回的统计校准：本地只改这一条，服务端的口径才是权威。
+    _serverNotifications = [
+      for (final n in _serverNotifications)
+        n.id == id ? n.asRead() : n,
+    ];
+    _rebuildNotifications();
+    _serverUnread = unread;
     notifyListeners();
-    await _saveReadNotifications();
   }
 
+  /// 全部标为已读。
+  ///
+  /// 服务端通知逐条调用标记接口（没有批量端点）：只标记**当前已加载**的那些，条数受页大小约束。
+  /// 一条失败不影响其余——标记已读不是需要原子性的操作。
   Future<void> markAllNotificationsRead() async {
-    _readNotifications = {for (final n in notifications) n.id};
+    _readNotifications = {
+      ..._readNotifications,
+      for (final n in _localNotifications) n.id,
+    };
+    for (final n in _serverNotifications.where((n) => !n.read)) {
+      try {
+        await VaultApi.markNotificationRead(n.id);
+        _serverNotifications = [
+          for (final m in _serverNotifications)
+            m.id == n.id ? m.asRead() : m,
+        ];
+      } on CoreException catch (e) {
+        VaultApi.log('mark notification read failed: ${e.code}', level: 'warn');
+      }
+    }
+    _rebuildNotifications();
     notifyListeners();
     await _saveReadNotifications();
   }
